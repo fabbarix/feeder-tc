@@ -13,9 +13,5 @@
     "jsx": "react-jsx",
     "erasableSyntaxOnly": true
   },
-  // Lets features/*.steps.ts (and e2e/*.spec.ts) import engine code from
-  // src/domain under tsc -b's composite-project rules — see tsconfig.app.json's
-  // declaration-only emit block for why this is needed (TS6307 otherwise).
-  "references": [{ "path": "./tsconfig.app.json" }],
-  "include": ["features", "e2e"]
+  "include": ["features", "e2e", "src"]
 }

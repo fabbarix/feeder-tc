@@ -14,4 +14,5 @@ export * from "./quantity.ts";
 export * from "./ids.ts";
 export { systemClock } from "./clock.ts";
 export { createSeededRng } from "./rng.ts";
+export * from "./inventory/index.ts";
 export * from "./planner/index.ts";
