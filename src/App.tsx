@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppShell } from "./ui/AppShell";
+import { ToastProvider } from "./ui/components/Toast/ToastProvider";
 import { Home } from "./routes/Home";
 import { Recipes } from "./routes/Recipes";
 import { Pantry } from "./routes/Pantry";
@@ -43,5 +44,12 @@ const router = createBrowserRouter(
 );
 
 export function App() {
-  return <RouterProvider router={router} />;
+  // ToastProvider wraps the router (not just AppShell) so a toast fired from
+  // any route survives navigation and errors — see
+  // src/ui/components/Toast/ToastProvider.tsx.
+  return (
+    <ToastProvider>
+      <RouterProvider router={router} />
+    </ToastProvider>
+  );
 }

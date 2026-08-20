@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
-    setupFiles: ["./src/mocks/vitest.setup.ts"],
+    setupFiles: ["./src/mocks/vitest.setup.ts", "./src/testing/vitest.setup.ts"],
     // Unit/component tests are co-located as `*.test.ts(x)` next to the code
     // they cover (see TESTING.md). Gherkin step definitions live under
     // features/ as `<feature-name>.steps.ts`. Playwright specs under e2e/

@@ -1,0 +1,36 @@
+.date-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.date-picker__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.date-picker__field {
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-3);
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  box-sizing: border-box;
+}
+
+.date-picker__field[aria-invalid="true"] {
+  border-color: var(--danger-border);
+}
+
+.date-picker__field:disabled {
+  opacity: 0.6;
+}
+
+.date-picker__error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
