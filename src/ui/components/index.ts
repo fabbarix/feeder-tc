@@ -51,3 +51,6 @@ export type { ToastVariant, ToastInput, ToastRecord, ToastContextValue } from ".
 
 export { UpdatePrompt } from "./UpdatePrompt.tsx";
 export type { UpdatePromptProps } from "./UpdatePrompt.tsx";
+
+export { RouteTabs } from "./RouteTabs.tsx";
+export type { RouteTabItem, RouteTabsProps } from "./RouteTabs.tsx";

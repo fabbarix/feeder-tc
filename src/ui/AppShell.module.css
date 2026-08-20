@@ -255,6 +255,29 @@
   }
 }
 
+/*
+ * Full-width layout mode (UI_DESIGN.md §13 "Desktop": "width buys
+ * information, not padding") — for browse/grid routes only (AppShell.tsx's
+ * `WIDE_ROUTES`), picked per-route instead of `.mainMeasure` above. NOT
+ * unbounded: `.rgrid`'s `auto-fill`/`minmax(168px,1fr)` (recipes.module.css)
+ * keeps reflowing into more columns as width grows, so a genuinely
+ * unbounded container would spread into an excessive number of very narrow
+ * columns on an ultrawide monitor — 1680px is comfortably past the
+ * 1677px viewport the owner reported stranded at two columns (now well
+ * past four), while still bounding the layout the way the measure bounds
+ * prose.
+ */
+.mainWide {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .mainWide {
+    max-width: 1680px;
+    margin: 0 auto;
+  }
+}
+
 @media (min-width: 768px) {
   .main {
     padding-bottom: var(--space-4);

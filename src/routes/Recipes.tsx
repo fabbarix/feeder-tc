@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { EmptyState, ErrorState, Skeleton } from "../ui/components";
+import { EmptyState, ErrorState, RouteTabs, Skeleton } from "../ui/components";
 import { BookOpen, MagnifyingGlass, Plus } from "../ui/icons";
 import type { MealTag, Recipe } from "../domain/index.ts";
 import styles from "./recipes.module.css";
@@ -113,9 +113,13 @@ export function Recipes() {
           </Link>
         ) : null}
       </div>
-      <p>
-        <Link to="/recipes/ingredients">Ingredients catalog &rarr;</Link>
-      </p>
+      <RouteTabs
+        aria-label="Recipes section"
+        items={[
+          { to: "/recipes", label: "Recipes", end: true },
+          { to: "/recipes/ingredients", label: "Ingredients" },
+        ]}
+      />
       {!loading && !error && recipes.length > 0 ? (
         <p className={styles.subtitle}>
           {recipes.length} recipe{recipes.length === 1 ? "" : "s"} · {staplesCount} staple{staplesCount === 1 ? "" : "s"} ·{" "}

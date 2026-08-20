@@ -110,7 +110,9 @@ export function IngredientEditor() {
   return (
     <section>
       <p>
-        <Link to="/recipes/ingredients">&larr; Ingredients</Link>
+        <Link to="/recipes/ingredients" className={styles.backLink}>
+          &larr; Ingredients
+        </Link>
       </p>
       <h1>{isNew ? "Add ingredient" : "Edit ingredient"}</h1>
 

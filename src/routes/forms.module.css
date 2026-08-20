@@ -11,6 +11,41 @@
   max-width: 40em;
 }
 
+/* "← Recipes" / "← Ingredients" breadcrumb (owner-reported, auditing for
+   unstyled elements beyond the ingredients-catalog link: this `<Link>` had
+   no className either, rendering in the browser's default link colour). */
+.backLink {
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--accent);
+}
+
+/*
+ * Each `ListRow`'s primary text IS the link to that item's own editor
+ * (Ingredients.tsx) — a real `<Link>`, but it must read as plain list text
+ * (`ListRow.module.css`'s `.primary` already sets `--text-h`/500-weight),
+ * not a blue/purple browser-default hyperlink, which is exactly the defect
+ * this audit was chasing: `color`/`text-decoration` on an ancestor do NOT
+ * cascade onto an `<a>` (the UA stylesheet's `a:link` rule outranks an
+ * inherited value), so every unstyled `<Link>` anywhere in a text run needs
+ * its own explicit override, not just its container's.
+ */
+.itemLink {
+  color: inherit;
+  text-decoration: none;
+}
+
+.itemLink:hover {
+  text-decoration: underline;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -114,6 +149,11 @@
   color: var(--text-h);
   font-weight: 600;
   cursor: pointer;
+  /* Also worn by a real `<Link>` (Ingredients.tsx), not only `<button>`s
+     (RecipeEditor.tsx/Pantry.tsx) — without this, the button-styled link
+     still carried the browser's default underline (same "ancestor styling
+     doesn't reach the `<a>`" class of bug as this audit's other fixes). */
+  text-decoration: none;
 }
 
 .addButton:hover {

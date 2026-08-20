@@ -46,9 +46,13 @@ test("Creating a bought meal", async ({ page }) => {
 
   // And a catalog ingredient "Store lasagna" with unit "piece" is linked —
   // via the primary nav (exact match: the page also has a "← Recipes"
-  // breadcrumb, which would otherwise ambiguously match too).
+  // breadcrumb, which would otherwise ambiguously match too). The
+  // ingredients catalog is now a proper tab of Recipes (RouteTabs,
+  // UI_DESIGN.md — owner-reported, comparing production to the approved
+  // mock: it was a stray unstyled `<Link>` before), not a standalone
+  // "Ingredients catalog" link.
   await page.getByRole("link", { name: "Recipes", exact: true }).click();
-  await page.getByRole("link", { name: "Ingredients catalog" }).click();
+  await page.getByRole("link", { name: "Ingredients", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ingredients" })).toBeVisible();
   await page.getByRole("textbox", { name: "Search" }).fill("Store lasagna");
   await expect(page.getByRole("link", { name: "Store lasagna" })).toBeVisible();
@@ -86,8 +90,13 @@ test("Retiring a recipe", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("Retired");
 
-  // Persisted, not just local state — reload the list and check again.
-  await page.getByRole("link", { name: "Home" }).click();
-  await page.getByRole("link", { name: "Recipes" }).click();
+  // Persisted, not just local state — reload the list and check again. Via
+  // the primary nav explicitly (not just `{ name: "Recipes" }`): Recipes
+  // also has its own `RouteTabs` "Recipes" tab (WP-VC — the ingredients
+  // catalog is reachable as a proper tab now), so an unscoped locator can
+  // transiently match both mid-navigation.
+  const primaryNav = page.getByRole("navigation", { name: "Primary" });
+  await primaryNav.getByRole("link", { name: "Home" }).click();
+  await primaryNav.getByRole("link", { name: "Recipes" }).click();
   await expect(page.getByRole("main")).toContainText("Retired");
 });
