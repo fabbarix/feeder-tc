@@ -282,6 +282,11 @@ Feature: Shopping list computation
 
 ### WP-15 · UI shell + component kit
 
+> **See `UI_DESIGN.md`** — the authoritative design-system spec agreed with the
+> product owner on 2026-08-20 (theming, OKLCH accents, CSS Modules, React Aria
+> substrate, banned native controls and their replacements, the component
+> boundary, sync-state treatment). It supersedes anything below that conflicts.
+
 Scope: app layout (nav, workbook switcher slot, auth status), path routes for all
 sections (stub pages), shared components (entity table, quantity input honoring
 canonical units, date picker, confirm dialog, toast/warning surface), responsive
@@ -443,9 +448,10 @@ Feature: Offline store trip
     Given the app is installed and the shopping list is loaded
     And the network goes offline
     When the user checks off "rice: 400 g"
-    Then the item shows as bought with a "pending sync" indicator
+    Then the item shows as bought
+    And the sync banner reports 1 change waiting
     When the network returns
-    Then the purchase event reaches the workbook and the indicator clears
+    Then the purchase event reaches the workbook and the banner clears
 ```
 
 ---

@@ -12,19 +12,7 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "erasableSyntaxOnly": true,
-
-    // Referenced by tsconfig.test.json so features/*.steps.ts can import
-    // src/domain under `tsc -b`'s composite-project rules: a referencing
-    // project resolves a referenced project's types from its declaration
-    // output, not its source, so this project needs *some* declaration
-    // emit. Declaration-only, into a gitignored scratch dir — `vite build`
-    // bundles src/ directly from source and never reads these .d.ts files,
-    // so this has no effect on the production build.
-    "noEmit": false,
-    "declaration": true,
-    "emitDeclarationOnly": true,
-    "declarationDir": "./node_modules/.tmp/app-dts"
+    "erasableSyntaxOnly": true
   },
   "include": ["src"]
 }
