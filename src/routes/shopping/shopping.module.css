@@ -1,0 +1,135 @@
+/* Shopping route layout (WP-23) — same main+rail split as
+   pantry.module.css, plus the mobile scan FAB and the two breakpoint-swapped
+   subtitle lines (see Shopping.tsx). Not part of the src/ui kit
+   (UI_DESIGN.md §7) — feature-specific layout. */
+
+.mobileMeta {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 2px 0 var(--space-4);
+}
+
+.desktopSummary {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .mobileMeta {
+    display: none;
+  }
+
+  .desktopSummary {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin: 2px 0 var(--space-4);
+  }
+}
+
+.filters {
+  margin-bottom: var(--space-4);
+}
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr);
+    align-items: start;
+    gap: var(--space-6);
+  }
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.rail {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+.railCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.railStatBlock {
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.railStatNumber {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.railStatLabel {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+.whyBlock {
+  padding: var(--space-4);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.whyTitle {
+  color: var(--text-h);
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Barcode-scan FAB (mobile only — matches the mock's phone screen; the
+   desktop mock has no FAB, the scan flow is a phone-in-store gesture).
+   Scope note: the scan flow itself is M6, NOT this WP — the button is wired
+   to a "coming soon" toast, never a fake scanner (see Shopping.tsx). */
+.fab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(var(--touch-target) + var(--space-5) + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-nav);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+@media (min-width: 768px) {
+  .fab {
+    display: none;
+  }
+}

@@ -54,6 +54,9 @@ export {
   CloudArrowUp,
   ArrowClockwise,
   Trash,
+  // Shopping (WP-23): the in-store scan FAB — wired to a "coming soon" toast
+  // only (M6 scope, not this WP; see Shopping.tsx's doc comment).
+  Barcode,
   // Auth / workbook gating (§12 — signed-out / no-workbook shell states)
   GoogleLogo,
   SignOut,
