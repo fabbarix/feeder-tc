@@ -22,6 +22,17 @@ const PORT = Number(process.env.E2E_PORT) || 5273;
 // segment if a base path is ever reintroduced.
 const BASE_URL = `http://localhost:${PORT}/`;
 
+// WP-24: the offline-precache spec (e2e/wp-24-sw-offline.spec.ts) needs a
+// *real production build* served statically — `npm run dev`'s server has no
+// service worker at all (vite-plugin-pwa's generateSW strategy only runs on
+// `vite build`), so it cannot prove the app shell survives going offline.
+// That spec gets its own webServer (build + `vite preview`) and its own
+// project, on PORT+1 so it never collides with the dev-server project above.
+// Every other spec keeps using the fast dev-server project unchanged.
+const PWA_PORT = PORT + 1;
+const PWA_BASE_URL = `http://localhost:${PWA_PORT}/`;
+const PWA_SPEC = /wp-24-sw-offline\.spec\.ts$/;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -39,24 +50,50 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      testIgnore: PWA_SPEC,
     },
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
+      testIgnore: PWA_SPEC,
+    },
+    {
+      name: "pwa",
+      use: { ...devices["Desktop Chrome"], baseURL: PWA_BASE_URL },
+      testMatch: PWA_SPEC,
     },
   ],
-  webServer: {
-    command: `npm run dev -- --port ${PORT} --strictPort`,
-    url: BASE_URL,
-    // Always start our own server, never adopt one already on the port. With
-    // reuse enabled, a foreign Vite server answers the health check (its SPA
-    // fallback 200s on any path) and the whole suite silently runs against the
-    // wrong app. --strictPort then turns a collision into a loud startup
-    // failure instead of a mysterious "element not found".
-    reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      VITE_ENABLE_MOCKS: "true",
+  webServer: [
+    {
+      command: `npm run dev -- --port ${PORT} --strictPort`,
+      url: BASE_URL,
+      // Always start our own server, never adopt one already on the port. With
+      // reuse enabled, a foreign Vite server answers the health check (its SPA
+      // fallback 200s on any path) and the whole suite silently runs against the
+      // wrong app. --strictPort then turns a collision into a loud startup
+      // failure instead of a mysterious "element not found".
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        VITE_ENABLE_MOCKS: "true",
+      },
     },
-  },
+    {
+      // Deliberately built WITHOUT VITE_ENABLE_MOCKS: msw's own browser
+      // worker (public/mockServiceWorker.js) registers at the same scope
+      // ("/") that vite-plugin-pwa's generated sw.js registers at, and two
+      // service worker scripts cannot both hold that one scope — the second
+      // registration replaces the first. Every route this spec exercises is
+      // still a static stub with no network calls (see src/routes/*.tsx), so
+      // nothing here needs mocking; omitting it sidesteps the collision and
+      // is closer to the real GitHub Pages build anyway. Serves the real
+      // dist/ output — sw.js, the precache manifest, 404.html — exactly as
+      // Pages would. reuseExistingServer:false + --strictPort for the same
+      // reason as the dev server above.
+      command: `npm run build && npm run preview -- --port ${PWA_PORT} --strictPort`,
+      url: PWA_BASE_URL,
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+  ],
 });
