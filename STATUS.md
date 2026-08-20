@@ -18,14 +18,17 @@ Last updated: 2026-08-20
 
 | WP | Title | State | Branch | Notes |
 |----|-------|-------|--------|-------|
-| WP-10 | Google auth + Sheets transport| in-progress | `wp-10` | Dispatched 2026-08-20, worktree, E2E_PORT=5310. Contains the parked live-verification step (owner at browser).|
-| WP-11 | Workbook bootstrap + codecs | pending | — | Dispatched once WP-10 merges (per dependency graph). |
-| WP-12 | Inventory engine (pure)| in-progress | `wp-12` | Dispatched 2026-08-20, worktree, E2E_PORT=5312. |
-| WP-13 | Planner engine (pure)| in-progress | `wp-13` | Dispatched 2026-08-20, worktree, E2E_PORT=5313. |
-| WP-14 | Shopping engine (pure)| in-progress | `wp-14` | Dispatched 2026-08-20, worktree, E2E_PORT=5314. |
-| WP-15 | UI shell + component kit| in-progress | `wp-15` | Dispatched 2026-08-20, worktree, E2E_PORT=5315. |
-| WP-16 | Seed ingredient catalog| in-progress | `wp-16` | Dispatched 2026-08-20, worktree, E2E_PORT=5316. |
-| WP-17 | Sync layer: snapshot + outbox| in-progress | `wp-17` | Dispatched 2026-08-20, worktree, E2E_PORT=5317. |
+| WP-10 | Google auth + Sheets transport| **merged** | `wp-10` (PR #11) | Merged 2026-08-20. |
+| WP-11 | Workbook bootstrap + codecs | in-progress | `wp-11` | Dispatched 2026-08-20, E2E_PORT=5311. |
+| WP-12 | Inventory engine (pure)| **merged** | `wp-12` (PR #10) | Merged 2026-08-20. |
+| WP-13 | Planner engine (pure)| **merged** | `wp-13` (PR #7) | Merged 2026-08-20. |
+| WP-14 | Shopping engine (pure)| **merged** | `wp-14` (PR #6) | Merged 2026-08-20. |
+| WP-15 | UI shell + component kit| **merged** | `wp-15` (PR #9) | Merged 2026-08-20. |
+| WP-16 | Seed ingredient catalog| **merged** | `wp-16` (PR #5) | Merged 2026-08-20. |
+| WP-17 | Sync layer: snapshot + outbox| **merged** | `wp-17` (PR #8) | Merged 2026-08-20. |
+
+| WP-15b | Component kit revision | in-progress | `wp-15b` | Dispatched 2026-08-20, E2E_PORT=5325. Implements `UI_DESIGN.md`. |
+| WP-24a | App icons + manifest | **merged** | `wp-24a-app-icons` (PR #12) | Pulled forward from WP-24. |
 
 ## Stage 2 — Feature assembly (milestone pipeline)
 
