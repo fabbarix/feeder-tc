@@ -77,6 +77,21 @@ Last updated: 2026-08-20
     match wins; `#` means "use standard upstream servers") and **restart**
     dnsmasq — SIGHUP does not re-read the config file.
 
+## Proposed scope — awaiting owner decisions
+
+- **M6 · Products, barcodes and prices** — specified by the owner 2026-08-20, captured
+  in `DESIGN_PRODUCTS.md`. **Not buildable yet:** three decisions open, two of which
+  reverse settled decisions.
+  1. **Units** — the request asks for `kg`/`oz`/`lb`/`number`, but invariant 3 bans
+     conversion and `Unit` is deliberately `g|ml|piece|portion`. Proposed: entry-time
+     conversion only, canonical units in the workbook. Needs explicit approval.
+  2. **Cost tracking** — `DESIGN.md` §6 lists it as a v1 non-goal. Price history
+     reverses that; `DESIGN.md` must be amended, and currency named.
+  3. **Photos** — cannot live in a cell (invariant 6). Proposed: Drive file id, using
+     the `drive.file` scope we already hold. Or defer photos.
+- **M7 · Shop detection** — explicitly deferred by the owner. `PriceObservations.source`
+  is specified now so adding shops later needs no rewrite of price history.
+
 ## Integration log
 
 _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell → features)_
