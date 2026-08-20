@@ -1,4 +1,12 @@
 .row {
+  /* Establishes the positioned ancestor `.checkbox`'s `inset: 0` resolves
+     against (bug found wiring up this component for real, WP-23: `.box`
+     below is `position: relative`, but `.checkbox` is `.box`'s SIBLING,
+     not its child, so without this the checkbox had no positioned
+     ancestor at all and fell back to the initial containing block —
+     pinned at the document's top-left corner, completely detached from
+     its visible row and unclickable there). */
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -6,6 +14,10 @@
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border);
   cursor: pointer;
+  /* Keeps a scrolled-to/keyboard-focused row clear of AppShell's sticky
+     top header (56px, AppShell.module.css's .headerInner) instead of
+     landing directly underneath it. */
+  scroll-margin-top: 64px;
 }
 
 .row:hover {
@@ -117,6 +129,9 @@
   flex: none;
   font-weight: 600;
   color: var(--text-h);
+  /* Quantities align on their digits across rows (UI_DESIGN.md §13 "Type" —
+     tabular-nums everywhere digits align: quantities, dates, prices, counts). */
+  font-variant-numeric: tabular-nums;
 }
 
 .failedNotice {

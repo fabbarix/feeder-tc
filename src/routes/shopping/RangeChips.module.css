@@ -1,0 +1,117 @@
+/* Mirrors DateChips.module.css's chip look (UI_DESIGN.md §5 "Dates") — a
+   local copy, not an import, because this control's value is a DateRange +
+   preset id, not a single IsoDate, so it can't reuse DateChips itself. */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: calc(var(--touch-target) - 12px);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) ease-in-out,
+    color var(--motion-fast) ease-in-out,
+    border-color var(--motion-fast) ease-in-out;
+}
+
+.chipSelected {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* "Custom range…" is a desktop enhancement (UI_DESIGN.md §1 "mobile-first
+   is literal" — the mock's phone filters row has no Custom chip at all,
+   only the four fixed presets; a calendar-range escape hatch earns its
+   place once there's room for it). One DOM, CSS-toggled, same pattern as
+   AppShell's `.navIcon`/pantry.module.css's `.rail`. */
+.customChip {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .customChip {
+    display: inline-flex;
+  }
+}
+
+.pickWrap {
+  position: relative;
+}
+
+.popover {
+  position: absolute;
+  z-index: var(--z-dialog);
+  top: calc(100% + var(--space-2));
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 20em;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+}
+
+.popoverCalendars {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.popoverField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.popoverLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.popoverActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.applyButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.applyButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
