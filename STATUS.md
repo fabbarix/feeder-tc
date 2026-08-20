@@ -105,7 +105,26 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 | 2026-08-20 | Stage 1 | **All 7 packages merged**, plus WP-11. Integration required resolving one real conflict: five PRs had independently fixed the same latent `tsconfig.test.json` TS6307 gap two incompatible ways (three used a project reference needing `noEmit:false` + declaration emit; two added `"src"` to `include`). Took the include fix as canonical and reverted the other three. Also unioned three engine barrels in `src/domain/index.ts` and regenerated the lockfile via `npm install`. main green: 688 tests + 26 E2E. |
 | 2026-08-20 | — | **Stage 1 fan-out dispatched:** WP-10, 12, 13, 14, 15, 16, 17 in seven worktrees, each with its own `E2E_PORT` to keep concurrent Playwright runs from colliding on 5273. |
 
+## Unauthorized / unrouted proposals
+
+- **Widening `RecipeStep` to `title`/`description`/`durationMinutes`, and adding a
+  `RecipePhotos` sheet.** Research was done against `main` (call sites catalogued),
+  but **no PR proposes it and no coordinator-approved contract-change task exists.**
+  `types.ts`/`contracts.ts` are frozen; this would be the 13th `WorkbookSheetName`
+  member and would rework `RecipeEditor`'s state shape plus
+  `e2e/wp-20-recipe-management.spec.ts`. **Treat as unauthorized until it comes
+  through a contract-change task.** If it is wanted, the audit found the exact
+  enumeration sites: `bootstrap.ts`, `spreadsheet.ts` (`satisfies`-enforced),
+  `codecs/index.ts` (`Record`, TS-enforced), `spreadsheet.test.ts`, and
+  `features/wp-11-workbook-bootstrap.steps.ts`.
+
 ## Known debt
+
+- **Stale sheet-count comments.** `WorkbookSheetName` has **twelve** members since
+  M6-A, but comments in `src/sheets/mocks/handlers.ts` (~lines 17, 120) and
+  `features/wp-11-workbook-bootstrap.steps.ts` (~86-88) still say "nine".
+  `bootstrap.ts` was corrected in PR #19. Cosmetic, but it misleads: grep for
+  "nine"/"twelve" when adding a sheet.
 
 - **The app white-screens if `VITE_GOOGLE_*` is unset.** WP-20's shell constructs the
   Google wiring at first render and `src/env.ts` throws on first read of a missing
