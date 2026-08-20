@@ -339,10 +339,40 @@ signing in is not sufficient, because the app is useless until a workbook exists
 
 ```ts
 type ShellState =
-  | { kind: "signed-out" }   // branding + "Sign in with Google". Nothing else.
-  | { kind: "no-workbook" }  // "Create new meal planner" / "Open existing…" + sign out.
-  | { kind: "ready" }        // full shell: nav, workbook switcher, <Outlet />.
+  | { kind: "signed-out" }
+  | { kind: "no-workbook"; user: ShellUser }
+  | { kind: "ready"; user: ShellUser; workbookName: string }
+
+type ShellUser = { name: string; email: string; pictureUrl?: string }
 ```
+
+**Amended 2026-08-20** after the owner tested the shell. The signed-in variants now
+carry the user, because the header had nowhere to get one from and fell back to a
+hardcoded string.
+
+### The header derives from state — no state-blind placeholders
+
+The first version rendered `AuthStatusSlot` with a hardcoded `"Signed out"` and
+`WorkbookSwitcherSlot` with `"No workbook"` whenever no slot was injected, *regardless
+of `ShellState`*. The result: in `no-workbook` the user is signed in, the body offers
+"Sign out", and the header simultaneously claims "Signed out". Three contradictory
+statements on one screen.
+
+- **`signed-out`** — no sign-out action anywhere, no workbook label. Offering to sign
+  out of nothing is the tell that the header is not reading state.
+- **`no-workbook` / `ready`** — show the user's **name and avatar** (initials when
+  `pictureUrl` is absent), not the word "Signed out". `ready` also shows the workbook
+  name in the switcher.
+
+A default that renders plausible-looking text without consulting state is worse than
+no default: it looks correct and is wrong.
+
+### Brand
+
+The top bar shows the **mark alone**, not "Feeder" as a wordmark. The icon identifies
+the app; the word repeats what the tab title, the manifest and the URL already say,
+and it costs horizontal space the nav needs. Keep the wordmark for the signed-out
+screen, where it is the page's title rather than chrome.
 
 A union rather than two booleans, so the compiler forces all three cases.
 
