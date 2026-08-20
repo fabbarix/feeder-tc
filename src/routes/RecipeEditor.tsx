@@ -251,7 +251,9 @@ export function RecipeEditor() {
   return (
     <section>
       <p>
-        <Link to="/recipes">&larr; Recipes</Link>
+        <Link to="/recipes" className={styles.backLink}>
+          &larr; Recipes
+        </Link>
       </p>
       <h1>{isNew ? "Add recipe" : "Edit recipe"}</h1>
 

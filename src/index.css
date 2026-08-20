@@ -41,14 +41,28 @@
    * and this keeps that code correct without a repo-wide rename. New code
    * should prefer the canonical §13 names.
    */
-  --paper: #f5f4f0;
-  --surface: #fff;
-  --surface-2: #ebe9e2;
+  /*
+   * Hue-derived, not flat hex (owner-reported, comparing production to the
+   * approved mock: "not even close" — root-caused to exactly this,
+   * design/mock-reference.css §1). Every surface/border carries a small,
+   * deliberate chroma tied to --accent-hue (0.006-0.010 here) instead of a
+   * neutral grey, which is what makes a card read as a designed surface
+   * rather than slate. Values are the mock's own, copied verbatim
+   * (design/mock-reference.css); only --code-bg has no mock counterpart and
+   * stays a flat hex. Contrast re-checked against the existing --text/
+   * --text-h/--text-muted hex values after this change (all pairs still
+   * clear 4.5:1, worst case 5.19:1 — see the WP-VC handover report) since
+   * those text tokens are NOT hue-derived (deliberately left as the
+   * already-contrast-vetted flat hex from WP-15b, not a mock value).
+   */
+  --paper: oklch(0.985 0.006 var(--accent-hue));
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.965 0.008 var(--accent-hue));
   --bg: var(--paper);
   --surface-raised: var(--surface-2);
 
-  --line: #e2e0d9;
-  --line-soft: rgb(30 28 20 / 8%);
+  --line: oklch(0.9 0.01 var(--accent-hue));
+  --line-soft: oklch(0.945 0.008 var(--accent-hue));
   --border: var(--line);
   --code-bg: #f4f3ec;
 
@@ -211,14 +225,16 @@
 
     /* Elevation (§13) — three perceptibly distinct steps, not the ~5-RGB-unit
        gaps WP-15 shipped. */
-    --paper: #121316;
-    --surface: #1c1e24;
-    --surface-2: #282a33;
+    /* Hue-derived, matching the light-mode block's rationale above —
+       design/mock-reference.css's dark values, copied verbatim. */
+    --paper: oklch(0.17 0.012 var(--accent-hue));
+    --surface: oklch(0.215 0.014 var(--accent-hue));
+    --surface-2: oklch(0.255 0.016 var(--accent-hue));
     --bg: var(--paper);
     --surface-raised: var(--surface-2);
 
-    --line: #34363f;
-    --line-soft: rgb(255 255 255 / 8%);
+    --line: oklch(0.33 0.016 var(--accent-hue));
+    --line-soft: oklch(0.27 0.014 var(--accent-hue));
     --border: var(--line);
     --code-bg: #1f2028;
 
@@ -275,14 +291,15 @@
   --text-h: #f3f4f6;
   --text-muted: #9096a3;
 
-  --paper: #121316;
-  --surface: #1c1e24;
-  --surface-2: #282a33;
+  /* Hue-derived — see the light-mode block's rationale comment above. */
+  --paper: oklch(0.17 0.012 var(--accent-hue));
+  --surface: oklch(0.215 0.014 var(--accent-hue));
+  --surface-2: oklch(0.255 0.016 var(--accent-hue));
   --bg: var(--paper);
   --surface-raised: var(--surface-2);
 
-  --line: #34363f;
-  --line-soft: rgb(255 255 255 / 8%);
+  --line: oklch(0.33 0.016 var(--accent-hue));
+  --line-soft: oklch(0.27 0.014 var(--accent-hue));
   --border: var(--line);
   --code-bg: #1f2028;
 

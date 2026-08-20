@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { DismissButton, FocusScope, useButton, useOverlay } from "react-aria";
 import { AuthStatusSlot } from "./slots/AuthStatusSlot.tsx";
 import { WorkbookSwitcherSlot } from "./slots/WorkbookSwitcherSlot.tsx";
@@ -67,6 +67,29 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: "/settings", label: "Settings", icon: GearSix },
 ];
 
+/**
+ * Routes that get the full-width layout mode instead of the 840px reading
+ * measure (owner-reported, comparing production to the approved mock,
+ * design/mock-reference.css §2): `.rgrid`/`.dt-cols` are `auto-fill`/
+ * `minmax` and multi-column, so capping their container at a prose measure
+ * strands most of a wide viewport empty — production showed two recipe
+ * cards on a 1677px screen where the mock shows four. A reading measure is
+ * still right for prose/detail/forms (a recipe's own page, the ingredient/
+ * recipe editors, Settings) — only browse screens with real multi-column
+ * content opt in here. Exact pathname match only: a recipe's OWN page
+ * (`/recipes/:id`) is a detail/edit view, not a grid, so it deliberately
+ * keeps the measure even though it nests under `/recipes`.
+ *
+ * `/recipes/ingredients` is deliberately NOT here even though it is a
+ * "browse" screen and a `RouteTabs` sibling of `/recipes`: it renders as a
+ * single-column `ListSection`/`ListRow` (one short line of text per
+ * ingredient), not a grid — going wide would only stretch each row's own
+ * border/hover target across ~1600px of mostly blank trailing space, which
+ * is padding, not information (UI_DESIGN.md §13's own rule for why width
+ * is worth spending at all). It keeps the reading measure.
+ */
+const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/pantry"]);
+
 export interface AppShellProps {
   readonly state: ShellState;
   /** Intent leaves via callbacks (UI_DESIGN.md §7) — AppShell never calls auth or the Sheets API itself; a container (App.tsx's real `createGoogleAuth` wiring) supplies these. */
@@ -115,6 +138,7 @@ export function AppShell({
   authStatusSlot,
   workbookSwitcherSlot,
 }: AppShellProps) {
+  const isWide = WIDE_ROUTES.has(useLocation().pathname);
   return (
     <div className={styles.shell}>
       <a className={styles.skipLink} href="#main-content">
@@ -198,7 +222,7 @@ export function AppShell({
       ) : null}
 
       <main id="main-content" className={styles.main} tabIndex={-1}>
-        <div className={styles.mainMeasure}>
+        <div className={isWide ? styles.mainWide : styles.mainMeasure}>
           {renderGate(state, { onSignIn, onCreateWorkbook, onPickWorkbook })}
         </div>
       </main>

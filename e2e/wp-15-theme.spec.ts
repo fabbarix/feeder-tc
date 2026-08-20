@@ -7,6 +7,14 @@ import { enterReadyShell } from "./support/shell.ts";
 // the guard" proof from the WP-15b definition of done: it emulates a
 // system-dark and a system-light device and demonstrates the toggle
 // overriding each one explicitly — not just following the OS.
+// WP-VC: --bg (alias of --paper) is now hue-derived oklch(), not a flat hex
+// (design/mock-reference.css §1 — the mock's own neutrals, copied
+// verbatim). getComputedStyle resolves `var(--accent-hue)` to its live
+// numeric value, so these literals are tied to the DEFAULT hue (156) —
+// unaffected by this spec, which never touches the hue picker.
+const LIGHT_PAPER = "oklch(0.985 0.006 156)";
+const DARK_PAPER = "oklch(0.17 0.012 156)";
+
 async function readBg(page: import("@playwright/test").Page): Promise<string> {
   return page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
 }
@@ -21,7 +29,7 @@ test.describe("theme toggle — system-dark device", () => {
   test("System (default) follows the OS: dark background, no data-theme attribute", async ({ page }) => {
     await enterReadyShell(page, "settings");
     expect(await readDataTheme(page)).toBeNull();
-    expect(await readBg(page)).toBe("#121316");
+    expect(await readBg(page)).toBe(DARK_PAPER);
   });
 
   test("THE GUARD: choosing Light overrides a dark OS", async ({ page }) => {
@@ -29,7 +37,7 @@ test.describe("theme toggle — system-dark device", () => {
     await page.getByRole("radio", { name: "Light" }).click();
 
     expect(await readDataTheme(page)).toBe("light");
-    expect(await readBg(page)).toBe("#f5f4f0");
+    expect(await readBg(page)).toBe(LIGHT_PAPER);
   });
 });
 
@@ -39,7 +47,7 @@ test.describe("theme toggle — system-light device", () => {
   test("System (default) follows the OS: light background, no data-theme attribute", async ({ page }) => {
     await enterReadyShell(page, "settings");
     expect(await readDataTheme(page)).toBeNull();
-    expect(await readBg(page)).toBe("#f5f4f0");
+    expect(await readBg(page)).toBe(LIGHT_PAPER);
   });
 
   test("THE GUARD (other direction): choosing Dark overrides a light OS", async ({ page }) => {
@@ -47,7 +55,7 @@ test.describe("theme toggle — system-light device", () => {
     await page.getByRole("radio", { name: "Dark" }).click();
 
     expect(await readDataTheme(page)).toBe("dark");
-    expect(await readBg(page)).toBe("#121316");
+    expect(await readBg(page)).toBe(DARK_PAPER);
   });
 
   test("returning to System removes the override and follows the OS again", async ({ page }) => {
@@ -57,7 +65,7 @@ test.describe("theme toggle — system-light device", () => {
 
     await page.getByRole("radio", { name: "System" }).click();
     expect(await readDataTheme(page)).toBeNull();
-    expect(await readBg(page)).toBe("#f5f4f0");
+    expect(await readBg(page)).toBe(LIGHT_PAPER);
   });
 });
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { EmptyState, ErrorState, ListRow, ListSection, Skeleton } from "../ui/components";
+import { EmptyState, ErrorState, ListRow, ListSection, RouteTabs, Skeleton } from "../ui/components";
 import { Carrot, Plus } from "../ui/icons";
 import type { Ingredient } from "../domain/index.ts";
 import styles from "./forms.module.css";
@@ -17,7 +17,15 @@ const LOCATION_LABEL: Record<Ingredient["defaultLocation"], string> = {
   freezer: "Freezer",
 };
 
-/** Ingredients catalog browse (WP-20) — the master list a recipe's ingredient lines and the pantry (WP-21) both reference. Nested under /recipes since it isn't a top-level nav section (UI_DESIGN.md's screen catalogue has no separate "ingredients" tab). */
+/**
+ * Ingredients catalog browse (WP-20, tabbed WP-VC) — the master list a
+ * recipe's ingredient lines and the pantry (WP-21) both reference. Nested
+ * under /recipes since it isn't a top-level primary-nav section, but reached
+ * as a proper `RouteTabs` tab of Recipes rather than a standalone link
+ * (owner-reported, comparing production to the approved mock: the old
+ * `<Link to="/recipes/ingredients">` had no className and rendered in the
+ * browser's default purple).
+ */
 export function Ingredients() {
   const { store } = useWorkbookContext();
   const { showToast } = useToast();
@@ -65,10 +73,14 @@ export function Ingredients() {
 
   return (
     <section>
-      <p>
-        <Link to="/recipes">&larr; Recipes</Link>
-      </p>
       <h1>Ingredients</h1>
+      <RouteTabs
+        aria-label="Recipes section"
+        items={[
+          { to: "/recipes", label: "Recipes", end: true },
+          { to: "/recipes/ingredients", label: "Ingredients" },
+        ]}
+      />
       <div className={styles.row}>
         <div className={styles.field}>
           <label htmlFor="ingredient-search">Search</label>
@@ -124,7 +136,11 @@ export function Ingredients() {
             <ListRow
               key={ingredient.id}
               leading={<Carrot size={20} aria-hidden="true" />}
-              primary={<Link to={`/recipes/ingredients/${ingredient.id}`}>{ingredient.name}</Link>}
+              primary={
+                <Link to={`/recipes/ingredients/${ingredient.id}`} className={styles.itemLink}>
+                  {ingredient.name}
+                </Link>
+              }
               secondary={`${ingredient.unit} · shelf life ${ingredient.shelfLifeDays}d (opened ${ingredient.openedShelfLifeDays}d) · ${LOCATION_LABEL[ingredient.defaultLocation]}`}
             />
           ))}

@@ -1,0 +1,46 @@
+/* Segmented-pill sub-navigation between sibling routes (e.g. Recipes /
+   Ingredients catalog) — visually the mock's `.seg` control
+   (design/mock-reference.css / mock-screens.html, used there for the
+   household-flag/location/theme toggles), but built on real `<NavLink>`s
+   rather than `SegmentedControl`'s radio-group semantics: these are
+   different PAGES (distinct URLs, back-button/deep-link behaviour), not a
+   single control's mutually-exclusive value, so anchor-with-aria-current is
+   the correct role, not role="radiogroup". */
+
+.group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  margin-bottom: var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--touch-target) - 8px);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) ease-in-out,
+    color var(--motion-fast) ease-in-out;
+}
+
+.tab:hover {
+  color: var(--text-h);
+}
+
+.tabActive,
+.tabActive:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
