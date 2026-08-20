@@ -1,0 +1,352 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { useWorkbookContext } from "../workbook-context.ts";
+import { useToast } from "../ui/components/Toast/useToast.ts";
+import { ErrorState, SegmentedControl, Skeleton } from "../ui/components";
+import { Minus, Plus } from "../ui/icons";
+import {
+  formatQuantity,
+  newPlanSlotId,
+  scaledRecipeIngredients,
+  type IngredientId,
+  type IsoDate,
+  type PlanSlot,
+  type Recipe,
+  type RecipeIngredient,
+  type RecipeStatus,
+  type RecipeStep,
+} from "../domain/index.ts";
+import { usePantryInventory } from "./pantry/usePantryInventory.ts";
+import { formatShortDate } from "./date-format.ts";
+import { STATUS_OPTIONS } from "./recipe-options.ts";
+import formsStyles from "./forms.module.css";
+import recipesStyles from "./recipes.module.css";
+import styles from "./recipe-detail.module.css";
+
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function capitalize(word: string): string {
+  return word.length === 0 ? word : word[0]!.toUpperCase() + word.slice(1);
+}
+
+/** "3" or "1.5" — a stock total for the "· N in pantry" annotation, trimmed to at most 2 decimals so float noise (e.g. FIFO remainders) never prints as "3.0000000001". */
+function formatStock(amount: number): string {
+  const rounded = Math.round(amount * 100) / 100;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+/**
+ * Read-only recipe view (WP-VC2, design/mock-screens.html #recipe) — what a
+ * recipe card now opens into, replacing the always-editable form that used
+ * to sit at this exact route. Editing moved to its own route,
+ * `/recipes/:id/edit` (RecipeEditor.tsx, unchanged apart from the move).
+ *
+ * Two of this page's three rail controls are live actions, not just
+ * display, matching the mock's own interactive `.seg`/`.qty` controls on
+ * the "read" screen: the household flag writes through immediately
+ * (`store.recipes.upsert`, a last-write-wins plain-row edit per
+ * contracts.ts — not the outbox, which is inventory-events-only per
+ * invariant 9), and the servings stepper only rescales the ingredient list
+ * shown here, client-side.
+ *
+ * "Mark cooked" is scoped deliberately narrowly: it transitions today's
+ * `PlanSlot` for this recipe to `state: "cooked"` (or creates one, if this
+ * recipe wasn't already planned for today) via `store.planSlots.upsert` —
+ * consistent with how "Cooked N times" is computed here and in
+ * RecipeEditor.tsx. It does NOT run FIFO ingredient consumption or create a
+ * leftover lot: that full "mark cooked -> confirm/tweak screen -> usage
+ * events -> leftover lot" flow is IMPLEMENTATION_PLAN.md's WP-22
+ * (unbuilt — Plan.tsx is still a stub), and `scaledRecipeIngredients`'s own
+ * doc comment already names WP-22, not this route, as that flow's owner.
+ * Faking the deduction here would violate invariant 4 (FIFO) with no real
+ * pantry data behind it, so this stays a real, honest, smaller action
+ * instead of a fake big one.
+ */
+export function RecipeDetail() {
+  const { recipeId } = useParams();
+  const { store, clock, rng } = useWorkbookContext();
+  const { showToast } = useToast();
+  const pantry = usePantryInventory();
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | undefined>(undefined);
+  const [marking, setMarking] = useState(false);
+
+  const [recipe, setRecipe] = useState<Recipe | undefined>(undefined);
+  const [lines, setLines] = useState<readonly RecipeIngredient[]>([]);
+  const [steps, setSteps] = useState<readonly RecipeStep[]>([]);
+  const [planSlots, setPlanSlots] = useState<readonly PlanSlot[]>([]);
+  const [servings, setServings] = useState<number | undefined>(undefined);
+
+  const today = clock.today();
+
+  useEffect(() => {
+    // `loading`/`error` are only ever set from the promise's own resolution
+    // below, never synchronously here — same react-hooks discipline as
+    // Recipes.tsx/RecipeEditor.tsx.
+    let cancelled = false;
+    Promise.all([
+      store.recipes.readAll(),
+      store.recipeIngredients.readAll(),
+      store.recipeSteps.readAll(),
+      store.planSlots.readAll(),
+      store.settings.read(),
+    ])
+      .then(([recipesResult, linesResult, stepsResult, slotsResult, settingsResult]) => {
+        if (cancelled) return;
+        const found = recipesResult.rows.find((r) => r.id === recipeId);
+        if (!found) {
+          setError(`No recipe with id "${recipeId}".`);
+          return;
+        }
+        setRecipe(found);
+        setLines(linesResult.rows.filter((l) => l.recipeId === recipeId));
+        setSteps(
+          [...stepsResult.rows].filter((s) => s.recipeId === recipeId).sort((a, b) => a.stepNumber - b.stepNumber),
+        );
+        setPlanSlots(slotsResult.rows);
+        setServings(settingsResult.householdSize);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(messageOf(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [store, recipeId]);
+
+  const stockByIngredient = useMemo(() => {
+    const map = new Map<IngredientId, number>();
+    for (const lot of pantry.lots) {
+      map.set(lot.ingredientId, (map.get(lot.ingredientId) ?? 0) + lot.quantity.amount);
+    }
+    return map;
+  }, [pantry.lots]);
+
+  const scaledLines = useMemo(() => {
+    if (!recipe || servings === undefined) return [];
+    return scaledRecipeIngredients(recipe, lines, servings);
+  }, [recipe, lines, servings]);
+
+  const cookedSlots = useMemo(
+    () =>
+      planSlots.filter(
+        (s) => s.state === "cooked" && s.filling.kind === "recipe" && s.filling.recipeId === recipeId,
+      ),
+    [planSlots, recipeId],
+  );
+  const lastCookedDate = useMemo<IsoDate | undefined>(
+    () => cookedSlots.reduce<IsoDate | undefined>((latest, s) => (!latest || s.date > latest ? s.date : latest), undefined),
+    [cookedSlots],
+  );
+
+  async function handleStatusChange(status: RecipeStatus): Promise<void> {
+    if (!recipe) return;
+    const previous = recipe;
+    const updated: Recipe = { ...recipe, status };
+    setRecipe(updated);
+    try {
+      await store.recipes.upsert(updated);
+    } catch (err) {
+      setRecipe(previous);
+      showToast({ variant: "error", title: "Couldn't update the household flag", description: messageOf(err) });
+    }
+  }
+
+  async function handleMarkCooked(): Promise<void> {
+    if (!recipe) return;
+    setMarking(true);
+    try {
+      const targetServings = servings ?? recipe.baseServings;
+      const scaleOverride = targetServings !== recipe.baseServings ? { scaleServings: targetServings } : {};
+      const existing = planSlots.find(
+        (s) =>
+          s.date === today &&
+          s.state === "planned" &&
+          s.filling.kind === "recipe" &&
+          s.filling.recipeId === recipe.id,
+      );
+      const slot: PlanSlot = existing
+        ? { ...existing, state: "cooked", filling: { kind: "recipe", recipeId: recipe.id, ...scaleOverride } }
+        : {
+            id: newPlanSlotId(rng),
+            date: today,
+            slotType: recipe.mealTags[0] ?? "dinner",
+            slotIndex: 0,
+            filling: { kind: "recipe", recipeId: recipe.id, ...scaleOverride },
+            state: "cooked",
+            pinned: false,
+          };
+      await store.planSlots.upsert(slot);
+      setPlanSlots((current) => {
+        const idx = current.findIndex((s) => s.id === slot.id);
+        if (idx === -1) return [...current, slot];
+        const next = [...current];
+        next[idx] = slot;
+        return next;
+      });
+      showToast({ variant: "success", title: `Marked "${recipe.name}" cooked.`, durationMs: 4000 });
+    } catch (err) {
+      showToast({ variant: "error", title: "Couldn't mark this cooked", description: messageOf(err) });
+    } finally {
+      setMarking(false);
+    }
+  }
+
+  return (
+    <section>
+      {/* Exactly one h1 either way — required for axe's
+          `page-has-heading-one` (e2e/wp-15-a11y.spec.ts's "/recipes/12"
+          case: an id that doesn't exist still has to render a heading
+          above its ErrorState) — but never two: the loaded branch below
+          renders the recipe's own `<h1>` positioned inside `.headRow`
+          beside its actions (matching the mock), so this fallback only
+          fires while there is no `recipe` yet to name it after. */}
+      {!recipe ? <h1>Recipe</h1> : null}
+
+      {loading ? (
+        <>
+          <Skeleton height="1.2em" width="40%" />
+          <Skeleton height="10em" />
+        </>
+      ) : null}
+
+      {!loading && error ? <ErrorState title="Couldn't load this recipe" description={error} /> : null}
+
+      {!loading && !error && recipe ? (
+        <>
+          <div className={styles.headRow}>
+            <div>
+              <h1>{recipe.name}</h1>
+              <div className={styles.pillRow}>
+                {recipe.mealTags.map((tag) => (
+                  <span key={tag} className={recipesStyles.tagPill}>
+                    {capitalize(tag)}
+                  </span>
+                ))}
+                <span className={recipesStyles.tagPill}>{recipe.prepMinutes} prep</span>
+                <span className={recipesStyles.tagPill}>{recipe.cookMinutes} cook</span>
+                {recipe.kind === "bought" ? <span className={recipesStyles.tagPill}>Bought</span> : null}
+              </div>
+              <p className={styles.dtSub}>
+                {cookedSlots.length === 0
+                  ? "Not cooked yet"
+                  : `Cooked ${cookedSlots.length} time${cookedSlots.length === 1 ? "" : "s"}${
+                      lastCookedDate ? ` · last on ${formatShortDate(lastCookedDate)}` : ""
+                    }`}
+              </p>
+            </div>
+            <div className={styles.headActions}>
+              <Link to={`/recipes/${recipe.id}/edit`} className={styles.editLink}>
+                Edit
+              </Link>
+              <button
+                type="button"
+                className={styles.markCookedButton}
+                onClick={() => void handleMarkCooked()}
+                disabled={marking}
+              >
+                {marking ? "Marking…" : "Mark cooked"}
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.cols}>
+            <div className={styles.main}>
+              <div className={formsStyles.sectionCard}>
+                <div className={formsStyles.sectionCardHead}>
+                  Ingredients · scaled to {servings ?? recipe.baseServings} servings
+                </div>
+                <div className={formsStyles.sectionCardBody}>
+                  {scaledLines.length === 0 ? (
+                    <p className={formsStyles.hint}>No ingredients recorded.</p>
+                  ) : (
+                    <div className={styles.ilist}>
+                      {scaledLines.map((line) => {
+                        const ingredient = pantry.ingredientsById.get(line.ingredientId);
+                        const stock = stockByIngredient.get(line.ingredientId) ?? 0;
+                        return (
+                          <div key={line.ingredientId} className={styles.ilistRow}>
+                            <span>
+                              {ingredient?.name ?? line.ingredientId}
+                              {stock > 0 ? <span className={styles.have}> · {formatStock(stock)} in pantry</span> : null}
+                            </span>
+                            <span className={styles.q}>{formatQuantity(line.quantity)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className={formsStyles.sectionCard}>
+                <div className={formsStyles.sectionCardHead}>Method</div>
+                <div className={formsStyles.sectionCardBody}>
+                  {steps.length === 0 ? (
+                    <p className={formsStyles.hint}>No steps recorded.</p>
+                  ) : (
+                    <ol className={styles.steps}>
+                      {steps.map((step) => (
+                        <li key={step.stepNumber}>{step.text}</li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.rail}>
+              <div className={formsStyles.sectionCard}>
+                <div className={formsStyles.sectionCardHead}>Household flag</div>
+                <div className={formsStyles.sectionCardBody}>
+                  <div className={formsStyles.fullWidthControl}>
+                    <SegmentedControl<RecipeStatus>
+                      aria-label="Household flag"
+                      options={STATUS_OPTIONS}
+                      value={recipe.status}
+                      onChange={(status) => void handleStatusChange(status)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={formsStyles.sectionCard}>
+                <div className={formsStyles.sectionCardHead}>Servings</div>
+                <div className={formsStyles.sectionCardBody}>
+                  <div className={formsStyles.qty}>
+                    <button
+                      type="button"
+                      aria-label="Fewer servings"
+                      onClick={() => setServings((s) => Math.max(1, (s ?? recipe.baseServings) - 1))}
+                    >
+                      <Minus size={16} aria-hidden="true" />
+                    </button>
+                    <span className={formsStyles.qtyValue}>
+                      {servings ?? recipe.baseServings} <span className={formsStyles.qtyUnit}>servings</span>
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="More servings"
+                      onClick={() => setServings((s) => (s ?? recipe.baseServings) + 1)}
+                    >
+                      <Plus size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+                  <p className={formsStyles.hint}>
+                    Base {recipe.baseServings} · surplus becomes a leftover lot when cooked.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}

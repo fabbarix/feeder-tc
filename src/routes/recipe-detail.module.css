@@ -1,0 +1,182 @@
+/* Recipe read view (WP-VC2 — design/mock-screens.html #recipe). Distinct
+   from forms.module.css (the editor's own styling), though it reuses that
+   module's .sectionCard/.sectionCardHead/.sectionCardBody/.qty/.hint/
+   .fullWidthControl classes directly rather than redefining them — same
+   card/servings-stepper language, just read instead of edited. Not part of
+   the src/ui kit (UI_DESIGN.md §7: feature-specific layout, not a reusable
+   primitive).
+
+   Font sizes below are literal px, copied from the mock's own
+   `.dt-sub`/`.ilist .q`/`.ilist .have`/`ol.steps`/`.chip`/`.btn.sm`
+   declarations (design/mock-screens.html), NOT this app's `rem`-based
+   scale: the app's root font-size is 18px (src/index.css), not the usual
+   16px, so a naive `0.85rem` etc. renders ~15% larger than the mock's
+   literal px value. */
+
+.headRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.pillRow {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin: 0 0 13px;
+}
+
+.dtSub {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+/* Matches the mock's `.chip`/`.btn.sm` (12.5px/1) — the touch-target
+   min-height is a deliberate, established app-wide convention (WCAG 2.5.5)
+   every other pill/button in this app already follows, so it's the one
+   place the mock's own compact sizing yields to it. */
+.editLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  font-weight: 600;
+  font-size: 12.5px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.editLink:hover {
+  background: var(--surface-2);
+}
+
+.markCookedButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.markCookedButton:hover {
+  filter: brightness(1.06);
+}
+
+.markCookedButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cols {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .cols {
+    display: grid;
+    /*
+     * 290px, not the mock's literal 250px: measured (Playwright,
+     * getComputedStyle) that the rail's own "Household flag" card, at
+     * exactly 250px, clips the 3-option Staple/Rotation/Retired
+     * SegmentedControl — its rendered content needs 246px inside a card
+     * whose padding leaves only ~218-220px, a ~26px overflow that cuts off
+     * "Retired". `src/ui/components/SegmentedControl.module.css` is a
+     * shared kit component used across the whole app (RecipeEditor,
+     * IngredientEditor, Pantry's dialogs); changing ITS padding/font-size
+     * to fit this one 250px rail would be a much larger, cross-cutting
+     * change outside this WP's two-screen mandate. Widening this route's
+     * own rail column is the smaller, contained fix — a correctness fix
+     * (nothing may render cut off) takes priority over the mock's exact
+     * pixel width here.
+     */
+    grid-template-columns: minmax(0, 1fr) 290px;
+    align-items: start;
+    gap: var(--space-5);
+  }
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Matches the mock's `.ilist`: hairline-gap grid so adjoining rows read as
+   one bordered block, each row its own surface. */
+.ilist {
+  display: grid;
+  gap: 1px;
+  background: var(--line-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.ilistRow {
+  background: var(--surface);
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.q {
+  flex: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.have {
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.steps {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.steps li::marker {
+  color: var(--accent);
+  font-weight: 700;
+}
