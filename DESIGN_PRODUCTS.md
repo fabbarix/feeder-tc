@@ -1,8 +1,7 @@
 # Design addendum — Products, barcodes and prices
 
-**Status: mostly SETTLED (2026-08-20).** Units and cost tracking are decided by
-the owner; the photo *storage format* has one open sub-decision (§5). Scheduled as
-M6, after the M1–M5 pipeline.
+**Status: SETTLED (2026-08-20).** Units, cost tracking and photo storage are all
+decided by the owner. Scheduled as M6, after the M1–M5 pipeline.
 
 Companion to `DESIGN.md` (authoritative product design) and `HANDOVER.md` §4
 (invariants).
@@ -43,7 +42,8 @@ Provisional sheets, following the existing one-row-one-fact rule (invariant 6):
 
 | Sheet | Contents |
 |---|---|
-| `Products` | `barcode, name, brand, ingredient_id, canonical_quantity, canonical_unit, display_quantity, display_unit, shelf_life_days, is_bulk, photo_data_url` |
+| `Products` | `barcode, name, brand, ingredient_id, canonical_quantity, canonical_unit, display_quantity, display_unit, shelf_life_days, is_bulk, has_photo` |
+| `ProductPhotos` | `barcode, data_url` — **a separate sheet on purpose** |
 | `PriceObservations` | append-only: `timestamp, barcode?, ingredient_id, quantity, unit, price, source` |
 
 `canonical_*` drives every calculation; `display_*` is shown to the human ("1 lb
@@ -52,6 +52,12 @@ the household has one currency, held in Settings.
 
 `PriceObservations` is append-only for the same reason `InventoryEvents` is: it is
 a time series, corrections are new rows, and two clients appending never collide.
+
+**Photos live in their own sheet, not as a `Products` column.**
+`WorkbookStore.readAll()` reads whole sheets, so a photo column would drag every
+photo down the wire on every product listing — 100 products × 30 KB ≈ 3 MB on a
+shop connection. Split, the products list stays light and photos load only when
+displayed.
 
 ## 3. Units — ✅ SETTLED: entry-time conversion, store both
 
@@ -134,9 +140,34 @@ each photo was individually permissioned.
    of base64 each consumes half the entire quota, competing with the inventory
    snapshot that actually needs it.
 
-**Therefore:** **320 px longest side, WebP, quality ~0.6 (~12–18 KB).** Fits the
-cell limit with headroom and stays cheap to sync. PNG is explicitly rejected: it is
-lossless, built for flat graphics, and runs 5–10× larger than WebP on photographs.
+**Owner decision (2026-08-20): 512 px.** Measured and confirmed viable — but
+**specified as a byte budget, not a quality number**, because measurement showed a
+fixed quality cannot guarantee a size:
+
+| 512 px test image | q70 | q60 |
+|---|---|---|
+| Complex / detailed | 13.0 KB ✅ | 10.8 KB ✅ |
+| Typical product shot | 4.8 KB ✅ | 2.7 KB ✅ |
+| **Noisy packaging shot** | **71 KB ❌** | **70.9 KB ❌** |
+
+Dropping q80 → q50 on the noisy image saved **1%** — sensor noise is incompressible
+detail, and pre-denoising only reached 52 KB, still over. That is exactly the photo
+a phone takes under supermarket fluorescents.
+
+**The encoder therefore targets bytes:**
+
+```
+budget 32 KB (headroom under the 36.6 KB ceiling)
+try q85 → q75 → q65 → q55 → q45 → q35 at 512 px
+still over? downscale 448 → 384 → 320 px at q60
+```
+
+Verified: normal photos land at **q85** — better quality than a fixed 0.6 — and the
+pathological case degrades to 320 px / 22.8 KB rather than silently breaching the
+cell limit. A breach is not a warning, it is data loss.
+
+PNG is rejected outright: lossless, built for flat graphics, 5–10× larger than WebP
+on photographs.
 
 Photos are **loaded lazily and excluded from the cached snapshot** — they are the
 one field that must never enter the localStorage fold.
@@ -146,9 +177,8 @@ one column, one entity, and it is why the limit and the format are recorded here
 
 ## 6. Remaining decisions
 
-**Open (owner):** confirm 320px WebP for photos, given 1024px PNG cannot fit a cell
-(§5). If full-resolution photos matter more than automatic sharing, the Drive-file-id
-route is the alternative.
+**All owner decisions are now settled.** M6 is ready to plan once the M1–M5
+pipeline lands.
 
 **Coordinator will decide unless told otherwise:** the product-lookup
 source for unknown barcodes (Open Food Facts vs. manual-entry-only), and the iOS
