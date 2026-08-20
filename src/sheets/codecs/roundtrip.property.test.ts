@@ -11,14 +11,17 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   makeAdjustEvent,
+  makeBarcode,
   makeEventId,
   makeIngredientId,
   makeIsoDate,
   makeIsoTimestamp,
   makeLotId,
   makePlanSlotId,
+  makePriceObservationId,
   makeQuantity,
   makeRecipeId,
+  type EntryUnit,
   type Ingredient,
   type IsoDate,
   type IsoTimestamp,
@@ -26,6 +29,9 @@ import {
   type PlanSlot,
   type PlanSlotFilling,
   type PlanSlotState,
+  type PriceObservation,
+  type Product,
+  type ProductPhoto,
   type Recipe,
   type RecipeIngredient,
   type RecipeKind,
@@ -41,6 +47,9 @@ import {
   decodeInventoryEvent,
   decodeMeta,
   decodePlanSlot,
+  decodePriceObservation,
+  decodeProduct,
+  decodeProductPhoto,
   decodeRecipe,
   decodeRecipeIngredient,
   decodeRecipeStep,
@@ -50,11 +59,16 @@ import {
   encodeInventoryEvent,
   encodeMeta,
   encodePlanSlot,
+  encodePriceObservation,
+  encodeProduct,
+  encodeProductPhoto,
   encodeRecipe,
   encodeRecipeIngredient,
   encodeRecipeStep,
   encodeSettings,
   encodeShoppingItem,
+  ENTRY_UNITS,
+  MAX_PHOTO_DATA_URL_LENGTH,
   MEAL_TAGS,
   STORAGE_LOCATIONS,
   UNITS,
@@ -406,6 +420,12 @@ const settingsArb: fc.Arbitrary<Settings> = fc.record({
   householdSize: fc.integer({ min: 1, max: 12 }),
   slotLayout: slotLayoutArb,
   repeatExclusionWeeks: fc.integer({ min: 0, max: 12 }),
+  // Always defined here (never fc.option'd to `undefined`): decodeSettings
+  // always returns a concrete currency (defaulting blank to "$"), so
+  // round-trip identity only holds when the input already has one. The
+  // "blank cell defaults to $" behaviour is covered separately in
+  // settings.test.ts / bootstrap.test.ts, not as a round-trip property here.
+  currency: fc.string({ minLength: 1, maxLength: 3 }),
 });
 
 describe("Settings codec", () => {
@@ -413,6 +433,135 @@ describe("Settings codec", () => {
     fc.assert(
       fc.property(settingsArb, (settings) => {
         expect(decodeSettings(encodeSettings(settings))).toEqual(settings);
+      }),
+    );
+  });
+});
+
+// --- Products -----------------------------------------------------------------
+
+const BARCODE_ARB = fc
+  .integer({ min: 100_000, max: 99_999_999_999_999 })
+  .map((n) => makeBarcode(String(n)));
+
+const ENTRY_UNIT_ARB = fc.constantFrom<EntryUnit>(...ENTRY_UNITS);
+
+const productArb: fc.Arbitrary<Product> = fc
+  .record({
+    barcode: BARCODE_ARB,
+    name: fc.string({ minLength: 1, maxLength: 40 }),
+    brand: fc.option(fc.string({ minLength: 1, maxLength: 40 }), { nil: undefined }),
+    ingredientId: idArb.map(makeIngredientId),
+    canonicalAmount: fc.integer({ min: 1, max: 100_000 }),
+    canonicalUnit: UNIT_ARB,
+    displayQuantity: fc.integer({ min: 1, max: 1000 }),
+    displayUnit: ENTRY_UNIT_ARB,
+    shelfLifeDays: fc.integer({ min: 0, max: 5000 }),
+    isBulk: fc.boolean(),
+    hasPhoto: fc.boolean(),
+  })
+  .map((p) => ({
+    barcode: p.barcode,
+    name: p.name,
+    ...(p.brand !== undefined ? { brand: p.brand } : {}),
+    ingredientId: p.ingredientId,
+    canonicalQuantity: makeQuantity(p.canonicalAmount, p.canonicalUnit),
+    displayQuantity: p.displayQuantity,
+    displayUnit: p.displayUnit,
+    shelfLifeDays: p.shelfLifeDays,
+    isBulk: p.isBulk,
+    hasPhoto: p.hasPhoto,
+  }));
+
+describe("Product codec", () => {
+  it("encode -> decode is identity", () => {
+    fc.assert(
+      fc.property(productArb, (product) => {
+        expect(decodeProduct(encodeProduct(product))).toEqual(product);
+      }),
+    );
+  });
+});
+
+// --- ProductPhotos --------------------------------------------------------------
+
+// Comfortably under the 50,000-char cell ceiling (DESIGN_PRODUCTS.md §5) —
+// the oversized case is covered by its own rejection test below, not the
+// round-trip property.
+const productPhotoArb: fc.Arbitrary<ProductPhoto> = fc.record({
+  barcode: BARCODE_ARB,
+  // Not real base64 — the codec has no opinion on data-URL contents beyond
+  // length, so an arbitrary printable string exercises the round trip just
+  // as well without pulling in a Buffer/base64 dependency here.
+  dataUrl: fc.string({ minLength: 1, maxLength: 500 }).map((s) => `data:image/webp;base64,${s}`),
+});
+
+describe("ProductPhoto codec", () => {
+  it("encode -> decode is identity", () => {
+    fc.assert(
+      fc.property(productPhotoArb, (photo) => {
+        expect(decodeProductPhoto(encodeProductPhoto(photo))).toEqual(photo);
+      }),
+    );
+  });
+
+  it("refuses to encode a data URL over the 50,000-character Sheets cell limit rather than truncating it", () => {
+    const oversized: ProductPhoto = {
+      barcode: makeBarcode("8001120000123"),
+      dataUrl: `data:image/webp;base64,${"A".repeat(MAX_PHOTO_DATA_URL_LENGTH)}`,
+    };
+    expect(oversized.dataUrl.length).toBeGreaterThan(MAX_PHOTO_DATA_URL_LENGTH);
+    expect(() => encodeProductPhoto(oversized)).toThrow(/50,000-character|Google Sheets cell limit/);
+    // Confirms this is a hard refusal, not silent truncation: nothing
+    // shorter than the original was ever produced to compare against.
+  });
+
+  it("accepts a data URL exactly at the 50,000-character limit", () => {
+    const atLimit: ProductPhoto = {
+      barcode: makeBarcode("8001120000123"),
+      dataUrl: "A".repeat(MAX_PHOTO_DATA_URL_LENGTH),
+    };
+    expect(() => encodeProductPhoto(atLimit)).not.toThrow();
+    expect(decodeProductPhoto(encodeProductPhoto(atLimit))).toEqual(atLimit);
+  });
+});
+
+// --- PriceObservations ------------------------------------------------------
+
+const priceObservationArb: fc.Arbitrary<PriceObservation> = fc
+  .record({
+    id: idArb.map(makePriceObservationId),
+    timestamp: isoTimestampArb,
+    barcode: fc.option(BARCODE_ARB, { nil: undefined }),
+    ingredientId: idArb.map(makeIngredientId),
+    amount: fc.integer({ min: 1, max: 100_000 }),
+    unit: UNIT_ARB,
+    price: fc.float({ min: 0, max: 10_000, noNaN: true }),
+    source: fc.option(fc.string({ minLength: 1, maxLength: 40 }), { nil: undefined }),
+  })
+  .map((o) => ({
+    id: o.id,
+    timestamp: o.timestamp,
+    ...(o.barcode !== undefined ? { barcode: o.barcode } : {}),
+    ingredientId: o.ingredientId,
+    quantity: makeQuantity(o.amount, o.unit),
+    price: o.price,
+    ...(o.source !== undefined ? { source: o.source } : {}),
+  }));
+
+describe("PriceObservation codec", () => {
+  it("encode -> decode is identity, with and without a barcode/source", () => {
+    fc.assert(
+      fc.property(priceObservationArb, (observation) => {
+        expect(decodePriceObservation(encodePriceObservation(observation))).toEqual(observation);
+      }),
+    );
+  });
+
+  it("never encodes a currency column (single household currency lives in Settings, not per-row)", () => {
+    fc.assert(
+      fc.property(priceObservationArb, (observation) => {
+        expect(encodePriceObservation(observation)).toHaveLength(8);
       }),
     );
   });

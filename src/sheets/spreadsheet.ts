@@ -16,7 +16,7 @@ import type { WorkbookRegistry, WorkbookRegistryEntry } from "./registry.ts";
 
 const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
 
-/** DESIGN.md §3, in the documented order. Kept in sync with WorkbookSheetName at compile time via `satisfies`. */
+/** DESIGN.md §3 / DESIGN_PRODUCTS.md §2, in the documented order. Kept in sync with WorkbookSheetName at compile time via `satisfies`. */
 const WORKBOOK_SHEET_NAMES = [
   "Meta",
   "Settings",
@@ -27,6 +27,9 @@ const WORKBOOK_SHEET_NAMES = [
   "PlanSlots",
   "InventoryEvents",
   "ShoppingItems",
+  "Products",
+  "ProductPhotos",
+  "PriceObservations",
 ] as const satisfies readonly WorkbookSheetName[];
 
 export interface CreateSpreadsheetOptions {

@@ -1,5 +1,6 @@
-/** Shared allowed-value lists for the codec `cellEnum`/validity checks below (WP-11). */
+/** Shared allowed-value lists for the codec `cellEnum`/validity checks below (WP-11, extended M6-A). */
 import type {
+  EntryUnit,
   MealTag,
   PlanSlotState,
   RecipeKind,
@@ -10,6 +11,8 @@ import type {
 } from "../../domain/types.ts";
 
 export const UNITS: readonly Unit[] = ["g", "ml", "piece", "portion"];
+/** M6-A — DESIGN_PRODUCTS.md §3: the units the `Products` sheet's `display_unit` column may hold (provenance only, never used in arithmetic — see src/domain/units.ts). */
+export const ENTRY_UNITS: readonly EntryUnit[] = ["kg", "g", "lb", "oz", "l", "ml", "fl oz", "piece"];
 export const STORAGE_LOCATIONS: readonly StorageLocation[] = ["pantry", "fridge", "freezer"];
 export const MEAL_TAGS: readonly MealTag[] = ["breakfast", "lunch", "dinner", "snack"];
 export const RECIPE_KINDS: readonly RecipeKind[] = ["cooked", "bought"];

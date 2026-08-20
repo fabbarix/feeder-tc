@@ -63,7 +63,15 @@ Build a household meal-planning web app with a pantry-aware shopping list:
 2. **Cursor safety.** Any client whose cached `generation` mismatches `Meta` must
    discard its snapshot and re-read fully.
 3. **One canonical unit per ingredient.** No conversion logic anywhere. Reject
-   mixed-unit writes at the codec layer.
+   mixed-unit writes at the codec layer. **Amended by `DESIGN_PRODUCTS.md` §3
+   (owner-approved, 2026-08-20):** the product editor is the single, narrow
+   exception. It may convert a human-entered amount+unit (`kg`, `g`, `lb`,
+   `oz`, `l`, `ml`, `fl oz`, `number`/`piece`) into an ingredient's canonical
+   unit exactly once, at entry, before writing — via
+   `src/domain/units.ts`, the one sanctioned module for this. No engine, no
+   codec, no fold, no sheet converts; every one of them still rejects
+   mixed-unit values exactly as before. See `DESIGN_PRODUCTS.md` §3 for the
+   full reasoning.
 4. **FIFO everywhere quantities are consumed** (usage, shopping allocation).
 5. **Sheets is the source of truth; localStorage is a cache.** Any local state must
    be reconstructible from the workbook alone.
