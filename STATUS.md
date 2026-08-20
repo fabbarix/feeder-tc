@@ -49,9 +49,17 @@ Last updated: 2026-08-20
 
 ## Parked / blocked on owner
 
-- **WP-10 live verification** — dev-server sign-in + Google Picker open with a real
-  Google account. Requires the product owner at the browser. Will be requested once
-  the dev server runs an auth screen. Not blocking other packages.
+- **WP-10 live verification — PARTIALLY DONE (2026-08-20).**
+  - ✅ **Sign-in verified against the real Google.** OAuth flow, `drive.file` scope,
+    client ID, registered origin and consent screen all confirmed working by the owner.
+  - ⚠️ First attempt failed with `Error 403: access_denied` — the consent screen was
+    still in **Testing**, despite HANDOVER §7 recording it as Production. Owner
+    published the app; no verification review was needed because `drive.file` is
+    non-sensitive. HANDOVER §7 corrected.
+  - ⏳ **Outstanding:** steps 2–4 of `verify-google.html` — create workbook (nine tabs),
+    open Picker, and **read `Meta!A1:B1`**. Step 4 is the only one that proves
+    `SheetsTransport` round-trips against the real Sheets API rather than msw.
+    Not blocking; WP-10 is merged and its mocked contract suite passes.
 
 - **Custom domain — ✅ COMPLETE (2026-08-20).** Site is live at
   `https://feeder.torchetti.us`, HTTPS enforced, `fabbarix.github.io/feeder-tc/`
