@@ -108,8 +108,11 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 ## Unauthorized / unrouted proposals
 
 - **Widening `RecipeStep` to `title`/`description`/`durationMinutes`, and adding a
-  `RecipePhotos` sheet.** Research was done against `main` (call sites catalogued),
-  but **no PR proposes it and no coordinator-approved contract-change task exists.**
+  `RecipePhotos` sheet.** A read-only audit of the call sites was done against `main`
+  and is sound work — **the audit is not the problem and nothing here reflects on it.**
+  What is missing is the route: **no PR proposes the change and no coordinator-approved
+  contract-change task exists.** The bar applies to *implementing* a frozen-contract
+  change, not to investigating one.
   `types.ts`/`contracts.ts` are frozen; this would be the 13th `WorkbookSheetName`
   member and would rework `RecipeEditor`'s state shape plus
   `e2e/wp-20-recipe-management.spec.ts`. **Treat as unauthorized until it comes
