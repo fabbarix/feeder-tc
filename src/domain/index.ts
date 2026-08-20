@@ -14,3 +14,8 @@ export * from "./quantity.ts";
 export * from "./ids.ts";
 export { systemClock } from "./clock.ts";
 export { createSeededRng } from "./rng.ts";
+export * from "./shopping-types.ts";
+export { computeNeeds } from "./shopping-needs.ts";
+export { allocateShoppingList } from "./shopping-allocate.ts";
+export { checkOffShoppingItem } from "./shopping-checkoff.ts";
+export { computeShoppingList, type ShoppingEngineInputs } from "./shopping.ts";
