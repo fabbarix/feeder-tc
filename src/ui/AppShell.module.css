@@ -86,6 +86,26 @@
   padding-bottom: calc(var(--touch-target) + var(--space-6));
 }
 
+/*
+ * A real container with a measure (UI_DESIGN.md §13 "Desktop") — content
+ * must not sit flush top-left the way a plain full-bleed <main> does at
+ * wide viewports. Full width on mobile (no measure needed at a 380px
+ * viewport); capped and centered from 768px up so paragraph text stays
+ * readable and cards don't stretch edge to edge. The shopping/planner
+ * screens (WP-22/23) that need MORE width for a multi-column layout do so
+ * deliberately by overriding this locally, not by this default being wide.
+ */
+.mainMeasure {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .mainMeasure {
+    max-width: 840px;
+    margin: 0 auto;
+  }
+}
+
 @media (min-width: 768px) {
   .main {
     padding-bottom: var(--space-4);

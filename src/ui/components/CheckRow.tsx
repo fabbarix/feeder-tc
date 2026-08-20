@@ -23,6 +23,23 @@ export interface CheckRowProps {
  * `<input type="date">`, `<input type="number">`, `window.confirm`/`alert`)
  * — the native `<input type="checkbox">` + `<label>` pairing is already
  * fully accessible, so no react-aria hook is needed here.
+ *
+ * The check itself (UI_DESIGN.md §13) is "the single most repeated
+ * interaction in the app" and gets real motion care: the native input still
+ * carries the real accessible state (visually transparent but full-size,
+ * same overlay technique as `SegmentedControl`'s hidden radio, so it stays
+ * genuinely clickable), and a decorative SVG box draws its tick via
+ * `stroke-dashoffset` — `pathLength="1"` normalizes the dasharray/dashoffset
+ * to a 0–1 range regardless of the path's real geometry — while the label
+ * grows a strike-through via a `::after` bar scaled with `transform:
+ * scaleX()`. Both are driven by the `.checked` class, both animate on
+ * `--motion-state` (220ms) with `--ease-standard`, both are inside
+ * `prefers-reduced-motion` (that media query zeroes every `--motion-*`
+ * token — see src/index.css). `transform: scaleX()` is a compositor-only
+ * transform, never a layout reflow, in the same spirit as the spec's own
+ * `stroke-dashoffset` example for the tick — not literally "colour/opacity"
+ * either, but explicitly sanctioned as the one interaction worth animating
+ * beyond that rule.
  */
 export function CheckRow({
   label,
@@ -36,6 +53,12 @@ export function CheckRow({
 }: CheckRowProps) {
   return (
     <label className={`${styles.row}${failed ? ` ${styles.failed}` : ""}${checked ? ` ${styles.checked}` : ""}`}>
+      <span className={styles.box} aria-hidden="true">
+        <svg viewBox="0 0 24 24" className={styles.boxSvg}>
+          <rect x="2" y="2" width="20" height="20" rx="6" className={styles.boxRect} />
+          <path d="M6.5 12.5l4 4 8-9" pathLength="1" className={styles.boxCheck} />
+        </svg>
+      </span>
       <input
         type="checkbox"
         className={styles.checkbox}

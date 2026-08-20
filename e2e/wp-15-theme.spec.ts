@@ -22,7 +22,7 @@ test.describe("theme toggle — system-dark device", () => {
     await enterReadyShell(page);
     await page.goto("settings");
     expect(await readDataTheme(page)).toBeNull();
-    expect(await readBg(page)).toBe("#16171d");
+    expect(await readBg(page)).toBe("#121316");
   });
 
   test("THE GUARD: choosing Light overrides a dark OS", async ({ page }) => {
@@ -31,7 +31,7 @@ test.describe("theme toggle — system-dark device", () => {
     await page.getByRole("radio", { name: "Light" }).click();
 
     expect(await readDataTheme(page)).toBe("light");
-    expect(await readBg(page)).toBe("#fff");
+    expect(await readBg(page)).toBe("#f5f4f0");
   });
 });
 
@@ -42,7 +42,7 @@ test.describe("theme toggle — system-light device", () => {
     await enterReadyShell(page);
     await page.goto("settings");
     expect(await readDataTheme(page)).toBeNull();
-    expect(await readBg(page)).toBe("#fff");
+    expect(await readBg(page)).toBe("#f5f4f0");
   });
 
   test("THE GUARD (other direction): choosing Dark overrides a light OS", async ({ page }) => {
@@ -51,7 +51,7 @@ test.describe("theme toggle — system-light device", () => {
     await page.getByRole("radio", { name: "Dark" }).click();
 
     expect(await readDataTheme(page)).toBe("dark");
-    expect(await readBg(page)).toBe("#16171d");
+    expect(await readBg(page)).toBe("#121316");
   });
 
   test("returning to System removes the override and follows the OS again", async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe("theme toggle — system-light device", () => {
 
     await page.getByRole("radio", { name: "System" }).click();
     expect(await readDataTheme(page)).toBeNull();
-    expect(await readBg(page)).toBe("#fff");
+    expect(await readBg(page)).toBe("#f5f4f0");
   });
 });
 

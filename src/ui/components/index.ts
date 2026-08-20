@@ -43,5 +43,8 @@ export type { SkeletonProps } from "./Skeleton.tsx";
 export { ErrorState } from "./ErrorState.tsx";
 export type { ErrorStateProps } from "./ErrorState.tsx";
 
+export { FreshnessMeter } from "./FreshnessMeter.tsx";
+export type { FreshnessMeterProps } from "./FreshnessMeter.tsx";
+
 export { ToastProvider, ToastViewport, useToast } from "./Toast/index.ts";
 export type { ToastVariant, ToastInput, ToastRecord, ToastContextValue } from "./Toast/index.ts";

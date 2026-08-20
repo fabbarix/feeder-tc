@@ -118,10 +118,18 @@ export function AppShell({
         </div>
       ) : null}
 
-      <main id="main-content" className={styles.main} tabIndex={-1}>
-        {renderGate(state, { onSignIn, onCreateWorkbook, onPickWorkbook, onSignOut })}
-      </main>
-
+      {/*
+       * Nav renders BEFORE <main> in the DOM (UI_DESIGN.md §13 "Desktop"):
+       * at ≥768px it's `position: static` (an ordinary in-flow bar under the
+       * header), so DOM order IS visual order there — rendering it after a
+       * full-height <main> put it at the bottom of the page on desktop, the
+       * actual §13 bug (not the CSS, which was already `position: fixed`
+       * only below 768px). On mobile this has no visual effect: `position:
+       * fixed` takes it out of flow regardless of DOM order. It does not
+       * regress keyboard order either — the skip link (first in the DOM)
+       * already exists specifically so a keyboard user can bypass nav
+       * repetition and land on <main> directly.
+       */}
       {state.kind === "ready" ? (
         <nav className={styles.nav} aria-label="Primary">
           {NAV_ITEMS.map((item) => (
@@ -146,6 +154,12 @@ export function AppShell({
           ))}
         </nav>
       ) : null}
+
+      <main id="main-content" className={styles.main} tabIndex={-1}>
+        <div className={styles.mainMeasure}>
+          {renderGate(state, { onSignIn, onCreateWorkbook, onPickWorkbook, onSignOut })}
+        </div>
+      </main>
 
       <ToastViewport />
     </div>

@@ -70,3 +70,21 @@ test("skip link moves focus to the main content landmark", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
 });
+
+// UI_DESIGN.md §13 "Desktop": the merged shell's bug was DOM ordering, not
+// CSS — nav was already `position: static` at >=768px, but rendered AFTER a
+// full-height <main>, so it fell to the bottom of the page instead of
+// sitting under the header. Assert the fix directly: nav precedes main in
+// the DOM (this is what actually controls visual order once nav is no
+// longer taken out of flow by `position: fixed`).
+test("primary nav precedes main content in the DOM (desktop layout order)", async ({ page }) => {
+  await enterReadyShell(page);
+  const order = await page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Primary"]');
+    const main = document.querySelector("main");
+    if (!nav || !main) return "missing";
+    // DOCUMENT_POSITION_FOLLOWING (4) on `main` relative to `nav` means nav comes first.
+    return (nav.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 ? "nav-first" : "main-first";
+  });
+  expect(order).toBe("nav-first");
+});

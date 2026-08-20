@@ -27,6 +27,8 @@
   },
   "homepage": "https://github.com/fabbarix/feeder-tc#readme",
   "dependencies": {
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
     "@internationalized/date": "^3.12.3",
     "@phosphor-icons/react": "^2.1.10",
     "react": "^19.2.8",

@@ -24,11 +24,44 @@
      color-contrast rule (WCAG 1.4.3, 4.5:1) failed at small nav-label sizes
      with the lighter value — see e2e/wp-15-a11y.spec.ts. */
   --text-muted: #5c5566;
-  --bg: #fff;
+
+  /*
+   * Elevation — three surface levels (UI_DESIGN.md §13), not the one flat
+   * plane WP-15 shipped: background, content surface and nav all shared a
+   * single near-black in dark mode (the gaps between --bg/--surface/
+   * --surface-raised were only a few RGB units — technically three tokens,
+   * perceptually one), which is why the merged shell read as a void.
+   *   --paper     the page ground
+   *   --surface   cards, sheets, the tab bar (brighter than paper in both
+   *               themes — "elevated" reads as literally lighter)
+   *   --surface-2 inset wells, segmented-control troughs, hover states
+   * --bg/--surface-raised are kept as ALIASES of --paper/--surface-2 (same
+   * values) rather than renamed everywhere: every component CSS module
+   * written before §13 already consumes --bg/--surface/--surface-raised,
+   * and this keeps that code correct without a repo-wide rename. New code
+   * should prefer the canonical §13 names.
+   */
+  --paper: #f5f4f0;
   --surface: #fff;
-  --surface-raised: #f8f7fb;
-  --border: #e5e4e7;
+  --surface-2: #ebe9e2;
+  --bg: var(--paper);
+  --surface-raised: var(--surface-2);
+
+  --line: #e2e0d9;
+  --line-soft: rgb(30 28 20 / 8%);
+  --border: var(--line);
   --code-bg: #f4f3ec;
+
+  /* Two shadow tokens (§13) — shadows are for things that genuinely float
+     (sheets, dialogs, a future FAB), never for cards, which separate from
+     --paper by surface color alone. --shadow is kept as an alias of
+     --shadow-lg for pre-§13 component CSS (ConfirmDialog, EntityTable's
+     empty state, etc). */
+  --shadow-sm: 0 2px 8px rgb(20 18 10 / 8%);
+  --shadow-lg:
+    0 16px 40px rgb(20 18 10 / 16%),
+    0 4px 12px rgb(20 18 10 / 10%);
+  --shadow: var(--shadow-lg);
 
   /*
    * Accents (UI_DESIGN.md §3) — the user picks a hue; every accent token is
@@ -72,16 +105,36 @@
   --accent-bg: oklch(0.95 0.05 var(--accent-hue));
   --accent-border: oklch(0.75 0.12 var(--accent-hue));
   --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  /* Status colors — errors (invalid quantity/date), warnings (data
-     warnings / pending sync), success (confirmations). */
-  --danger: #c81e3a;
-  --danger-bg: rgba(200, 30, 58, 0.1);
-  --danger-border: rgba(200, 30, 58, 0.45);
-  --warning: #9a6400;
-  --warning-bg: rgba(202, 138, 4, 0.14);
-  --warning-border: rgba(202, 138, 4, 0.45);
+  /*
+   * Semantic colours (UI_DESIGN.md §13 "only exceptions get colour"):
+   * FIXED hues, deliberately never derived from --accent-hue — the accent
+   * is user-selectable, so an accent-derived "expiring" would disappear if
+   * someone picked amber as their accent. `--warn` is hue≈72 (amber),
+   * `--crit` is hue≈27 (red), both pinned. Same fixed-L/C-per-role OKLCH
+   * construction as the accent tokens, swept numerically against WCAG
+   * 4.5:1 the same way (see the accent comment above) rather than assumed:
+   * both clear >7:1 as text against white/paper in light mode.
+   *
+   * `--warning`/`--danger` (the pre-§13 names already used for form
+   * validation errors and toast variants throughout the kit) are now
+   * ALIASES of `--warn`/`--crit` — "invalid quantity" and "lot expired"
+   * are both already the same red family conceptually, so this is a
+   * rename-by-alias, not two competing colour systems.
+   */
+  --warn: oklch(0.45 0.18 72);
+  --warn-bg: oklch(0.95 0.05 72);
+  --warn-border: oklch(0.75 0.14 72);
+  --crit: oklch(0.45 0.2 27);
+  --crit-bg: oklch(0.95 0.05 27);
+  --crit-border: oklch(0.75 0.16 27);
+
+  --danger: var(--crit);
+  --danger-bg: var(--crit-bg);
+  --danger-border: var(--crit-border);
+  --warning: var(--warn);
+  --warning-bg: var(--warn-bg);
+  --warning-border: var(--warn-border);
   --success: #157a45;
   --success-bg: rgba(21, 122, 69, 0.12);
   --success-border: rgba(21, 122, 69, 0.45);
@@ -109,11 +162,19 @@
   --z-dialog: 100;
   --z-toast: 200;
 
-  --sans: system-ui, "Segoe UI", Roboto, sans-serif;
-  --heading: system-ui, "Segoe UI", Roboto, sans-serif;
+  /*
+   * Type (UI_DESIGN.md §13): Fraunces (headings, variable, optical size) +
+   * Archivo (UI/body, variable), both self-hosted as latin-only woff2 — see
+   * the @font-face block below. NOT a Google Fonts <link>: this is an
+   * offline-first PWA, and a CDN stylesheet is a third-party request that
+   * fails in a shop with no signal.
+   */
+  --sans: "Archivo Variable", system-ui, "Segoe UI", Roboto, sans-serif;
+  --heading: "Fraunces Variable", Georgia, "Times New Roman", serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0.18px;
   color-scheme: light dark;
   color: var(--text);
@@ -148,11 +209,25 @@
     --text-h: #f3f4f6;
     /* #9096a3, not #767c8a: 4.27:1 against the dark bg, short of 4.5:1. */
     --text-muted: #9096a3;
-    --bg: #16171d;
-    --surface: #1b1c23;
-    --surface-raised: #22232b;
-    --border: #2e303a;
+
+    /* Elevation (§13) — three perceptibly distinct steps, not the ~5-RGB-unit
+       gaps WP-15 shipped. */
+    --paper: #121316;
+    --surface: #1c1e24;
+    --surface-2: #282a33;
+    --bg: var(--paper);
+    --surface-raised: var(--surface-2);
+
+    --line: #34363f;
+    --line-soft: rgb(255 255 255 / 8%);
+    --border: var(--line);
     --code-bg: #1f2028;
+
+    --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
+    --shadow-lg:
+      0 20px 48px rgb(0 0 0 / 55%),
+      0 6px 16px rgb(0 0 0 / 40%);
+    --shadow: var(--shadow-lg);
 
     /* Same fixed-L/C-per-role construction as the light tokens, lightness
        raised for the fill (so it reads against a dark surface) and lowered
@@ -162,14 +237,21 @@
     --accent-bg: oklch(0.28 0.06 var(--accent-hue));
     --accent-border: oklch(0.45 0.14 var(--accent-hue));
     --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
 
-    --danger: #ff6b81;
-    --danger-bg: rgba(255, 107, 129, 0.16);
-    --danger-border: rgba(255, 107, 129, 0.45);
-    --warning: #f0b429;
-    --warning-bg: rgba(240, 180, 41, 0.16);
-    --warning-border: rgba(240, 180, 41, 0.45);
+    /* Fixed-hue semantic colours (§13) — never derived from --accent-hue. */
+    --warn: oklch(0.8 0.16 72);
+    --warn-bg: oklch(0.28 0.08 72);
+    --warn-border: oklch(0.55 0.16 72);
+    --crit: oklch(0.75 0.19 27);
+    --crit-bg: oklch(0.28 0.08 27);
+    --crit-border: oklch(0.55 0.18 27);
+
+    --danger: var(--crit);
+    --danger-bg: var(--crit-bg);
+    --danger-border: var(--crit-border);
+    --warning: var(--warn);
+    --warning-bg: var(--warn-bg);
+    --warning-border: var(--warn-border);
     --success: #4ade80;
     --success-bg: rgba(74, 222, 128, 0.16);
     --success-border: rgba(74, 222, 128, 0.45);
@@ -186,25 +268,43 @@
   --text: #9ca3af;
   --text-h: #f3f4f6;
   --text-muted: #9096a3;
-  --bg: #16171d;
-  --surface: #1b1c23;
-  --surface-raised: #22232b;
-  --border: #2e303a;
+
+  --paper: #121316;
+  --surface: #1c1e24;
+  --surface-2: #282a33;
+  --bg: var(--paper);
+  --surface-raised: var(--surface-2);
+
+  --line: #34363f;
+  --line-soft: rgb(255 255 255 / 8%);
+  --border: var(--line);
   --code-bg: #1f2028;
+
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
+  --shadow-lg:
+    0 20px 48px rgb(0 0 0 / 55%),
+    0 6px 16px rgb(0 0 0 / 40%);
+  --shadow: var(--shadow-lg);
 
   --accent: oklch(0.75 0.17 var(--accent-hue));
   --accent-text: oklch(0.18 0.02 var(--accent-hue));
   --accent-bg: oklch(0.28 0.06 var(--accent-hue));
   --accent-border: oklch(0.45 0.14 var(--accent-hue));
   --social-bg: rgba(47, 48, 58, 0.5);
-  --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
 
-  --danger: #ff6b81;
-  --danger-bg: rgba(255, 107, 129, 0.16);
-  --danger-border: rgba(255, 107, 129, 0.45);
-  --warning: #f0b429;
-  --warning-bg: rgba(240, 180, 41, 0.16);
-  --warning-border: rgba(240, 180, 41, 0.45);
+  --warn: oklch(0.8 0.16 72);
+  --warn-bg: oklch(0.28 0.08 72);
+  --warn-border: oklch(0.55 0.16 72);
+  --crit: oklch(0.75 0.19 27);
+  --crit-bg: oklch(0.28 0.08 27);
+  --crit-border: oklch(0.55 0.18 27);
+
+  --danger: var(--crit);
+  --danger-bg: var(--crit-bg);
+  --danger-border: var(--crit-border);
+  --warning: var(--warn);
+  --warning-bg: var(--warn-bg);
+  --warning-border: var(--warn-border);
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.16);
   --success-border: rgba(74, 222, 128, 0.45);
@@ -224,20 +324,62 @@
 }
 
 /*
- * Motion (UI_DESIGN.md §10): colour/opacity transitions only, ~150ms, and
- * only when the user has not asked for reduced motion. Components reference
- * `--motion-fast` instead of writing their own duration so there is exactly
- * one place that "no motion animation on this app" can be enforced; the
- * `@media` query zeroes it out rather than each component special-casing
- * `prefers-reduced-motion` individually.
+ * Motion (UI_DESIGN.md §13, refining §10): colour and opacity ONLY — never
+ * layout or position, which feels cheap on the low-end phone this targets
+ * and thrashes on a long list. Three tiers, one shared easing curve.
+ * Components reference these tokens instead of writing their own
+ * duration/easing so there is exactly one place "no motion on this app"
+ * can be enforced; the `@media` query zeroes every duration out rather than
+ * each component special-casing `prefers-reduced-motion` individually.
+ * `--motion-fast` is kept as an alias of `--motion-micro` for component CSS
+ * written before §13's three-tier split.
  */
 :root {
-  --motion-fast: 150ms;
+  --motion-micro: 160ms; /* hover, press, focus ring */
+  --motion-state: 220ms; /* check-off, toggle, badge change */
+  --motion-entry: 280ms; /* tab indicator, checkmark draw, sheet rise */
+  --motion-fast: var(--motion-micro);
+  --ease-standard: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --motion-micro: 0ms;
+    --motion-state: 0ms;
+    --motion-entry: 0ms;
     --motion-fast: 0ms;
   }
+}
+
+/*
+ * Type (UI_DESIGN.md §13) — self-hosted, latin-only subset woff2 extracted
+ * from @fontsource-variable/{fraunces,archivo}'s pre-split "latin" chunk
+ * (the smallest of that package's unicode-range chunks; latin-ext and
+ * vietnamese chunks are NOT shipped — see public/fonts/ and the WP-15b
+ * handover report for the exact byte counts). No Google Fonts <link>: a CDN
+ * stylesheet is a third-party request that fails offline, which this PWA
+ * must not depend on. Both are variable fonts (one file covers the whole
+ * weight range 100–900), and Fraunces additionally varies by optical size
+ * (`font-optical-sizing: auto`, on by default, tracks font-size).
+ */
+@font-face {
+  font-family: "Fraunces Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/fraunces-latin-opsz.woff2") format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/archivo-latin-wght.woff2") format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /* Visually-hidden but screen-reader-accessible text (table captions,
