@@ -1,14 +1,13 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import type { DataWarning } from "../../../domain/contracts.ts";
 import { ToastContext, type ToastContextValue } from "./ToastContext.ts";
-import { toastFromDataWarning, type ToastInput, type ToastRecord } from "./types.ts";
+import type { ToastInput, ToastRecord } from "./types.ts";
 
 export interface ToastProviderProps {
   readonly children: ReactNode;
 }
 
 /**
- * Mount once near the root (see `App.tsx`) — above the router, so a toast
+ * Mount once near the root (see `main.tsx`) — above the router, so a toast
  * fired from any route survives navigation. `ToastViewport` (rendered by
  * `AppShell`) is the only consumer that renders the list; everything else
  * only ever calls `useToast()`.
@@ -40,14 +39,9 @@ export function ToastProvider({ children }: ToastProviderProps) {
     [dismissToast],
   );
 
-  const showWarning = useCallback(
-    (warning: DataWarning): string => showToast(toastFromDataWarning(warning)),
-    [showToast],
-  );
-
   const value = useMemo<ToastContextValue>(
-    () => ({ toasts, showToast, showWarning, dismissToast }),
-    [toasts, showToast, showWarning, dismissToast],
+    () => ({ toasts, showToast, dismissToast }),
+    [toasts, showToast, dismissToast],
   );
 
   return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;

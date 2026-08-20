@@ -22,6 +22,34 @@
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#1c9b5e" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16171d" />
 
+    <!-- ── Theme pre-paint (UI_DESIGN.md §2) ─────────────────────────────────
+         Synchronous, BLOCKING, inline — not a module, not deferred. A module
+         import (src/main.tsx) runs after the browser has already painted the
+         initial frame, so setting data-theme there would flash the wrong
+         theme on every cold load where the explicit choice disagrees with
+         the OS (e.g. "Light" chosen on a dark-mode phone). This script must
+         run before src/index.css's guarded dark block
+         (`:root:not([data-theme="light"])`) is evaluated for first paint.
+         src/ui/theme/ThemeProvider.tsx keeps data-theme and --accent-hue in
+         sync after hydration and reacts to system-preference changes while
+         mode is "system"; this script only has to get the FIRST paint right. -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem("feeder:theme");
+          var theme = raw ? JSON.parse(raw) : null;
+          var mode = theme && theme.mode;
+          if (mode === "light" || mode === "dark") {
+            document.documentElement.setAttribute("data-theme", mode);
+          }
+          var hue = theme && typeof theme.hue === "number" ? theme.hue : 156;
+          document.documentElement.style.setProperty("--accent-hue", String(hue));
+        } catch (e) {
+          /* localStorage unavailable (private mode, disabled) — fall back to system/default. */
+        }
+      })();
+    </script>
+
     <!-- ── Icons ──────────────────────────────────────────────────────────────
          Three formats because three consumers disagree:
          - SVG: modern browsers, scales to any tab/bookmark size.

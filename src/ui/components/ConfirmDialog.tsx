@@ -1,5 +1,6 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import "./ConfirmDialog.css";
+import { useId, useRef, type ReactNode } from "react";
+import { DismissButton, FocusScope, useDialog, useOverlay, usePreventScroll } from "react-aria";
+import styles from "./ConfirmDialog.module.css";
 
 export interface ConfirmDialogProps {
   readonly open: boolean;
@@ -14,14 +15,22 @@ export interface ConfirmDialogProps {
 }
 
 /**
- * Confirm/cancel dialog built on the native `<dialog>` element: `showModal()`
- * gives focus trapping, Escape-to-cancel, and a backdrop for free, so this
- * component does not hand-roll any of that a11y-sensitive behavior. Used for
- * WP-22's mark-cooked confirm/tweak screen and any other destructive or
- * confirm-before-you-commit action.
+ * Confirm/cancel dialog built on `useDialog` + `useOverlay` (react-aria) —
+ * UI_DESIGN.md §5 lists `window.confirm`/`alert` among the banned native
+ * controls. `FocusScope` (`contain`) traps focus, `useOverlay`'s
+ * `isDismissable` closes on outside press or Escape, and `usePreventScroll`
+ * locks background scrolling while open — the same guarantees the earlier
+ * native-`<dialog>` implementation got for free, reproduced explicitly so
+ * the markup and styling stay entirely ours. Used for WP-22's mark-cooked
+ * confirm/tweak screen and any other destructive or confirm-before-you-
+ * commit action.
  */
-export function ConfirmDialog({
-  open,
+export function ConfirmDialog(props: ConfirmDialogProps) {
+  if (!props.open) return null;
+  return <ConfirmDialogContent {...props} />;
+}
+
+function ConfirmDialogContent({
   title,
   description,
   confirmLabel = "Confirm",
@@ -29,68 +38,47 @@ export function ConfirmDialog({
   destructive = false,
   onConfirm,
   onCancel,
-}: ConfirmDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    // Feature-detect showModal/close rather than assuming they exist: every
-    // evergreen browser (and Playwright's Chromium, which is what the
-    // mandatory a11y/E2E checks run against) has full <dialog> support, but
-    // jsdom (used for component tests) does not implement showModal/close
-    // as of this writing — fall back to toggling the `open` attribute,
-    // which jsdom does reflect, so component tests can still render and
-    // interact with this component.
-    if (open && !dialog.open) {
-      if (typeof dialog.showModal === "function") {
-        dialog.showModal();
-      } else {
-        dialog.setAttribute("open", "");
-      }
-    } else if (!open && dialog.open) {
-      if (typeof dialog.close === "function") {
-        dialog.close();
-      } else {
-        dialog.removeAttribute("open");
-      }
-    }
-  }, [open]);
+}: Omit<ConfirmDialogProps, "open">) {
+  const ref = useRef<HTMLDivElement>(null);
+  const descriptionId = useId();
+  usePreventScroll();
+  const { overlayProps } = useOverlay({ isOpen: true, onClose: onCancel, isDismissable: true }, ref);
+  // useDialog doesn't infer aria-describedby from a separately-rendered
+  // description element — it has to be supplied explicitly, matching the id
+  // put on that element below.
+  const { dialogProps, titleProps } = useDialog(
+    description !== undefined ? { "aria-describedby": descriptionId } : {},
+    ref,
+  );
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="confirm-dialog"
-      aria-labelledby="confirm-dialog-title"
-      aria-describedby={description ? "confirm-dialog-description" : undefined}
-      onCancel={(event) => {
-        // Escape key fires the native "cancel" event; prevent the dialog's
-        // own close so this stays a controlled component driven by `open`,
-        // and let the caller decide (onCancel) whether to flip it off.
-        event.preventDefault();
-        onCancel();
-      }}
-    >
-      <h2 id="confirm-dialog-title" className="confirm-dialog__title">
-        {title}
-      </h2>
-      {description ? (
-        <div id="confirm-dialog-description" className="confirm-dialog__description">
-          {description}
+    <div className={styles.underlay}>
+      <FocusScope contain restoreFocus autoFocus>
+        <div {...overlayProps} {...dialogProps} ref={ref} className={styles.dialog}>
+          <DismissButton onDismiss={onCancel} />
+          <h2 {...titleProps} className={styles.title}>
+            {title}
+          </h2>
+          {description ? (
+            <div id={descriptionId} className={styles.description}>
+              {description}
+            </div>
+          ) : null}
+          <div className={styles.actions}>
+            <button type="button" className={styles.cancel} onClick={onCancel}>
+              {cancelLabel}
+            </button>
+            <button
+              type="button"
+              className={`${styles.confirm}${destructive ? ` ${styles.confirmDestructive}` : ""}`}
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </button>
+          </div>
+          <DismissButton onDismiss={onCancel} />
         </div>
-      ) : null}
-      <div className="confirm-dialog__actions">
-        <button type="button" className="confirm-dialog__cancel" onClick={onCancel}>
-          {cancelLabel}
-        </button>
-        <button
-          type="button"
-          className={`confirm-dialog__confirm${destructive ? " confirm-dialog__confirm--destructive" : ""}`}
-          onClick={onConfirm}
-        >
-          {confirmLabel}
-        </button>
-      </div>
-    </dialog>
+      </FocusScope>
+    </div>
   );
 }

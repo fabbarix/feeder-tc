@@ -1,0 +1,71 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-target);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.leading {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.primary {
+  color: var(--text-h);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.secondary {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.trailing {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Failure is the ONLY case that earns a warning colour on a row
+   (UI_DESIGN.md §8) — pending sync is deliberately unmarked here. */
+.failedNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: none;
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: var(--space-1);
+}
+
+.failed .primary {
+  color: var(--danger);
+}

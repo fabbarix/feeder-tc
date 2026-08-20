@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import "./EntityTable.css";
+import styles from "./EntityTable.module.css";
 
 export interface EntityTableColumn<T> {
   readonly key: string;
@@ -19,12 +19,17 @@ export interface EntityTableProps<T> {
 }
 
 /**
- * Generic list/browse table for any entity (ingredients, recipes, pantry
- * lots, shopping items, …) — WP-20…WP-23 supply columns/rows for their own
- * entity type. Renders semantic `<table>` markup for screen readers at every
- * viewport; on narrow viewports CSS re-flows each row into a labeled card
- * (see `EntityTable.css`) rather than switching DOM structure, so the
- * accessible structure never changes with viewport width.
+ * The ≥768px tabular case ONLY (UI_DESIGN.md §6) — retained where columns
+ * genuinely mean something on a wide screen (ingredients, recipes, pantry
+ * lots, shopping items). Below 768px this component renders nothing; the
+ * caller is responsible for rendering `ListRow`/`ListSection`/`CheckRow`
+ * for the mobile case instead, because CSS-reflowing a `<table>`'s rows
+ * into cards (as the previous implementation did) changes `display` on
+ * `<tr>`/`<td>` and drops their implicit ARIA table semantics in several
+ * browsers — a reflowed table has the accessibility of a stack of `<div>`s
+ * while still looking like it should announce as a table. Hiding the whole
+ * table with `display: none` below the breakpoint has no such problem: a
+ * hidden element is equally absent from the accessibility tree either way.
  */
 export function EntityTable<T>({
   caption,
@@ -36,19 +41,19 @@ export function EntityTable<T>({
 }: EntityTableProps<T>) {
   if (rows.length === 0) {
     return (
-      <div className="entity-table entity-table--empty">
+      <div className={styles.empty}>
         <p>{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <table className="entity-table">
-      <caption className={hideCaption ? "visually-hidden" : undefined}>{caption}</caption>
+    <table className={styles.table}>
+      <caption className={hideCaption ? "visually-hidden" : styles.caption}>{caption}</caption>
       <thead>
         <tr>
           {columns.map((column) => (
-            <th key={column.key} scope="col" className={`entity-table__align-${column.align ?? "start"}`}>
+            <th key={column.key} scope="col" className={column.align === "end" ? styles.alignEnd : undefined}>
               {column.header}
             </th>
           ))}
@@ -58,7 +63,7 @@ export function EntityTable<T>({
         {rows.map((row) => (
           <tr key={getRowKey(row)}>
             {columns.map((column) => (
-              <td key={column.key} data-label={column.header} className={`entity-table__align-${column.align ?? "start"}`}>
+              <td key={column.key} className={column.align === "end" ? styles.alignEnd : undefined}>
                 {column.render(row)}
               </td>
             ))}

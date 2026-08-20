@@ -1,0 +1,64 @@
+.group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: calc(var(--touch-target) - 8px);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) ease-in-out,
+    color var(--motion-fast) ease-in-out;
+}
+
+.segmentSelected {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.segmentDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
+ * The native input carries the real accessibility semantics (useRadio wires
+ * role/checked/focus onto it). Visually invisible (`opacity: 0`), NOT
+ * clip-rect-hidden: it's sized to cover the whole `.segment` so a click
+ * anywhere on the visible label — including on the icon/text `<span>`
+ * stacked on top of it — lands on the input itself rather than being
+ * intercepted by that sibling. A clip-rect/1px "visually-hidden" input would
+ * still work for a real mouse (native <label>-for-<input> click delegation
+ * doesn't care where the input renders) but breaks Playwright's
+ * coordinate-based `.click()`, which targets the input's own (now
+ * zero-size/clipped) box directly.
+ */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segment:has(.input:focus-visible) {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}

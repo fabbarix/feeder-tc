@@ -1,9 +1,15 @@
 import { expect, test } from "@playwright/test";
+import { enterReadyShell } from "./support/shell.ts";
 
 // WP-15 success criterion: "All routes render stubs; navigation E2E test
 // passes on mobile viewport." This spec runs under every configured
 // Playwright project (see playwright.config.ts) — including `mobile-chrome`
 // (Pixel 7) — so it is the mobile-viewport navigation test.
+//
+// UI_DESIGN.md §12 (added mid-WP-15b): every route is now gated behind
+// AppShell's signed-out → no-workbook → ready states, so each test first
+// walks through the (locally-demoed, no real Google call) sign-in +
+// create-workbook flow via enterReadyShell() before exercising nav.
 //
 // Paths are RELATIVE ("recipes", not "/recipes") per TESTING.md: a leading
 // slash resolves against the origin and drops the base path.
@@ -17,7 +23,7 @@ const ROUTES: ReadonlyArray<{ path: string; navLabel: string; heading: string }>
 ];
 
 test("navigates to every section via the primary nav and back to home", async ({ page }) => {
-  await page.goto("");
+  await enterReadyShell(page);
   await expect(page.getByRole("heading", { name: "Feeder" })).toBeVisible();
 
   for (const route of ROUTES.filter((r) => r.path !== "")) {
@@ -32,7 +38,8 @@ test("navigates to every section via the primary nav and back to home", async ({
   await expect(page.getByRole("heading", { name: "Feeder" })).toBeVisible();
 });
 
-test("every route is reachable by a cold deep link", async ({ page }) => {
+test("every route is reachable by a (now-ready) deep link", async ({ page }) => {
+  await enterReadyShell(page);
   for (const route of ROUTES) {
     await page.goto(route.path);
     await expect(page.getByRole("heading", { name: route.heading })).toBeVisible();
@@ -40,7 +47,7 @@ test("every route is reachable by a cold deep link", async ({ page }) => {
 });
 
 test("primary nav items meet the minimum touch target size", async ({ page }) => {
-  await page.goto("");
+  await enterReadyShell(page);
   const nav = page.getByRole("navigation", { name: "Primary" });
   const links = nav.getByRole("link");
   // locator.count() does not auto-wait like other Playwright assertions, so
@@ -58,8 +65,26 @@ test("primary nav items meet the minimum touch target size", async ({ page }) =>
 });
 
 test("skip link moves focus to the main content landmark", async ({ page }) => {
-  await page.goto("");
+  await enterReadyShell(page);
   await page.getByRole("link", { name: "Skip to content" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
+});
+
+// UI_DESIGN.md §13 "Desktop": the merged shell's bug was DOM ordering, not
+// CSS — nav was already `position: static` at >=768px, but rendered AFTER a
+// full-height <main>, so it fell to the bottom of the page instead of
+// sitting under the header. Assert the fix directly: nav precedes main in
+// the DOM (this is what actually controls visual order once nav is no
+// longer taken out of flow by `position: fixed`).
+test("primary nav precedes main content in the DOM (desktop layout order)", async ({ page }) => {
+  await enterReadyShell(page);
+  const order = await page.evaluate(() => {
+    const nav = document.querySelector('nav[aria-label="Primary"]');
+    const main = document.querySelector("main");
+    if (!nav || !main) return "missing";
+    // DOCUMENT_POSITION_FOLLOWING (4) on `main` relative to `nav` means nav comes first.
+    return (nav.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0 ? "nav-first" : "main-first";
+  });
+  expect(order).toBe("nav-first");
 });
