@@ -80,8 +80,13 @@ describeFeature(feature, ({ Scenario }) => {
       // Every sheet DESIGN.md §3 names, with its header row actually
       // written — matches the feature file's table
       // (Meta/Settings/Ingredients/Recipes/RecipeIngredients/RecipeSteps/
-      // PlanSlots/InventoryEvents/ShoppingItems) verbatim.
-      expect([...WORKBOOK_SHEET_NAMES]).toEqual([
+      // PlanSlots/InventoryEvents/ShoppingItems) verbatim, kept as a
+      // leading-slice check (rather than exact-equals) so the Gherkin table
+      // above stays byte-for-byte what WP-11 wrote, even though
+      // WORKBOOK_SHEET_NAMES itself has since grown by three more sheets
+      // (M6-A — DESIGN_PRODUCTS.md §2: Products/ProductPhotos/
+      // PriceObservations), asserted separately right below.
+      expect([...WORKBOOK_SHEET_NAMES].slice(0, 9)).toEqual([
         "Meta",
         "Settings",
         "Ingredients",
@@ -92,6 +97,9 @@ describeFeature(feature, ({ Scenario }) => {
         "InventoryEvents",
         "ShoppingItems",
       ]);
+      // M6-A addition (DESIGN_PRODUCTS.md §2) — also bootstrapped, with a
+      // header row, on every fresh workbook from here on.
+      expect([...WORKBOOK_SHEET_NAMES].slice(9)).toEqual(["Products", "ProductPhotos", "PriceObservations"]);
       for (const sheet of WORKBOOK_SHEET_NAMES) {
         const row = await transport.readRange(`${sheet}!A1:Z1`);
         expect(row[0]).toEqual(WORKBOOK_HEADERS[sheet]);

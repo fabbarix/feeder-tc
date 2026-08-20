@@ -180,8 +180,14 @@ Each milestone is independently usable and builds strictly on the previous one.
 
 ## 6. Explicit non-goals (v1)
 
-- No unit conversion (one canonical unit per ingredient; piece-weight conversion is
-  a possible v2).
+- No unit conversion in any engine, codec, fold, or sheet (one canonical unit
+  per ingredient). **Amended by `DESIGN_PRODUCTS.md` §3 (owner-approved,
+  2026-08-20):** the product editor alone may convert a human-entered
+  amount+unit into an ingredient's canonical unit, once, at entry time —
+  see `HANDOVER.md` §4 invariant 3 and `src/domain/units.ts`.
 - No per-user vote aggregation (household-level flag only).
-- No nutrition, cost tracking, or recipe import/scraping.
+- No nutrition or recipe import/scraping. **Cost tracking is no longer a
+  non-goal** — `DESIGN_PRODUCTS.md` §4 (owner-approved, 2026-08-20) brings
+  price capture and price history into scope as part of M6, with a single
+  household currency held in `Settings`.
 - No Apps Script; no server-side components of any kind.

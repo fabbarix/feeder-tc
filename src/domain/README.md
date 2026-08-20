@@ -11,6 +11,8 @@ adapters, and (once WP-12/13/14 land) the inventory/planner/shopping engines.
 | `contracts.ts` | The six interfaces every implementation and fake conforms to: `SheetsTransport`, `WorkbookStore`, `SnapshotStore`, `Outbox`, `Clock`, `Rng`; plus the shared `DataWarning` / `DecodeResult<T>` / `SyncOutcome` result types. |
 | `dates.ts` | Pure `IsoDate` math: `addDays`, `compareIsoDate`, `isBefore`, `isOnOrAfter`, `today(clock)`. |
 | `quantity.ts` | Non-converting `Quantity` helpers: `sameUnit`, `assertSameUnit`, `isZero`, `formatQuantity`. No arithmetic, no conversion — see the file header. |
+| `units.ts` | **The one sanctioned exception to invariant 3** (M6-A — DESIGN_PRODUCTS.md §3): entry-time-only conversion from a human-entered amount+unit to an ingredient's canonical `Unit`, used solely by the product editor. No engine or codec may import it — see the file header and `eslint.config.js`'s `no-restricted-imports` rule, which enforces that at lint time. |
+| `price-normalization.ts` | Pure helper (M6-A) normalising a `PriceObservation` to price-per-100g / per-100ml / per-piece so a 500 g pack and a 1 kg pack are comparable. Not a unit conversion — it never changes `quantity.unit`. |
 | `ids.ts` | Client-side id minting (`new*Id(rng)`) built on the injected `Rng`. |
 | `clock.ts`, `rng.ts` | The real `Clock`/`Rng` implementations (`systemClock`, `createSeededRng`) — the only two places in this directory allowed to touch the wall clock / a PRNG seed. |
 | `fakes/` | In-memory implementations of all six contracts, plus fake `Clock`/`Rng`, exported from `fakes/index.ts`. |
@@ -50,6 +52,25 @@ treat a breaking change to their exported signatures with the same caution.
   otherwise, rather than an object literal. This stays a sixth event type
   reusing `adjust`, not a new seventh kind, per DESIGN.md/WP-02 fixing the
   union at six.
+
+**M6-A contract change (dedicated, coordinator-approved, per DESIGN_PRODUCTS.md), additive-only, both files:**
+
+- `types.ts`: new `Product`, `ProductPhoto`, `PriceObservation` entities;
+  new branded `Barcode`/`PriceObservationId` ids; new `EntryUnit` type
+  (distinct from `Unit` — `Unit` is untouched); `WorkbookSheetName` gained
+  `"Products" | "ProductPhotos" | "PriceObservations"`; `Settings` gained an
+  **optional** `currency?: string` field (defaults to `"$"` — see
+  `DEFAULT_SETTINGS` and `decodeSettings`) so every pre-existing `Settings`
+  object literal across the codebase still type-checks unchanged.
+- `contracts.ts`: `WorkbookStore` gained `products` (readAll/upsert),
+  `productPhotos` (read-one-by-barcode/upsert — deliberately **no**
+  `readAll`, see `ProductPhoto`'s doc comment in `types.ts`), and
+  `priceObservations` (readAll/append — append-only, like
+  `inventoryEvents`).
+- Nothing existing was renamed, removed, or reshaped. `HANDOVER.md` §4
+  invariant 3 is amended in scope, not reversed: entry-time conversion is
+  now a documented exception, confined to `src/domain/units.ts` and the
+  (future, out of scope for M6-A) product editor that calls it.
 
 ## The purity rule
 

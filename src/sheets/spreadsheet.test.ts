@@ -29,7 +29,7 @@ beforeEach(() => {
 });
 
 describe("createSpreadsheet", () => {
-  it("POSTs to the bare spreadsheets endpoint with the title and all nine sheet tabs", async () => {
+  it("POSTs to the bare spreadsheets endpoint with the title and all twelve sheet tabs", async () => {
     const { fetchImpl, requests } = scriptedFetch([
       () => jsonResponse({ spreadsheetId: "sheet-xyz", properties: { title: "Our Meal Planner" } }),
     ]);
@@ -57,6 +57,9 @@ describe("createSpreadsheet", () => {
       "PlanSlots",
       "InventoryEvents",
       "ShoppingItems",
+      "Products",
+      "ProductPhotos",
+      "PriceObservations",
     ]);
   });
 
