@@ -9,12 +9,21 @@
  * boundary and may import this directly.
  */
 import { createContext, useContext } from "react";
-import type { Clock, Rng, WorkbookStore } from "./domain/index.ts";
+import type { Clock, Outbox, Rng, WorkbookStore } from "./domain/index.ts";
 
 export interface WorkbookContextValue {
   readonly store: WorkbookStore;
   readonly clock: Clock;
   readonly rng: Rng;
+  /**
+   * The active workbook's write outbox (WP-17/invariant 9) — a route that
+   * checks something off enqueues a `PurchaseEvent` here (e.g. via
+   * `checkOffShoppingItem` from `src/domain`), never appends to
+   * `InventoryEvents` directly and never rolls its own sync. `App.tsx` wraps
+   * the raw `Outbox` so every enqueue/acknowledge/clear also refreshes the
+   * pending count `AppShell`'s banner reads — see `ShellContainer`.
+   */
+  readonly outbox: Outbox;
 }
 
 export const WorkbookContext = createContext<WorkbookContextValue | undefined>(undefined);

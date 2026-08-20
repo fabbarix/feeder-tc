@@ -4,6 +4,7 @@ import { DismissButton, FocusScope, useButton, useOverlay } from "react-aria";
 import { AuthStatusSlot } from "./slots/AuthStatusSlot.tsx";
 import { WorkbookSwitcherSlot } from "./slots/WorkbookSwitcherSlot.tsx";
 import { ToastViewport } from "./components/Toast/ToastViewport.tsx";
+import { UpdatePrompt } from "./components/UpdatePrompt.tsx";
 import { Mark } from "./Mark.tsx";
 import {
   BookOpen,
@@ -76,6 +77,15 @@ export interface AppShellProps {
   /** Sync state (UI_DESIGN.md §8) — read by the container and passed down as props; AppShell never imports the Outbox. */
   readonly offline?: boolean;
   readonly pendingCount?: number;
+  /**
+   * WP-24 service-worker update seam (`src/pwa/update.ts`) — again read by
+   * the container and passed down as props/callbacks; AppShell never imports
+   * `src/pwa` itself (UI_DESIGN.md §7). `onApplyUpdate` must only ever be
+   * wired to a call to `applyUpdate()` triggered by this prompt's own
+   * button, never automatically — see `UpdatePrompt`'s doc comment.
+   */
+  readonly updateAvailable?: boolean;
+  readonly onApplyUpdate?: () => void;
   /** Overrides the default auth-status rendering entirely (rare — most callers let AppShell derive it from `state.user`). */
   readonly authStatusSlot?: ReactNode;
   /** Overrides the default workbook-switcher rendering entirely (rare — most callers let AppShell derive it from `state.workbookName`). */
@@ -100,6 +110,8 @@ export function AppShell({
   onPickWorkbook,
   offline = false,
   pendingCount = 0,
+  updateAvailable = false,
+  onApplyUpdate,
   authStatusSlot,
   workbookSwitcherSlot,
 }: AppShellProps) {
@@ -190,6 +202,14 @@ export function AppShell({
           {renderGate(state, { onSignIn, onCreateWorkbook, onPickWorkbook })}
         </div>
       </main>
+
+      {/*
+       * Not gated on ShellState (unlike the sync banner above): a stale
+       * build can sit waiting behind ANY screen, including signed-out —
+       * nothing about "a new deploy exists" depends on being signed in or
+       * having a workbook open, so the prompt must be reachable there too.
+       */}
+      {updateAvailable && onApplyUpdate ? <UpdatePrompt onReload={onApplyUpdate} /> : null}
 
       <ToastViewport />
     </div>

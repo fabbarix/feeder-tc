@@ -48,3 +48,6 @@ export type { FreshnessMeterProps } from "./FreshnessMeter.tsx";
 
 export { ToastProvider, ToastViewport, useToast } from "./Toast/index.ts";
 export type { ToastVariant, ToastInput, ToastRecord, ToastContextValue } from "./Toast/index.ts";
+
+export { UpdatePrompt } from "./UpdatePrompt.tsx";
+export type { UpdatePromptProps } from "./UpdatePrompt.tsx";
