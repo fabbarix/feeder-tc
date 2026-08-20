@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Feeder">
+  <title>Feeder</title>
+  <!--
+    Master mark. A bowl with a sprig above it: food + fresh, in one silhouette
+    that still reads at 16px because it is three bold shapes and nothing else.
+
+    Deliberately no gradients, filters, masks or strokes — only filled paths.
+    Strokes scale badly at favicon sizes (a 1px stroke at 512 becomes invisible
+    at 16), and filters rasterise inconsistently across renderers.
+
+    The brand green is the DEFAULT accent hue. The in-app accent is user-chosen
+    (UI_DESIGN.md §3), but an installed icon and the manifest theme_color are
+    baked at build time and cannot follow it — see UI_DESIGN.md §11.
+  -->
+  <rect width="64" height="64" rx="14" fill="#1c9b5e"/>
+  <!-- sprig: tilted deliberately. Vertically symmetric above the bowl it
+       reads as a flame (an oil lamp), not a leaf. The tilt is what makes it
+       food. Rotation is about the leaf tip so it stays anchored on the rim. -->
+  <g transform="rotate(24 32 26.5)"><path d="M32 7 C38.5 13.5 38.5 20.5 32 26.5 C25.5 20.5 25.5 13.5 32 7 Z" fill="#ffffff"/></g>
+  <!-- bowl rim -->
+  <rect x="8.5" y="29" width="47" height="6" rx="3" fill="#ffffff"/>
+  <!-- bowl -->
+  <path d="M13 37 C13 47.5 21.5 56 32 56 C42.5 56 51 47.5 51 37 Z" fill="#ffffff"/>
+</svg>

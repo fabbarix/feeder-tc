@@ -245,3 +245,72 @@ barrel can slow Vite's dev pre-bundling.
   invent four visual languages. `WP-31` requires empty-state polish.
 - **Scale**: existing `--space-1..6`, `--touch-target: 48px`, one fluid type scale, no
   separate density mode.
+
+## 11. App identity, icons and install metadata
+
+Sources of truth (`scripts/generate-icons.sh` regenerates every raster from them):
+
+| File | Role |
+|---|---|
+| `public/logo.svg` | Master mark, **and** the served SVG favicon |
+| `assets/logo/logo-maskable.svg` | Android maskable source — full bleed, glyph at 62% |
+| `assets/logo/logo-apple.svg` | iOS source — full bleed, opaque, glyph at 78% |
+
+The PNGs are **committed**, not built on the fly: the build must not depend on
+ImageMagick being installed. Rerun the script and commit the output when a logo
+changes.
+
+### The mark
+
+A bowl with a tilted sprig. Three filled shapes, no strokes, gradients, filters
+or masks — strokes vanish at favicon sizes and filters rasterise inconsistently.
+**The sprig's tilt is load-bearing**: vertically symmetric above the bowl it reads
+as a flame (an oil lamp), not a leaf.
+
+### Why three variants and not one
+
+- **Android maskable**: the OS crops to a device-chosen shape (circle, squircle,
+  teardrop). Only the inner 80% is guaranteed. The rounded-tile master would have
+  its bowl rim clipped on a circular mask, so the maskable variant is full-bleed
+  with a smaller glyph.
+- **iOS**: ignores the manifest's icons entirely and reads only
+  `<link rel="apple-touch-icon">`. It applies its **own** squircle mask, so
+  shipping pre-rounded corners rounds them twice and leaves pale slivers. It also
+  composites over **black**, so the icon must be fully opaque — the generator
+  strips the alpha channel rather than trusting the source.
+
+### Generated set
+
+`favicon.ico` (16/32/48 multi-res), `favicon-96.png`, `icon-192.png`,
+`icon-512.png`, `icon-maskable-192.png`, `icon-maskable-512.png`,
+`apple-touch-icon.png` (180).
+
+### Manifest and head tags
+
+`public/manifest.webmanifest`: `display: standalone`, `start_url`/`scope` `/`
+(the app is at a domain root since the custom-domain cutover), plus **shortcuts**
+to Shopping, Plan and Pantry for long-press on the home-screen icon.
+
+`index.html` carries what the manifest cannot: the iOS meta tags, the multi-format
+icon links, `color-scheme`, and `viewport-fit=cover`.
+
+**`viewport-fit=cover` is required** for `env(safe-area-inset-*)` to resolve on
+notched iPhones. The bottom tab bar (§6) **must** pad itself with
+`env(safe-area-inset-bottom)` or it sits under the home indicator.
+
+`apple-mobile-web-app-status-bar-style` is `default` (content below the status
+bar). `black-translucent` looks better but requires every top-edge element to
+honour `env(safe-area-inset-top)`, and looks broken if one screen forgets.
+
+### theme_color vs. the user's accent
+
+The manifest's `theme_color` and the installed icon are **baked at build time and
+cannot follow the user's chosen hue** (§3). So:
+
+- The icon and `theme_color` use the **default brand green** `#1c9b5e`.
+- `index.html` ships light/dark `<meta name="theme-color">` defaults, and the
+  theme provider **rewrites that meta tag at runtime** to track the chosen accent.
+  Browser UI then follows the accent even though the installed icon cannot.
+- `background_color` (the splash) is `#ffffff` to match the default light theme —
+  a manifest has no dark variant, so dark-mode users get one light splash frame.
+  Deliberate: green-on-green would hide the icon's own tile.

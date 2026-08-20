@@ -2,9 +2,53 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- viewport-fit=cover is required for env(safe-area-inset-*) to resolve to
+         real values on notched iPhones. The bottom tab bar must pad itself with
+         env(safe-area-inset-bottom) or it sits under the home indicator. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
     <title>Feeder</title>
+    <meta name="description" content="Plan your household's meals, track what's in the pantry, and shop for only what you actually need." />
+    <meta name="application-name" content="Feeder" />
+
+    <!-- Tells the browser both themes are supported, so form controls, scrollbars
+         and the canvas are painted for the active one instead of defaulting light. -->
+    <meta name="color-scheme" content="light dark" />
+
+    <!-- Browser UI colour. Static in the document; UI_DESIGN.md §3 makes the accent
+         user-selectable, so the theme provider rewrites this at runtime to follow the
+         chosen hue. These two are the pre-JS defaults. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#1c9b5e" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16171d" />
+
+    <!-- ── Icons ──────────────────────────────────────────────────────────────
+         Three formats because three consumers disagree:
+         - SVG: modern browsers, scales to any tab/bookmark size.
+         - .ico: bookmark bars and anything ignoring the SVG. Multi-res 16/32/48.
+         - apple-touch-icon: iOS ignores the manifest's icons entirely and reads
+           only this. 180x180, opaque (iOS composites over black).
+         Android/Chrome take their install icons from the manifest, not from here. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- ── iOS standalone behaviour ───────────────────────────────────────────
+         iOS predates the manifest and still needs its own meta tags to launch
+         chromeless from the home screen.
+         `mobile-web-app-capable` is the standardised name; the apple- prefixed
+         one is kept because older iOS reads only that.
+         status-bar-style "default" = dark text on a light bar, content below it.
+         "black-translucent" would let content run under the status bar and needs
+         every top-edge element to honour env(safe-area-inset-top) — worth doing
+         later, but it looks broken if any one screen forgets. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <!-- Home-screen label. Without it iOS uses <title>, which may be a route name. -->
+    <meta name="apple-mobile-web-app-title" content="Feeder" />
   </head>
   <body>
     <div id="root"></div>
