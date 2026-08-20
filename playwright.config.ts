@@ -1,9 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
 // The dev server (not `vite preview`) is used for speed: it applies the same
-// `base: "/feeder-tc/"` config as production, so base-path + hash-routing
-// behavior is exercised without a build step in the loop. Production build
-// correctness is covered separately by `npm run build` in CI.
+// `base` config as production, so base-path + routing behaviour is exercised
+// without a build step in the loop. Production build correctness is covered
+// separately by `npm run build` in CI.
 //
 // VITE_ENABLE_MOCKS=true starts the msw browser worker (src/mocks/browser.ts)
 // so E2E never calls a real Google API — see TESTING.md.
@@ -16,7 +16,11 @@ import { defineConfig, devices } from "@playwright/test";
 // or with an unrelated project's, which is exactly how a green E2E run can end
 // up testing someone else's app. Override with E2E_PORT if 5273 is also taken.
 const PORT = Number(process.env.E2E_PORT) || 5273;
-const BASE_URL = `http://localhost:${PORT}/feeder-tc/`;
+// Mirrors vite.config.ts's `base` ("/" since the custom-domain cutover). Keep
+// the trailing slash: specs pass RELATIVE paths to goto() so they resolve
+// against this, and a missing trailing slash would silently drop the last
+// segment if a base path is ever reintroduced.
+const BASE_URL = `http://localhost:${PORT}/`;
 
 export default defineConfig({
   testDir: "./e2e",

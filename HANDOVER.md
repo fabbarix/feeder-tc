@@ -128,12 +128,24 @@ Provisioning is done; nothing in this section needs re-doing. Current state:
   Picker APIs enabled. No billing attached (none needed).
 - OAuth consent screen published (External, Production, `drive.file` only);
   Web client ID `360506420836-tge9cu5lfhf4m3kufl4ist91tri8o9r4.apps.googleusercontent.com`
-  with JS origins `http://localhost:5173` and `https://fabbarix.github.io`.
+  with JS origins `http://localhost:5173`, `https://fabbarix.github.io` and
+  `https://feeder.torchetti.us` (the last added by the owner at the
+  custom-domain cutover, 2026-08-20).
 - Picker API key created, referrer-restricted to those origins and
-  API-target-restricted to Picker.
+  API-target-restricted to Picker. **The key initialises the Picker only — it
+  must never be attached to a Sheets or Drive REST call, which authenticate
+  with the user's OAuth bearer token alone.**
 - GitHub repo **`fabbarix/feeder-tc`** (public), Pages enabled with Actions
-  build source; site URL `https://fabbarix.github.io/feeder-tc/`
-  (Vite base path must be `/feeder-tc/`).
+  build source.
+- **Site URL: `https://feeder.torchetti.us` (custom domain, live 2026-08-20).**
+  Vite base path is **`/`**. `https://fabbarix.github.io/feeder-tc/` now
+  redirects here. DNS is `CNAME feeder.torchetti.us → fabbarix.github.io` at
+  GoDaddy.
+  - Note for anyone debugging from the owner's LAN: a local resolver there
+    wildcards `torchetti.us` to `192.168.5.1`, so the site can appear broken
+    on that network while being fine everywhere else. Verify with DNS-over-
+    HTTPS (`curl 'https://dns.google/resolve?name=feeder.torchetti.us&type=A'`),
+    not `dig` — port-53 queries are intercepted there.
 - Actions variables `VITE_GOOGLE_CLIENT_ID` and `VITE_GOOGLE_API_KEY` are set
   on the repo; the same values live in the local (gitignored) `.env.local`.
 - Local repo initialized on `main` with `origin` → the GitHub repo.
