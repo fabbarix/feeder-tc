@@ -1,14 +1,70 @@
+/*
+ * Design tokens (WP-15). CSS custom properties, token-driven, consumed by
+ * the app shell and every component in the kit (src/ui/components) — a
+ * feature package (WP-20…WP-23) styles new UI by reading these `var(--*)`
+ * names, not by hard-coding colors/spacing. Two states only:
+ *   - light values live on bare `:root` (the default);
+ *   - dark values are redeclared under `prefers-color-scheme: dark` — there
+ *     is no in-app theme toggle (WP-15 scope is "light/dark" following the
+ *     OS, not a switcher), so `color-scheme: light dark` plus this media
+ *     query is the whole mechanism.
+ */
 :root {
   --text: #6b6375;
   --text-h: #08060d;
+  /* #5c5566, not the lighter #8b8593 the WP-01 scaffold shipped: axe's
+     color-contrast rule (WCAG 1.4.3, 4.5:1) failed at small nav-label sizes
+     with the lighter value — see e2e/wp-15-a11y.spec.ts. */
+  --text-muted: #5c5566;
   --bg: #fff;
+  --surface: #fff;
+  --surface-raised: #f8f7fb;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
+  /* #9333ea, not the WP-01 scaffold's #aa3bff: that value was 4.39:1 against
+     white (needs 4.5:1) both as button text-on-fill and as the active nav
+     link's text color — same axe failure as --text-muted above. */
+  --accent: #9333ea;
+  --accent-text: #fff;
+  --accent-bg: rgba(147, 51, 234, 0.1);
+  --accent-border: rgba(147, 51, 234, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  /* Status colors — errors (invalid quantity/date), warnings (data
+     warnings / pending sync), success (confirmations). */
+  --danger: #c81e3a;
+  --danger-bg: rgba(200, 30, 58, 0.1);
+  --danger-border: rgba(200, 30, 58, 0.45);
+  --warning: #9a6400;
+  --warning-bg: rgba(202, 138, 4, 0.14);
+  --warning-border: rgba(202, 138, 4, 0.45);
+  --success: #157a45;
+  --success-bg: rgba(21, 122, 69, 0.12);
+  --success-border: rgba(21, 122, 69, 0.45);
+
+  --focus-ring: #0b6ee0;
+
+  /* Spacing scale (4px base) — shared by shell and kit so paddings/gaps line up. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+
+  /* Minimum touch target (WCAG 2.5.5 / Material "comfortable" size) — the
+     shopping list is used one-handed in a store aisle, so every interactive
+     kit element (nav item, button, checkbox row) sizes against this. */
+  --touch-target: 48px;
+
+  --z-nav: 10;
+  --z-dialog: 100;
+  --z-toast: 200;
 
   --sans: system-ui, "Segoe UI", Roboto, sans-serif;
   --heading: system-ui, "Segoe UI", Roboto, sans-serif;
@@ -33,14 +89,31 @@
   :root {
     --text: #9ca3af;
     --text-h: #f3f4f6;
+    /* #9096a3, not #767c8a: 4.27:1 against the dark bg, short of 4.5:1. */
+    --text-muted: #9096a3;
     --bg: #16171d;
+    --surface: #1b1c23;
+    --surface-raised: #22232b;
     --border: #2e303a;
     --code-bg: #1f2028;
     --accent: #c084fc;
+    --accent-text: #16171d;
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+    --danger: #ff6b81;
+    --danger-bg: rgba(255, 107, 129, 0.16);
+    --danger-border: rgba(255, 107, 129, 0.45);
+    --warning: #f0b429;
+    --warning-bg: rgba(240, 180, 41, 0.16);
+    --warning-border: rgba(240, 180, 41, 0.45);
+    --success: #4ade80;
+    --success-bg: rgba(74, 222, 128, 0.16);
+    --success-border: rgba(74, 222, 128, 0.45);
+
+    --focus-ring: #7cb8ff;
   }
 
   #social .button-icon {
@@ -48,12 +121,37 @@
   }
 }
 
+/* Focus visibility is a shell-wide token so every kit component gets the
+   same ring instead of relying on (inconsistent) browser defaults. */
+*:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Visually-hidden but screen-reader-accessible text (table captions,
+   supplemental labels) — shared utility class for the whole kit. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* App shell container. Mobile-first: full width, no centering border, text
+   left-aligned like any app (the WP-01 scaffold left this as a centered
+   landing-page card — WP-15 replaces that look with the real shell). On
+   wide viewports the content column caps out so long-form pantry/recipe
+   tables don't stretch edge to edge. */
 #root {
-  width: 1126px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 1126px;
   margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
+  text-align: left;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -72,21 +170,20 @@ h2 {
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+  font-size: 28px;
+  letter-spacing: -0.4px;
+  margin: 0 0 var(--space-2);
+  @media (min-width: 1024px) {
+    font-size: 34px;
   }
 }
 h2 {
-  font-size: 24px;
+  font-size: 20px;
   line-height: 118%;
   letter-spacing: -0.24px;
   margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+  @media (min-width: 1024px) {
+    font-size: 22px;
   }
 }
 p {
