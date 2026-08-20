@@ -1,0 +1,30 @@
+.root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.navButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.navButton:hover {
+  background: var(--surface-raised);
+}
+
+.label {
+  min-width: 10em;
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-h);
+}

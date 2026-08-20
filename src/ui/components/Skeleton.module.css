@@ -1,0 +1,20 @@
+.skeleton {
+  display: inline-block;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  animation: pulse calc(var(--motion-fast) * 8) ease-in-out infinite;
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

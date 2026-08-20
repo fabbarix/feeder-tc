@@ -1,13 +1,21 @@
 /*
- * Design tokens (WP-15). CSS custom properties, token-driven, consumed by
- * the app shell and every component in the kit (src/ui/components) — a
- * feature package (WP-20…WP-23) styles new UI by reading these `var(--*)`
- * names, not by hard-coding colors/spacing. Two states only:
- *   - light values live on bare `:root` (the default);
- *   - dark values are redeclared under `prefers-color-scheme: dark` — there
- *     is no in-app theme toggle (WP-15 scope is "light/dark" following the
- *     OS, not a switcher), so `color-scheme: light dark` plus this media
- *     query is the whole mechanism.
+ * Design tokens (WP-15, revised WP-15b — see UI_DESIGN.md). CSS custom
+ * properties, token-driven, consumed by the app shell and every component in
+ * the kit (src/ui/components) — a feature package (WP-20…WP-23) styles new
+ * UI by reading these `var(--*)` names, not by hard-coding colors/spacing.
+ *
+ * Three theme states (UI_DESIGN.md §2 — System / Light / Dark):
+ *   - light tokens live on bare `:root` (the default);
+ *   - dark tokens are redeclared under `prefers-color-scheme: dark`,
+ *     **guarded** as `:root:not([data-theme="light"])` so an explicit
+ *     "Light" choice on a dark-mode device isn't overridden by the media
+ *     query;
+ *   - dark tokens are redeclared *again* under `:root[data-theme="dark"]`
+ *     (no media query) so an explicit "Dark" choice applies regardless of
+ *     the OS preference.
+ * `data-theme` is stamped on `<html>` by the synchronous inline script in
+ * `index.html` (before first paint) and kept in sync by
+ * `src/ui/theme/ThemeProvider.tsx`. Absent attribute = follow system.
  */
 :root {
   --text: #6b6375;
@@ -21,13 +29,48 @@
   --surface-raised: #f8f7fb;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  /* #9333ea, not the WP-01 scaffold's #aa3bff: that value was 4.39:1 against
-     white (needs 4.5:1) both as button text-on-fill and as the active nav
-     link's text color — same axe failure as --text-muted above. */
-  --accent: #9333ea;
+
+  /*
+   * Accents (UI_DESIGN.md §3) — the user picks a hue; every accent token is
+   * derived in OKLCH with lightness and chroma FIXED per role, only hue
+   * rotates.
+   *
+   * DEVIATION FROM THE LITERAL EXAMPLE VALUES IN UI_DESIGN.md §3 — reported
+   * as a contradiction, not silently patched over: the spec's own example
+   * numbers (`oklch(0.55 0.20 hue)` accent vs `oklch(0.99 0.02 hue)`
+   * accent-text) do NOT clear WCAG's 4.5:1 for normal text at every hue.
+   * `e2e/wp-15-a11y.spec.ts` caught it directly (axe `color-contrast`,
+   * "Sign in with Google" button, hue 156: 4.04:1). The spec's claim
+   * ("every hue lands at the same perceptual lightness, so it passes for
+   * all hues or fails for none — test once") is only half right: it DOES
+   * hold that whether it passes is hue-independent given fixed L/C, but
+   * OKLCH's perceptual L does not track WCAG relative luminance closely
+   * enough at this chroma to assume "passes for one hue ⇒ passes for all" —
+   * a worst-case sweep (see WP-15b handover report) found the true minimum
+   * at hue≈189 (cyan), 3.73:1, well short of 4.5:1, for the spec's literal
+   * numbers. Swept all 360 hues numerically (sRGB→OKLab) to find L/C pairs
+   * with real headroom instead of a razor-thin pass: light-mode accent
+   * moved from L0.55/C0.20 to L0.45/C0.18 (worst case 5.95:1); accent-text
+   * moved from a faint hue tint to pure white (chroma 0 — a tint on
+   * near-white text is imperceptible and only ate into the margin). Dark
+   * mode's original numbers (L0.75/C0.17 accent, L0.18/C0.02 text) already
+   * clear 4.5:1 at every hue (worst case 7.58:1) and are unchanged. The
+   * *mechanism* — hue-only rotation, fixed L/C per role — is exactly as
+   * specified; only the four light-mode constants changed, empirically.
+   *
+   * --accent-hue default 156 is not arbitrary: it is the OKLCH hue of the
+   * brand mark's green (#1c9b5e, HANDOVER.md §7 / UI_DESIGN.md §11 "the icon
+   * and theme_color use the default brand green"), computed via the
+   * standard sRGB → linear → OKLab conversion. The in-app default accent
+   * therefore matches the installed icon's color before a user ever opens
+   * the hue picker (src/ui/theme/ThemeControl.tsx), even though the manifest
+   * icon itself is baked at build time and cannot follow the live value.
+   */
+  --accent-hue: 156;
+  --accent: oklch(0.45 0.18 var(--accent-hue));
   --accent-text: #fff;
-  --accent-bg: rgba(147, 51, 234, 0.1);
-  --accent-border: rgba(147, 51, 234, 0.5);
+  --accent-bg: oklch(0.95 0.05 var(--accent-hue));
+  --accent-border: oklch(0.75 0.12 var(--accent-hue));
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
@@ -85,8 +128,22 @@
   }
 }
 
+/*
+ * Dark tokens, declared TWICE per UI_DESIGN.md §2 — this is the whole
+ * three-state mechanism:
+ *
+ * 1. Under `prefers-color-scheme: dark`, GUARDED as `:not([data-theme="light"])`
+ *    — covers "System" (no attribute) and "Dark" (attribute set, redundant
+ *    with block 2 but harmless) on a dark-mode device. The guard is what
+ *    stops this block from fighting an explicit "Light" choice: without it,
+ *    the media query always wins and the toggle does nothing in one
+ *    direction on a dark-mode phone.
+ * 2. Under `:root[data-theme="dark"]` with NO media query — covers "Dark"
+ *    explicitly chosen on a light-mode device, where block 1 never matches
+ *    because the media query itself is false.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --text: #9ca3af;
     --text-h: #f3f4f6;
     /* #9096a3, not #767c8a: 4.27:1 against the dark bg, short of 4.5:1. */
@@ -96,10 +153,14 @@
     --surface-raised: #22232b;
     --border: #2e303a;
     --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-text: #16171d;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
+
+    /* Same fixed-L/C-per-role construction as the light tokens, lightness
+       raised for the fill (so it reads against a dark surface) and lowered
+       for the on-fill text (so it stays dark-on-light-fill). */
+    --accent: oklch(0.75 0.17 var(--accent-hue));
+    --accent-text: oklch(0.18 0.02 var(--accent-hue));
+    --accent-bg: oklch(0.28 0.06 var(--accent-hue));
+    --accent-border: oklch(0.45 0.14 var(--accent-hue));
     --social-bg: rgba(47, 48, 58, 0.5);
     --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
 
@@ -121,11 +182,62 @@
   }
 }
 
+:root[data-theme="dark"] {
+  --text: #9ca3af;
+  --text-h: #f3f4f6;
+  --text-muted: #9096a3;
+  --bg: #16171d;
+  --surface: #1b1c23;
+  --surface-raised: #22232b;
+  --border: #2e303a;
+  --code-bg: #1f2028;
+
+  --accent: oklch(0.75 0.17 var(--accent-hue));
+  --accent-text: oklch(0.18 0.02 var(--accent-hue));
+  --accent-bg: oklch(0.28 0.06 var(--accent-hue));
+  --accent-border: oklch(0.45 0.14 var(--accent-hue));
+  --social-bg: rgba(47, 48, 58, 0.5);
+  --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+  --danger: #ff6b81;
+  --danger-bg: rgba(255, 107, 129, 0.16);
+  --danger-border: rgba(255, 107, 129, 0.45);
+  --warning: #f0b429;
+  --warning-bg: rgba(240, 180, 41, 0.16);
+  --warning-border: rgba(240, 180, 41, 0.45);
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.16);
+  --success-border: rgba(74, 222, 128, 0.45);
+
+  --focus-ring: #7cb8ff;
+}
+
+:root[data-theme="dark"] #social .button-icon {
+  filter: invert(1) brightness(2);
+}
+
 /* Focus visibility is a shell-wide token so every kit component gets the
    same ring instead of relying on (inconsistent) browser defaults. */
 *:focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/*
+ * Motion (UI_DESIGN.md §10): colour/opacity transitions only, ~150ms, and
+ * only when the user has not asked for reduced motion. Components reference
+ * `--motion-fast` instead of writing their own duration so there is exactly
+ * one place that "no motion animation on this app" can be enforced; the
+ * `@media` query zeroes it out rather than each component special-casing
+ * `prefers-reduced-motion` individually.
+ */
+:root {
+  --motion-fast: 150ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+  }
 }
 
 /* Visually-hidden but screen-reader-accessible text (table captions,

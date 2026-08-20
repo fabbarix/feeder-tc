@@ -1,0 +1,94 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.unit {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 0 var(--space-3);
+  min-height: var(--touch-target);
+}
+
+.control:focus-within {
+  border-color: var(--accent);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text-h);
+  padding: var(--space-2) 0;
+}
+
+.field:focus {
+  outline: none;
+}
+
+.prefixIcon,
+.suffixIcon {
+  color: var(--text-muted);
+  flex: none;
+}
+
+.suffix {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  flex: none;
+}
+
+.stepper {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target);
+  height: var(--touch-target);
+  margin: 0 calc(var(--space-3) * -1);
+  border: none;
+  background: var(--surface-raised);
+  color: var(--text-h);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.stepper:first-child {
+  margin-right: var(--space-1);
+}
+
+.stepper:last-child {
+  margin-left: var(--space-1);
+}
+
+.stepper:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}

@@ -1,8 +1,12 @@
+import { ThemeControl } from "../ui/theme/ThemeControl";
+
 export function Settings() {
   return (
     <section>
       <h1>Settings</h1>
-      <p>Stub route — household size, slot layout, exclusion window. See WP-22.</p>
+      <p>Household size, slot layout, exclusion window — stub, see WP-22.</p>
+      <h2>Appearance</h2>
+      <ThemeControl />
     </section>
   );
 }

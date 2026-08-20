@@ -1,0 +1,79 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--touch-target) + var(--space-2));
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--surface-raised);
+}
+
+.checkbox {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  accent-color: var(--accent);
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.primary {
+  color: var(--text-h);
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+
+.checked .primary {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.secondary {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.trailing {
+  flex: none;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.failedNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: none;
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: var(--space-1);
+}
+
+.failed .primary {
+  color: var(--danger);
+  text-decoration: none;
+}
