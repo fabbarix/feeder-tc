@@ -1,0 +1,141 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  font: inherit;
+  cursor: pointer;
+}
+
+.triggerPlaceholder {
+  color: var(--text-muted);
+}
+
+.underlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  background: rgb(0 0 0 / 0.35);
+}
+
+.sheet {
+  position: fixed;
+  z-index: var(--z-dialog);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 70svh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow);
+  padding: var(--space-4);
+  padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  .sheet {
+    position: absolute;
+    inset: auto auto auto 0;
+    top: calc(100% + var(--space-2));
+    bottom: auto;
+    width: min(360px, 90vw);
+    max-height: 60vh;
+    border-radius: var(--radius-md);
+  }
+
+  .root {
+    position: relative;
+  }
+
+  .underlay {
+    background: transparent;
+  }
+}
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.searchIcon {
+  color: var(--text-muted);
+  flex: none;
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  padding: var(--space-2) 0;
+  color: var(--text-h);
+}
+
+.search:focus {
+  outline: none;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+}
+
+.option:hover {
+  background: var(--surface-raised);
+}
+
+.option[data-focus-visible] {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.optionSelected {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.empty {
+  padding: var(--space-3);
+  color: var(--text-muted);
+  text-align: center;
+}

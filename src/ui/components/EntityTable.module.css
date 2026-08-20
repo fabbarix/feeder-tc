@@ -1,0 +1,50 @@
+/*
+ * ≥768px only (UI_DESIGN.md §6) — see the doc comment in EntityTable.tsx.
+ * `display: none` below the breakpoint, not a CSS reflow of the row markup:
+ * a hidden table has no ARIA table semantics to lose because it isn't in
+ * the accessibility tree at all, unlike a `display: block` <tr>/<td> that
+ * stays visible while losing its implicit table roles.
+ */
+.table {
+  display: none;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.empty {
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+@media (min-width: 768px) {
+  .table {
+    display: table;
+  }
+}
+
+.caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: var(--space-2);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.table th {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.alignEnd {
+  text-align: right;
+}

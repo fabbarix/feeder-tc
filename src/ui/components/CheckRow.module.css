@@ -1,0 +1,150 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: calc(var(--touch-target) + var(--space-2));
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--surface-raised);
+}
+
+/* The decorative check box (see CheckRow.tsx's doc comment) sits under the
+   real, fully-clickable-but-invisible native checkbox — same overlay
+   technique as SegmentedControl's hidden radio input. */
+.box {
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.boxSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.boxRect {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 2;
+  transition:
+    fill var(--motion-state) var(--ease-standard),
+    stroke var(--motion-state) var(--ease-standard);
+}
+
+.checked .boxRect {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+
+.boxCheck {
+  fill: none;
+  stroke: var(--accent-text);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset var(--motion-entry) var(--ease-standard);
+}
+
+.checked .boxCheck {
+  stroke-dashoffset: 0;
+}
+
+.checkbox {
+  position: absolute;
+  inset: 0;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.primary {
+  position: relative;
+  display: inline-block;
+  width: fit-content;
+  color: var(--text-h);
+  font-weight: 500;
+  font-size: 1.05rem;
+  transition: color var(--motion-state) var(--ease-standard);
+}
+
+/* Strike-through "draws" via a scaled bar rather than the (non-animatable
+   in most browsers) text-decoration-line toggle — see CheckRow.tsx's doc
+   comment for why transform:scaleX() is used here despite §13's "colour and
+   opacity only" rule. */
+.primary::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 55%;
+  height: 1px;
+  background: currentcolor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--motion-state) var(--ease-standard);
+}
+
+.checked .primary {
+  color: var(--text-muted);
+}
+
+.checked .primary::after {
+  transform: scaleX(1);
+}
+
+.secondary {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.trailing {
+  flex: none;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.failedNotice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--danger);
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: none;
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-left: var(--space-1);
+}
+
+.failed .primary {
+  color: var(--danger);
+  text-decoration: none;
+}

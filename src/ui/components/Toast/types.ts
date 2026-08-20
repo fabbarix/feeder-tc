@@ -1,5 +1,3 @@
-import type { DataWarning } from "../../../domain/contracts.ts";
-
 export type ToastVariant = "info" | "success" | "warning" | "error";
 
 export interface ToastInput {
@@ -14,17 +12,14 @@ export interface ToastRecord extends ToastInput {
   readonly id: string;
 }
 
-/**
- * Turns a WP-11 `DataWarning` (malformed workbook row) into toast content.
- * This is the wiring point named in WP-15's scope ("toast/warning surface
- * is where WP-11's data warnings get shown") — a later package calls
- * `useToast().showWarning(warning)` for each `DecodeResult.warnings` entry
- * it receives.
- */
-export function toastFromDataWarning(warning: DataWarning): ToastInput {
-  return {
-    variant: "warning",
-    title: `Skipped row ${warning.row} in ${warning.sheet}`,
-    description: warning.reason,
-  };
-}
+// A `toastFromDataWarning(warning: DataWarning)` mapper used to live here,
+// turning a WP-11 `DataWarning` (malformed workbook row) directly into
+// toast content. It was removed in WP-15b: `DataWarning` lives in
+// src/domain/contracts.ts, which is outside the `src/ui/**` component
+// boundary's allow-list (UI_DESIGN.md §7 allows only
+// src/domain/{types,quantity,dates} — contracts.ts is not one of them, and
+// the ESLint no-restricted-imports rule in eslint.config.js enforces this).
+// A feature container (WP-20…) that has a DataWarning should call
+// `useToast().showToast({ variant: "warning", title: ..., description: ... })`
+// directly — a two-line inline mapping, not worth a shared helper that would
+// otherwise be the ONLY thing pulling a domain interface type into the kit.

@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { enterReadyShell } from "./support/shell.ts";
 
 // WP-15 success criterion: "Axe (a11y) checks pass on shell and kit
 // stories." This spec covers the shell half (the live app, every stub
@@ -7,11 +8,46 @@ import { expect, test } from "@playwright/test";
 // (individual component a11y) is covered by `vitest-axe` in each
 // component's co-located `*.test.tsx` (see TESTING.md "Accessibility
 // checks"). A later WP adding a new route should add its path here too.
-const ROUTES = ["", "recipes", "recipes/12", "pantry", "plan", "shopping", "settings"];
+//
+// UI_DESIGN.md §12 (added mid-WP-15b): AppShell now gates every route
+// behind signed-out → no-workbook → ready, so this spec scans the two gate
+// screens explicitly, then walks into "ready" (via enterReadyShell, no real
+// Google call — see e2e/support/shell.ts) before scanning each real route.
+const ROUTES = [
+  "",
+  "recipes",
+  "recipes/new",
+  "recipes/12",
+  "recipes/ingredients",
+  "recipes/ingredients/new",
+  "pantry",
+  "plan",
+  "shopping",
+  "settings",
+];
+
+test("signed-out gate screen has no axe violations", async ({ page }) => {
+  await page.goto("");
+  await expect(page.getByRole("main")).toBeVisible();
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+});
+
+test("no-workbook gate screen has no axe violations", async ({ page }) => {
+  await page.goto("");
+  await page.getByRole("button", { name: "Sign in with Google" }).click();
+  await expect(page.getByRole("button", { name: "Create new meal planner" })).toBeVisible();
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
+});
 
 for (const route of ROUTES) {
-  test(`route "/${route}" has no axe violations`, async ({ page }) => {
-    await page.goto(route);
+  test(`ready route "/${route}" has no axe violations`, async ({ page }) => {
+    // enterReadyShell(page, route) lands directly on this route before
+    // signing in, then signs in from there — a second `page.goto` after
+    // reaching "ready" would drop the in-memory (never-persisted) access
+    // token and re-gate the app (see e2e/support/shell.ts).
+    await enterReadyShell(page, route);
     // The app boots asynchronously (src/main.tsx awaits the msw browser
     // worker before the first React render), so scanning immediately after
     // goto() can catch an empty <div id="root">. Wait for the shell to be

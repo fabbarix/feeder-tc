@@ -1,0 +1,79 @@
+.group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.segment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: calc(var(--touch-target) - 8px);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) ease-in-out,
+    color var(--motion-fast) ease-in-out;
+}
+
+/*
+ * Compound selector (`.segment.segmentSelected`), not `.segmentSelected`
+ * alone — WP-20's a11y suite caught this the first time a live route
+ * actually mounted this component (RecipeEditor/IngredientEditor): a
+ * single-class `.segmentSelected` rule has the SAME specificity as
+ * `.segment`'s own `color: var(--text-muted)`, so which one wins becomes a
+ * function of <style> tag insertion order — stable in a `vite build`
+ * bundle (one concatenated stylesheet, source order preserved) but not
+ * guaranteed in Vite dev's per-module HMR style injection, where it
+ * intermittently lost to `.segment`'s muted colour, failing
+ * `color-contrast` (axe measured ~1.11:1, white-on-accent text rendering
+ * as muted-grey-on-accent instead). The compound selector has strictly
+ * higher specificity than either rule alone, so it wins unconditionally —
+ * this is no longer an ordering question.
+ */
+.segment.segmentSelected {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.segmentDisabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/*
+ * The native input carries the real accessibility semantics (useRadio wires
+ * role/checked/focus onto it). Visually invisible (`opacity: 0`), NOT
+ * clip-rect-hidden: it's sized to cover the whole `.segment` so a click
+ * anywhere on the visible label — including on the icon/text `<span>`
+ * stacked on top of it — lands on the input itself rather than being
+ * intercepted by that sibling. A clip-rect/1px "visually-hidden" input would
+ * still work for a real mouse (native <label>-for-<input> click delegation
+ * doesn't care where the input renders) but breaks Playwright's
+ * coordinate-based `.click()`, which targets the input's own (now
+ * zero-size/clipped) box directly.
+ */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.segment:has(.input:focus-visible) {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
