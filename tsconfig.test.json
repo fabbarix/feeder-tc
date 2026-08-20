@@ -13,5 +13,6 @@
     "jsx": "react-jsx",
     "erasableSyntaxOnly": true
   },
+  "references": [{ "path": "./tsconfig.app.json" }],
   "include": ["features", "e2e"]
 }
