@@ -42,7 +42,17 @@ test.describe("service worker app-shell precache", () => {
     // gets a real 200 from the cache (not a network error).
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { name: "Feeder" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+
+    // Assert the SIGNED-OUT shell, not the nav. UI_DESIGN.md §12 gates
+    // navigation behind ShellState: a signed-out visitor sees the sign-in
+    // screen and no nav at all. An earlier version of this test asserted the
+    // Primary nav was visible — written before that gating existed — and it
+    // passed locally against a STALE service worker still serving the
+    // pre-gating shell, then failed in CI on a clean runner. That is the
+    // service-worker false-pass in miniature: assert on what this build
+    // actually renders.
+    await expect(page.getByRole("button", { name: /sign in with google/i })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
 
     await context.setOffline(false);
   });
@@ -57,9 +67,14 @@ test.describe("service worker app-shell precache", () => {
     await context.setOffline(true);
     const response = await page.goto("pantry");
 
+    // What this test proves is navigateFallback: a path with no file on disk
+    // is answered by the SW with a real 200 while offline. It deliberately
+    // does NOT assert the Pantry screen renders — signed out, the shell gates
+    // route content and shows the sign-in screen (UI_DESIGN.md §12). The URL
+    // staying at /pantry is what shows the deep link survived the fallback.
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Pantry" })).toBeVisible();
     await expect(page).toHaveURL(/\/pantry$/);
+    await expect(page.getByRole("button", { name: /sign in with google/i })).toBeVisible();
 
     await context.setOffline(false);
   });
