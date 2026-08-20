@@ -74,6 +74,20 @@
   display: block;
 }
 
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+
+.brandName {
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  color: var(--text-h);
+}
+
 .headerRight {
   display: flex;
   align-items: center;

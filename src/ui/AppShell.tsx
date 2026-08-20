@@ -128,7 +128,19 @@ export function AppShell({
        */}
       <header className={styles.header}>
         <div className={styles.headerInner}>
-          <Mark />
+          {/*
+           * The mark AND the "Feeder" wordmark together (owner-reported,
+           * 2026-08-20, comparing against the approved screen-catalogue
+           * mockup — its `.brand` is mark + text, not mark alone). This
+           * corrects UI_DESIGN.md §12's own written text ("the top bar
+           * shows the mark alone"), which turned out not to match the
+           * actual approved mockup once compared directly — the mockup is
+           * the source of truth here, not the earlier prose summary of it.
+           */}
+          <span className={styles.brand}>
+            <Mark />
+            <span className={styles.brandName}>Feeder</span>
+          </span>
           {state.kind === "ready" ? (
             <nav className={styles.nav} aria-label="Primary">
               <div className={styles.navInner}>
