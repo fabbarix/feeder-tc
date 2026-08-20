@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { ErrorState, ListRow, ListSection, QuantityInput, SegmentedControl, SelectSheet, Skeleton, ToggleChips } from "../ui/components";
-import { CookingPot, Plus, Trash } from "../ui/icons";
+import { ErrorState, QuantityInput, SegmentedControl, SelectSheet, Skeleton, ToggleChips } from "../ui/components";
+import { CookingPot, Minus, Plus, Trash } from "../ui/icons";
 import {
   makeIngredientId,
   makeQuantity,
@@ -272,14 +272,20 @@ export function RecipeEditor() {
             <SegmentedControl<RecipeKind> aria-label="Recipe kind" options={KIND_OPTIONS} value={kind} onChange={setKind} />
           </div>
 
+          {/* Household flag — the mockup places this right under the recipe's
+              own identity, full-width, not tucked among the time/servings
+              fields — it's the single most important control on the page
+              after "what recipe is this". */}
           <div className={styles.field}>
-            <span>Rotation status</span>
-            <SegmentedControl<RecipeStatus>
-              aria-label="Rotation status"
-              options={STATUS_OPTIONS}
-              value={status}
-              onChange={setStatus}
-            />
+            <span className={styles.fieldLabel}>Household flag</span>
+            <div className={styles.fullWidthControl}>
+              <SegmentedControl<RecipeStatus>
+                aria-label="Household flag"
+                options={STATUS_OPTIONS}
+                value={status}
+                onChange={setStatus}
+              />
+            </div>
           </div>
 
           <div className={styles.field}>
@@ -288,7 +294,10 @@ export function RecipeEditor() {
           </div>
 
           <div className={styles.row}>
-            <IntegerField label="Base servings" value={baseServings} onChange={setBaseServings} min={1} required />
+            <div className={styles.field}>
+              <span className={styles.fieldLabel}>Servings</span>
+              <ServingsStepper value={baseServings} onChange={setBaseServings} />
+            </div>
             {kind === "cooked" ? (
               <IntegerField label="Prep time" suffix="min" value={prepMinutes} onChange={setPrepMinutes} required />
             ) : (
@@ -309,40 +318,45 @@ export function RecipeEditor() {
           {kind === "cooked" ? (
             <div className={styles.field}>
               <p className={styles.sectionHeading}>Ingredients</p>
-              {lines.map((line) => {
-                const unit = ingredientsCatalog.find((i) => i.id === line.ingredientId)?.unit ?? "g";
-                return (
-                  <div className={styles.line} key={line.key}>
-                    <SelectSheet
-                      label="Ingredient"
-                      options={ingredientOptions}
-                      value={line.ingredientId}
-                      onChange={(value) => setLineIngredient(line.key, value)}
-                      placeholder="Choose an ingredient…"
-                    />
-                    <QuantityInput
-                      label="Amount"
-                      unit={unit}
-                      value={line.amount}
-                      onChange={(q) => setLineAmount(line.key, q?.amount ?? null)}
-                      disabled={line.ingredientId === null}
-                      required
-                    />
-                    <button
-                      type="button"
-                      className={styles.removeButton}
-                      onClick={() => removeLine(line.key)}
-                      aria-label="Remove ingredient line"
-                    >
-                      <Trash size={18} aria-hidden="true" />
-                    </button>
-                  </div>
-                );
-              })}
-              <button type="button" className={styles.addButton} onClick={addLine}>
-                <Plus size={18} aria-hidden="true" />
-                Add ingredient line
-              </button>
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionCardBody}>
+                  {lines.length === 0 ? <p className={styles.hint}>No ingredient lines yet.</p> : null}
+                  {lines.map((line) => {
+                    const unit = ingredientsCatalog.find((i) => i.id === line.ingredientId)?.unit ?? "g";
+                    return (
+                      <div className={styles.line} key={line.key}>
+                        <SelectSheet
+                          label="Ingredient"
+                          options={ingredientOptions}
+                          value={line.ingredientId}
+                          onChange={(value) => setLineIngredient(line.key, value)}
+                          placeholder="Choose an ingredient…"
+                        />
+                        <QuantityInput
+                          label="Amount"
+                          unit={unit}
+                          value={line.amount}
+                          onChange={(q) => setLineAmount(line.key, q?.amount ?? null)}
+                          disabled={line.ingredientId === null}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className={styles.removeButton}
+                          onClick={() => removeLine(line.key)}
+                          aria-label="Remove ingredient line"
+                        >
+                          <Trash size={18} aria-hidden="true" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                  <button type="button" className={styles.addButton} onClick={addLine}>
+                    <Plus size={18} aria-hidden="true" />
+                    Add ingredient line
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             <p className={styles.hint}>
@@ -353,28 +367,32 @@ export function RecipeEditor() {
 
           <div className={styles.field}>
             <p className={styles.sectionHeading}>Steps</p>
-            {steps.map((step, index) => (
-              <div className={styles.line} key={index}>
-                <TextField
-                  label={`Step ${index + 1}`}
-                  value={step}
-                  onChange={(text) => updateStep(index, text)}
-                  placeholder="e.g. 375 degrees, 30 min covered"
-                />
-                <button
-                  type="button"
-                  className={styles.removeButton}
-                  onClick={() => removeStep(index)}
-                  aria-label={`Remove step ${index + 1}`}
-                >
-                  <Trash size={18} aria-hidden="true" />
+            <div className={styles.sectionCard}>
+              <div className={styles.sectionCardBody}>
+                {steps.map((step, index) => (
+                  <div className={styles.line} key={index}>
+                    <TextField
+                      label={`Step ${index + 1}`}
+                      value={step}
+                      onChange={(text) => updateStep(index, text)}
+                      placeholder="e.g. 375 degrees, 30 min covered"
+                    />
+                    <button
+                      type="button"
+                      className={styles.removeButton}
+                      onClick={() => removeStep(index)}
+                      aria-label={`Remove step ${index + 1}`}
+                    >
+                      <Trash size={18} aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className={styles.addButton} onClick={addStep}>
+                  <Plus size={18} aria-hidden="true" />
+                  Add step
                 </button>
               </div>
-            ))}
-            <button type="button" className={styles.addButton} onClick={addStep}>
-              <Plus size={18} aria-hidden="true" />
-              Add step
-            </button>
+            </div>
           </div>
 
           <div className={styles.actions}>
@@ -386,16 +404,50 @@ export function RecipeEditor() {
       ) : null}
 
       {!loading && !error && !isNew ? (
-        <ListSection heading="Cooked history">
-          {cookedHistory.length === 0 ? (
-            <p className={styles.hint}>Not marked cooked yet.</p>
-          ) : (
-            cookedHistory.map((slot) => (
-              <ListRow key={slot.id} leading={<CookingPot size={18} aria-hidden="true" />} primary={slot.date} secondary={slot.slotType} />
-            ))
-          )}
-        </ListSection>
+        <div className={styles.field}>
+          <p className={styles.sectionHeading}>Cooked history</p>
+          <div className={styles.sectionCard}>
+            <div className={styles.sectionCardBody}>
+              {cookedHistory.length === 0 ? (
+                <p className={styles.hint}>Not marked cooked yet.</p>
+              ) : (
+                cookedHistory.map((slot) => (
+                  <div className={styles.line} key={slot.id}>
+                    <CookingPot size={18} aria-hidden="true" />
+                    <span>
+                      {slot.date} · {slot.slotType}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
       ) : null}
     </section>
+  );
+}
+
+/** Servings +/- stepper — matches the mockup's `.qty` control (UI_DESIGN.md §5: real touch targets, never a native numeric spinner). */
+function ServingsStepper({
+  value,
+  onChange,
+}: {
+  readonly value: number | null;
+  readonly onChange: (value: number) => void;
+}) {
+  const current = value ?? 1;
+  return (
+    <div className={styles.qty}>
+      <button type="button" aria-label="Fewer servings" onClick={() => onChange(Math.max(1, current - 1))}>
+        <Minus size={16} aria-hidden="true" />
+      </button>
+      <span className={styles.qtyValue}>
+        {current} <span className={styles.qtyUnit}>servings</span>
+      </span>
+      <button type="button" aria-label="More servings" onClick={() => onChange(current + 1)}>
+        <Plus size={16} aria-hidden="true" />
+      </button>
+    </div>
   );
 }

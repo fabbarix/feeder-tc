@@ -1,30 +1,62 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { EmptyState, ErrorState, ListRow, ListSection, SegmentedControl, Skeleton } from "../ui/components";
-import { BookOpen, BowlFood, CookingPot, Plus } from "../ui/icons";
-import type { Recipe, RecipeStatus } from "../domain/index.ts";
-import { STATUS_OPTIONS, statusLabel } from "./recipe-options.ts";
-import styles from "./forms.module.css";
+import { EmptyState, ErrorState, Skeleton } from "../ui/components";
+import { BookOpen, MagnifyingGlass, Plus } from "../ui/icons";
+import type { MealTag, Recipe } from "../domain/index.ts";
+import styles from "./recipes.module.css";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-function summarize(recipe: Recipe): string {
-  const time = recipe.kind === "bought" ? `${recipe.cookMinutes} min to heat` : `${recipe.prepMinutes + recipe.cookMinutes} min total`;
-  const tags = recipe.mealTags.length > 0 ? recipe.mealTags.join(", ") : "no meal tags";
-  return `${recipe.kind === "bought" ? "Store-bought" : "Cooked"} · serves ${recipe.baseServings} · ${time} · ${tags}`;
+interface FilterDef {
+  readonly key: string;
+  readonly label: string;
+  readonly test: (recipe: Recipe) => boolean;
 }
 
-/** Recipe list + the household's 3-state vote control on each card (WP-20). */
+const MEAL_TAG_FILTERS: readonly FilterDef[] = (["breakfast", "lunch", "dinner", "snack"] as const satisfies readonly MealTag[]).map(
+  (tag) => ({
+    key: tag,
+    label: tag[0]!.toUpperCase() + tag.slice(1),
+    test: (recipe: Recipe) => recipe.mealTags.includes(tag),
+  }),
+);
+
+const OTHER_FILTERS: readonly FilterDef[] = [
+  { key: "staples", label: "Staples", test: (r) => r.status === "staple" },
+  { key: "bought", label: "Bought", test: (r) => r.kind === "bought" },
+  { key: "retired", label: "Retired", test: (r) => r.status === "retired" },
+];
+
+// Order matches the approved mockup's filter row exactly: meal tags first, then the status/kind facets.
+const FILTERS: readonly FilterDef[] = [...MEAL_TAG_FILTERS, ...OTHER_FILTERS];
+
+function tagPills(recipe: Recipe): readonly string[] {
+  const pills = recipe.mealTags.map((tag) => tag[0]!.toUpperCase() + tag.slice(1));
+  const withKind: string[] = recipe.kind === "bought" ? [...pills, "Bought"] : [...pills];
+  if (recipe.status === "staple") withKind.push("Staple");
+  if (recipe.status === "retired") withKind.push("Retired");
+  return withKind;
+}
+
+/**
+ * Recipe list — a card grid with search and filter chips (WP-20, rebuilt
+ * against the approved screen-catalogue mockup). No per-card vote control:
+ * the household flag lives on the recipe's own page (RecipeEditor.tsx),
+ * matching the mockup exactly — the list is for browsing/finding a recipe,
+ * not for casting a vote at a glance.
+ */
 export function Recipes() {
   const { store } = useWorkbookContext();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
   const [recipes, setRecipes] = useState<readonly Recipe[]>([]);
+  const [query, setQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   useEffect(() => {
     // `loading`/`error` are only ever set from the promise's own
@@ -57,43 +89,45 @@ export function Recipes() {
     };
   }, [store, showToast]);
 
-  async function handleStatusChange(recipe: Recipe, status: RecipeStatus): Promise<void> {
-    const previous = recipe;
-    const updated: Recipe = { ...recipe, status };
-    setRecipes((current) => current.map((r) => (r.id === recipe.id ? updated : r)));
-    try {
-      await store.recipes.upsert(updated);
-      showToast({ variant: "success", title: `"${recipe.name}" is now ${statusLabel(status)}`, durationMs: 4000 });
-    } catch (err) {
-      setRecipes((current) => current.map((r) => (r.id === recipe.id ? previous : r)));
-      showToast({ variant: "error", title: "Couldn't update status", description: messageOf(err) });
-    }
-  }
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const activeTest = FILTERS.find((f) => f.key === activeFilter)?.test;
+    return recipes.filter((recipe) => {
+      if (q && !recipe.name.toLowerCase().includes(q)) return false;
+      if (activeTest && !activeTest(recipe)) return false;
+      return true;
+    });
+  }, [recipes, query, activeFilter]);
+
+  const staplesCount = recipes.filter((r) => r.status === "staple").length;
+  const retiredCount = recipes.filter((r) => r.status === "retired").length;
 
   return (
     <section>
-      <h1>Recipes</h1>
+      <div className={styles.headerRow}>
+        <h1>Recipes</h1>
+        {!loading && !error && recipes.length > 0 ? (
+          <Link to="/recipes/new" className={styles.newButton}>
+            <Plus size={16} aria-hidden="true" />
+            New recipe
+          </Link>
+        ) : null}
+      </div>
       <p>
         <Link to="/recipes/ingredients">Ingredients catalog &rarr;</Link>
       </p>
-      {/* Only one "Add recipe" control at a time: this persistent one once
-          there's a list to add alongside, or EmptyState's own action below
-          while there's nothing yet — never both (two links with the same
-          accessible name is confusing, for a screen-reader user most of all). */}
       {!loading && !error && recipes.length > 0 ? (
-        <p>
-          <Link to="/recipes/new" className={styles.addButton}>
-            <Plus size={18} aria-hidden="true" />
-            Add recipe
-          </Link>
+        <p className={styles.subtitle}>
+          {recipes.length} recipe{recipes.length === 1 ? "" : "s"} · {staplesCount} staple{staplesCount === 1 ? "" : "s"} ·{" "}
+          {retiredCount} retired
         </p>
       ) : null}
 
       {loading ? (
-        <div className={styles.form}>
-          <Skeleton />
-          <Skeleton />
-          <Skeleton />
+        <div className={styles.grid}>
+          <Skeleton height="7em" />
+          <Skeleton height="7em" />
+          <Skeleton height="7em" />
         </div>
       ) : null}
       {!loading && error ? (
@@ -109,37 +143,71 @@ export function Recipes() {
           title="No recipes yet"
           description="Add your first recipe — cooked or store-bought — to start building a rotation."
           action={
-            <Link to="/recipes/new" className={styles.addButton}>
+            <Link to="/recipes/new" className={styles.newButton}>
               Add recipe
             </Link>
           }
         />
       ) : null}
       {!loading && !error && recipes.length > 0 ? (
-        <ListSection heading={`${recipes.length} recipe${recipes.length === 1 ? "" : "s"}`}>
-          {recipes.map((recipe) => (
-            <ListRow
-              key={recipe.id}
-              leading={
-                recipe.kind === "bought" ? (
-                  <BowlFood size={20} aria-hidden="true" />
-                ) : (
-                  <CookingPot size={20} aria-hidden="true" />
-                )
-              }
-              primary={<Link to={`/recipes/${recipe.id}`}>{recipe.name}</Link>}
-              secondary={summarize(recipe)}
-              trailing={
-                <SegmentedControl<RecipeStatus>
-                  aria-label={`"${recipe.name}" rotation status`}
-                  options={STATUS_OPTIONS}
-                  value={recipe.status}
-                  onChange={(status) => void handleStatusChange(recipe, status)}
-                />
-              }
+        <>
+          <div className={styles.search}>
+            <MagnifyingGlass size={16} aria-hidden="true" />
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Search recipes"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label="Search recipes"
             />
-          ))}
-        </ListSection>
+          </div>
+          <div className={styles.filters}>
+            <button
+              type="button"
+              className={`${styles.fchip}${activeFilter === null ? ` ${styles.fchipActive}` : ""}`}
+              aria-pressed={activeFilter === null}
+              onClick={() => setActiveFilter(null)}
+            >
+              All
+            </button>
+            {FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                type="button"
+                className={`${styles.fchip}${activeFilter === filter.key ? ` ${styles.fchipActive}` : ""}`}
+                aria-pressed={activeFilter === filter.key}
+                onClick={() => setActiveFilter((current) => (current === filter.key ? null : filter.key))}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState icon={MagnifyingGlass} title="No recipes match" description="Try a different search or filter." />
+          ) : (
+            <div className={styles.grid}>
+              {filtered.map((recipe) => (
+                <Link key={recipe.id} to={`/recipes/${recipe.id}`} className={styles.card}>
+                  <p className={styles.cardTitle}>{recipe.name}</p>
+                  <div className={styles.cardMeta}>
+                    <span>{recipe.prepMinutes} prep</span>
+                    <span>{recipe.cookMinutes} cook</span>
+                    <span>serves {recipe.baseServings}</span>
+                  </div>
+                  <div className={styles.tagRow}>
+                    {tagPills(recipe).map((tag) => (
+                      <span key={tag} className={styles.tagPill}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
       ) : null}
     </section>
   );
