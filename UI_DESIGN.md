@@ -314,3 +314,121 @@ cannot follow the user's chosen hue** (§3). So:
 - `background_color` (the splash) is `#ffffff` to match the default light theme —
   a manifest has no dark variant, so dark-mode users get one light splash frame.
   Deliberate: green-on-green would hide the icon's own tile.
+
+## 12. Auth-gated shell states
+
+Added 2026-08-20 after the product owner tested the running app: signed out, the
+shell still rendered the full nav and let you walk into every route.
+
+`AppShell` takes a **required** discriminated union. Three states, not two —
+signing in is not sufficient, because the app is useless until a workbook exists
+(`DESIGN.md` §1: the app creates one, or the user opens a shared one via Picker).
+
+```ts
+type ShellState =
+  | { kind: "signed-out" }   // branding + "Sign in with Google". Nothing else.
+  | { kind: "no-workbook" }  // "Create new meal planner" / "Open existing…" + sign out.
+  | { kind: "ready" }        // full shell: nav, workbook switcher, <Outlet />.
+```
+
+A union rather than two booleans, so the compiler forces all three cases.
+
+**Gate the route content, not just the nav.** Hiding nav links while `<Outlet />`
+still renders is a fake gate — a cold deep link to `/pantry` while signed out must
+show the sign-in screen. This is E2E-tested.
+
+**The shell never imports auth** (§7). State arrives as a prop; intent leaves via
+`onSignIn` / `onSignOut` / `onCreateWorkbook` / `onPickWorkbook`. WP-20 wires the
+real `createGoogleAuth` from `src/sheets/`. This also preserves WP-10's criterion
+that no Google API call happens before a user gesture.
+
+The signed-out screen passes axe like every other route.
+
+## 13. Visual language — approved 2026-08-20
+
+The owner approved the interface direction and screen catalogue. What follows is
+what those add beyond §1–§12; where they differ, this section wins.
+
+### Elevation
+
+Three surface levels, not one flat plane. The merged WP-15 shell shared a single
+near-black between background, content and nav, which is why it read as a void.
+
+| Token | Use |
+|---|---|
+| `--paper` | the page ground |
+| `--surface` | cards, sheets, the tab bar |
+| `--surface-2` | inset wells, segmented-control troughs, hover |
+
+Plus `--line` / `--line-soft` for borders, and two shadow tokens. Shadows are for
+things that genuinely float (sheets, dialogs, the FAB) — not for cards.
+
+### Colour: only exceptions get colour
+
+**Fresh is neutral. Amber means expiring. Red means expired.** A pantry of thirty
+items stays calm instead of becoming a fruit salad, and attention goes where it is
+needed.
+
+**Semantic colours are fixed hues and must never derive from `--accent-hue`.** The
+accent is user-selectable (§3): if "expiring" were accent-derived and someone chose
+amber, the warning would vanish into the interface. `--warn` ≈ hue 72, `--crit` ≈
+hue 27, both fixed.
+
+### Motion
+
+Colour and opacity only. **Never animate layout or position** — it feels cheap on
+the low-end phone this is designed for, and it thrashes on a long list.
+
+| Tier | Duration | Examples |
+|---|---|---|
+| Micro | 160 ms | hover, press, focus ring |
+| State | 220 ms | check-off, toggle, badge change |
+| Entry | 260–300 ms | tab indicator, checkmark draw, sheet rise |
+
+Easing `cubic-bezier(0.22, 0.61, 0.36, 1)` throughout. Everything inside
+`prefers-reduced-motion`.
+
+The check-off is the one moment worth animating properly: the tick draws via
+`stroke-dashoffset` while the row's label strikes through. It is the single most
+repeated interaction in the app.
+
+### Type
+
+**Fraunces** for headings (variable, optical size), **Archivo** for UI and body.
+`font-variant-numeric: tabular-nums` everywhere digits align — quantities, dates,
+prices, counts.
+
+**Self-host both as subset `woff2`. Do not link Google Fonts.** This is an
+offline-first PWA: a CDN stylesheet is a third-party request that fails in a shop
+with no signal, and it leaks visitors to a third party. Subset to latin and only
+the weights used.
+
+### Freshness as a visual cue
+
+A pantry lot shows a thin meter of remaining shelf life beneath it, coloured by the
+rule above. It makes "use this first" legible at a glance rather than requiring the
+user to compare dates.
+
+### Desktop
+
+- **The nav belongs in the DOM before `<main>`.** WP-15's bug was ordering, not CSS:
+  it correctly set `position: static` at ≥768 px, but rendered the nav after a
+  full-height main, so it fell to the bottom of the page.
+- Content sits in a real container with a measure — never stranded top-left.
+- **Width buys information, not padding.** The shopping screen gains a right rail
+  answering *"why is this on my list?"* from `ShoppingListLine.sources`, which the
+  engine already computes and the current UI discards.
+- The week planner is the screen that justifies desktop: seven columns, whole week
+  visible, pinned/leftover/empty slots each visually distinct.
+
+### Empty states
+
+Every route gets a real one: an icon, a sentence naming what is missing, and the
+action that fixes it. No developer text ever reaches a user — "Stub route — see
+WP-23" shipped to the owner and must not recur.
+
+### Reference
+
+The approved mockups: interface direction and the full screen catalogue (Home,
+Recipes, a recipe, Pantry, a pantry item, Plan, Shopping, barcode scan, Settings,
+and the control gallery). Build to those patterns.

@@ -126,7 +126,16 @@ Provisioning is done; nothing in this section needs re-doing. Current state:
 
 - GCP project **`feeder-tc`** (owner fabbari@gmail.com); Sheets, Drive, and
   Picker APIs enabled. No billing attached (none needed).
-- OAuth consent screen published (External, Production, `drive.file` only);
+- OAuth consent screen: External, `drive.file` only. **⚠️ Publishing status was
+  recorded here as "Production" but was actually still "Testing"** — discovered
+  2026-08-20 when the owner's first real sign-in failed with
+  `Error 403: access_denied` ("currently being tested, and can only be accessed
+  by developer-approved testers"). Fix is to **Publish app** in Google Auth
+  Platform → Audience. Publishing needs **no verification review** because
+  `drive.file` is a non-sensitive scope — which is precisely why that scope was
+  chosen. Do not "fix" this by adding test users: Testing mode expires refresh
+  tokens after 7 days, the exact problem Production avoids.
+  Client ID / origins below are correct and verified;
   Web client ID `360506420836-tge9cu5lfhf4m3kufl4ist91tri8o9r4.apps.googleusercontent.com`
   with JS origins `http://localhost:5173`, `https://fabbarix.github.io` and
   `https://feeder.torchetti.us` (the last added by the owner at the

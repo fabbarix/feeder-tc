@@ -1,10 +1,17 @@
-// Google auth + Sheets transport (WP-10). Row<->entity codecs and the
-// WorkbookStore implementation on top of this land in a sibling area under
-// WP-11 - this barrel only covers WP-10's own scope: the token client,
-// Picker integration, the real SheetsTransport, workbook creation, and the
-// multi-workbook registry.
+// Google auth + Sheets transport (WP-10), plus row<->entity codecs, the
+// WorkbookStore implementation, and the create-workbook bootstrap flow
+// (WP-11): the token client, Picker integration, the real SheetsTransport,
+// workbook creation, the multi-workbook registry, and everything that turns
+// a freshly-created (empty-tabs) spreadsheet into a usable workbook.
 
 export { createGoogleAuth, DRIVE_FILE_SCOPE, type AuthState, type GoogleAuth, type GoogleAuthDeps } from "./auth.ts";
+export {
+  bootstrapWorkbook,
+  DEFAULT_SETTINGS,
+  INITIAL_GENERATION,
+  WORKBOOK_SHEET_NAMES,
+} from "./bootstrap.ts";
+export * from "./codecs/index.ts";
 export { ReAuthRequiredError, SheetsHttpError } from "./errors.ts";
 export {
   createGooglePickerLauncher,
@@ -23,3 +30,4 @@ export {
   type CreateSheetsTransportOptions,
   type SheetsAuthAdapter,
 } from "./transport.ts";
+export { createSheetsWorkbookStore } from "./workbook-store.ts";

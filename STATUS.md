@@ -18,14 +18,17 @@ Last updated: 2026-08-20
 
 | WP | Title | State | Branch | Notes |
 |----|-------|-------|--------|-------|
-| WP-10 | Google auth + Sheets transport| in-progress | `wp-10` | Dispatched 2026-08-20, worktree, E2E_PORT=5310. Contains the parked live-verification step (owner at browser).|
-| WP-11 | Workbook bootstrap + codecs | pending | — | Dispatched once WP-10 merges (per dependency graph). |
-| WP-12 | Inventory engine (pure)| in-progress | `wp-12` | Dispatched 2026-08-20, worktree, E2E_PORT=5312. |
-| WP-13 | Planner engine (pure)| in-progress | `wp-13` | Dispatched 2026-08-20, worktree, E2E_PORT=5313. |
-| WP-14 | Shopping engine (pure)| in-progress | `wp-14` | Dispatched 2026-08-20, worktree, E2E_PORT=5314. |
-| WP-15 | UI shell + component kit| in-progress | `wp-15` | Dispatched 2026-08-20, worktree, E2E_PORT=5315. |
-| WP-16 | Seed ingredient catalog| in-progress | `wp-16` | Dispatched 2026-08-20, worktree, E2E_PORT=5316. |
-| WP-17 | Sync layer: snapshot + outbox| in-progress | `wp-17` | Dispatched 2026-08-20, worktree, E2E_PORT=5317. |
+| WP-10 | Google auth + Sheets transport| **merged** | `wp-10` (PR #11) | Merged 2026-08-20. |
+| WP-11 | Workbook bootstrap + codecs | **merged** | `wp-11` (PR #13) | Merged 2026-08-20. Mixed-unit writes rejected at the codec layer; malformed rows quarantined as warnings. |
+| WP-12 | Inventory engine (pure)| **merged** | `wp-12` (PR #10) | Merged 2026-08-20. |
+| WP-13 | Planner engine (pure)| **merged** | `wp-13` (PR #7) | Merged 2026-08-20. |
+| WP-14 | Shopping engine (pure)| **merged** | `wp-14` (PR #6) | Merged 2026-08-20. |
+| WP-15 | UI shell + component kit| **merged** | `wp-15` (PR #9) | Merged 2026-08-20. |
+| WP-16 | Seed ingredient catalog| **merged** | `wp-16` (PR #5) | Merged 2026-08-20. |
+| WP-17 | Sync layer: snapshot + outbox| **merged** | `wp-17` (PR #8) | Merged 2026-08-20. |
+
+| WP-15b | Component kit revision | in-progress | `wp-15b` | Dispatched 2026-08-20, E2E_PORT=5325. Implements `UI_DESIGN.md`. |
+| WP-24a | App icons + manifest | **merged** | `wp-24a-app-icons` (PR #12) | Pulled forward from WP-24. |
 
 ## Stage 2 — Feature assembly (milestone pipeline)
 
@@ -46,9 +49,17 @@ Last updated: 2026-08-20
 
 ## Parked / blocked on owner
 
-- **WP-10 live verification** — dev-server sign-in + Google Picker open with a real
-  Google account. Requires the product owner at the browser. Will be requested once
-  the dev server runs an auth screen. Not blocking other packages.
+- **WP-10 live verification — PARTIALLY DONE (2026-08-20).**
+  - ✅ **Sign-in verified against the real Google.** OAuth flow, `drive.file` scope,
+    client ID, registered origin and consent screen all confirmed working by the owner.
+  - ⚠️ First attempt failed with `Error 403: access_denied` — the consent screen was
+    still in **Testing**, despite HANDOVER §7 recording it as Production. Owner
+    published the app; no verification review was needed because `drive.file` is
+    non-sensitive. HANDOVER §7 corrected.
+  - ⏳ **Outstanding:** steps 2–4 of `verify-google.html` — create workbook (nine tabs),
+    open Picker, and **read `Meta!A1:B1`**. Step 4 is the only one that proves
+    `SheetsTransport` round-trips against the real Sheets API rather than msw.
+    Not blocking; WP-10 is merged and its mocked contract suite passes.
 
 - **Custom domain — ✅ COMPLETE (2026-08-20).** Site is live at
   `https://feeder.torchetti.us`, HTTPS enforced, `fabbarix.github.io/feeder-tc/`
@@ -66,6 +77,21 @@ Last updated: 2026-08-20
     match wins; `#` means "use standard upstream servers") and **restart**
     dnsmasq — SIGHUP does not re-read the config file.
 
+## Proposed scope — awaiting owner decisions
+
+- **M6 · Products, barcodes and prices** — specified by the owner 2026-08-20, captured
+  in `DESIGN_PRODUCTS.md`. **Not buildable yet:** three decisions open, two of which
+  reverse settled decisions.
+  1. **Units** — the request asks for `kg`/`oz`/`lb`/`number`, but invariant 3 bans
+     conversion and `Unit` is deliberately `g|ml|piece|portion`. Proposed: entry-time
+     conversion only, canonical units in the workbook. Needs explicit approval.
+  2. **Cost tracking** — `DESIGN.md` §6 lists it as a v1 non-goal. Price history
+     reverses that; `DESIGN.md` must be amended, and currency named.
+  3. **Photos** — cannot live in a cell (invariant 6). Proposed: Drive file id, using
+     the `drive.file` scope we already hold. Or defer photos.
+- **M7 · Shop detection** — explicitly deferred by the owner. `PriceObservations.source`
+  is specified now so adding shops later needs no rewrite of price history.
+
 ## Integration log
 
 _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell → features)_
@@ -75,6 +101,7 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 | 2026-08-20 | WP-01 | Merged (PR #1, squash). Coordinator review found 3 issues, all fixed before merge: (1) E2E ran on port 5173 with `reuseExistingServer:true` and silently adopted an unrelated project's Vite server — moved to 5273, reuse disabled; (2) CI triggered on both `pull_request` and `push`, doubling every run — `pull_request` only; (3) msw worker (~400 kB) shipped to Pages as a dead chunk because the env check went through a getter and defeated static elimination — now read as a literal at the use site. main green: lint/typecheck/test/build/e2e. |
 | 2026-08-20 | WP-02 | Merged (PR #3, squash) **after** a coordinator-approved contract change. Review confirmed: branded IDs, deep `readonly` events with no mutator, `SyncOutcome` union, `PlanSlotFilling` 3-way union, IDs taking an injected `Rng` (keeps event creation deterministic for WP-12/14), purity + dependency direction clean by grep. Two gaps sent back and fixed: (1) `SpoilEvent` had no `lotId` — invariant 4 scopes FIFO to "usage, shopping allocation", and WP-21's per-lot pantry view must record *which* lot spoiled; (2) no event could express DESIGN §2's manual expiry override on an existing lot, so `Lot.expiryOverridden` was unreachable after purchase and WP-12 could not implement its own scope — fixed on `AdjustEvent` (`delta` optional, `expiry?` added, `makeAdjustEvent` enforces at least one) rather than a 7th event type. 86 tests. |
 | 2026-08-20 | WP-03 | Merged (PRs #2, #4, squash). Owner-requested path routing + custom domain, taken before the Stage 1 fan-out because it was a config change then and would have touched every UI package later. Found and fixed a passing-but-wrong E2E test: Playwright `goto()` with a leading slash resolves against the origin and dropped the base path. Site live at `https://feeder.torchetti.us`. |
+| 2026-08-20 | Stage 1 | **All 7 packages merged**, plus WP-11. Integration required resolving one real conflict: five PRs had independently fixed the same latent `tsconfig.test.json` TS6307 gap two incompatible ways (three used a project reference needing `noEmit:false` + declaration emit; two added `"src"` to `include`). Took the include fix as canonical and reverted the other three. Also unioned three engine barrels in `src/domain/index.ts` and regenerated the lockfile via `npm install`. main green: 688 tests + 26 E2E. |
 | 2026-08-20 | — | **Stage 1 fan-out dispatched:** WP-10, 12, 13, 14, 15, 16, 17 in seven worktrees, each with its own `E2E_PORT` to keep concurrent Playwright runs from colliding on 5273. |
 
 ## Known debt

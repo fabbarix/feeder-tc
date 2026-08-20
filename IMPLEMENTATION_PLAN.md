@@ -349,6 +349,20 @@ Feature: Offline outbox
 
 ### WP-20 · M1: Catalog + Recipes UI  *(needs WP-11, WP-15, WP-16)*
 
+**Auth gating (added 2026-08-20, owner-reported):** wire the real auth and
+workbook state into `AppShell`'s three-state `ShellState` prop (see
+`UI_DESIGN.md` §12). Signed out ⇒ login button only, no nav, no route content —
+including on a cold deep link. WP-15b builds the shell states; WP-20 supplies
+the real state and callbacks.
+
+```gherkin
+  Scenario: A signed-out visitor sees only the login screen
+    Given a signed-out user
+    When they open "/pantry" directly
+    Then the sign-in screen is shown
+    And no navigation items are visible
+```
+
 Scope: ingredients catalog browse/edit; recipe CRUD — cooked and bought kinds,
 meal tags, servings, prep/cook minutes, ingredient lines (canonical-unit picker),
 steps editor; 3-state vote control on the recipe card; cooked-history display
