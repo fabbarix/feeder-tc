@@ -29,12 +29,12 @@ function emitSpaFallback(): Plugin {
   };
 }
 
-// `base` is the ONE line that changes when cutting over to the custom domain:
-// "/feeder-tc/" while the site is served from
-// https://fabbarix.github.io/feeder-tc/, "/" once https://feeder.torchetti.us
-// serves it from the root. The router reads this via import.meta.env.BASE_URL
-// (see src/App.tsx), so nothing else needs touching at cutover.
+// The site is served from the root of https://feeder.torchetti.us (custom
+// domain, cut over 2026-08-20), so `base` is "/". It was "/feeder-tc/" while
+// the site lived at https://fabbarix.github.io/feeder-tc/ — that URL now
+// redirects to the custom domain. The router reads this via
+// import.meta.env.BASE_URL (see src/App.tsx).
 export default defineConfig({
-  base: "/feeder-tc/",
+  base: "/",
   plugins: [react(), emitSpaFallback()],
 });

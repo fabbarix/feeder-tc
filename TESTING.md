@@ -78,11 +78,13 @@ path against Sheets/Drive/Picker, mock it here.
    `IMPLEMENTATION_PLAN.md` into the spec's description/comments so intent
    stays traceable back to the plan.
 2. Pass a **relative** path to `page.goto()` — `"pantry"`, or `""` for the
-   index. `baseURL` carries the base path (`http://localhost:5273/feeder-tc/`),
-   and an argument with a **leading slash resolves against the origin**, so
-   `page.goto("/pantry")` silently drops the `/feeder-tc` prefix and exercises
-   the wrong URL. Routes are real History API paths (`createBrowserRouter`),
-   so assert on the pathname — `/\/pantry$/` — never on a `#` fragment.
+   index. `baseURL` mirrors Vite's `base` (`http://localhost:5273/`), and an
+   argument with a **leading slash resolves against the origin**, discarding
+   any base path. That is harmless while `base` is `"/"`, but it silently
+   tested the wrong URL when the app was served from `/feeder-tc/` — keep
+   paths relative so a future base change cannot resurrect that bug. Routes
+   are real History API paths (`createBrowserRouter`), so assert on the
+   pathname — `/\/pantry$/` — never on a `#` fragment.
 3. Any network calls (Google auth, Sheets) must be served by the msw browser
    worker — see above. Do not add real network calls to an E2E spec.
 4. Run `npm run test:e2e` (headless Chromium + a `mobile-chrome` project on
