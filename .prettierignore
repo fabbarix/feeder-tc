@@ -1,0 +1,13 @@
+dist
+coverage
+playwright-report
+test-results
+public/mockServiceWorker.js
+node_modules
+
+# Pre-existing design/handover docs — owned by the coordinator, not this WP.
+# Never reformat these.
+DESIGN.md
+HANDOVER.md
+IMPLEMENTATION_PLAN.md
+STATUS.md
