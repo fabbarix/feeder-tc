@@ -53,3 +53,17 @@ export function isOnOrAfter(a: IsoDate, b: IsoDate): boolean {
 export function today(clock: { today(): IsoDate }): IsoDate {
   return clock.today();
 }
+
+/**
+ * Whole calendar days from `from` to `to` (positive when `to` is later,
+ * negative when earlier, e.g. an already-expired lot). WP-21's pantry view
+ * uses this for "expiring in N days" copy and for the freshness-meter
+ * fraction — kept here rather than duplicated locally since it's plain
+ * `IsoDate` math like `addDays`/`compareIsoDate` above, not feature logic.
+ */
+export function daysBetween(from: IsoDate, to: IsoDate): number {
+  const a = toUtcParts(from);
+  const b = toUtcParts(to);
+  const millisPerDay = 24 * 60 * 60 * 1000;
+  return Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / millisPerDay);
+}

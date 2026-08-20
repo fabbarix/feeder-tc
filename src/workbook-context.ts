@@ -15,6 +15,14 @@ export interface WorkbookContextValue {
   readonly store: WorkbookStore;
   readonly clock: Clock;
   readonly rng: Rng;
+  /**
+   * The active workbook's spreadsheet id. `WorkbookStore` has no accessor
+   * for it (it's an implementation detail of the transport it was built
+   * from) but WP-17's per-workbook `SnapshotStore`/`Outbox` keying needs it
+   * explicitly — added for WP-21, the first route to construct that sync
+   * machinery.
+   */
+  readonly workbookId: string;
 }
 
 export const WorkbookContext = createContext<WorkbookContextValue | undefined>(undefined);

@@ -1,0 +1,175 @@
+/* Pantry route layout (WP-21). Not part of the src/ui kit — feature-specific
+   layout, same split as src/routes/forms.module.css (UI_DESIGN.md §7). */
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Desktop earns its width (UI_DESIGN.md §13): the list plus a rail, not a
+   phone layout stretched into a void. */
+@media (min-width: 768px) {
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+    align-items: start;
+    gap: var(--space-6);
+  }
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.rail {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+.railCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--space-4);
+}
+
+.railTitle {
+  margin: 0 0 var(--space-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.railStat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) 0;
+  color: var(--text);
+}
+
+.railStat strong {
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.toolbarButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toolbarButtonActive {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--space-4);
+}
+
+/* Per-lot secondary block: quantity/location/purchase line, expiry line, freshness meter. */
+.lotDetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: 2px;
+}
+
+.expiryText {
+  color: var(--text-muted);
+}
+
+/* Only exceptions get colour (UI_DESIGN.md §13) — fresh stays the default muted tone above. */
+.expiryWarn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.expiryCrit {
+  color: var(--crit);
+  font-weight: 600;
+}
+
+.frozenBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+}
+
+.meter {
+  max-width: 12em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.actionButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-h);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.actionButtonDestructive {
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.dialogHint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { makeIsoDate } from "./types.ts";
-import { addDays, compareIsoDate, isBefore, isOnOrAfter, today } from "./dates.ts";
+import { addDays, compareIsoDate, daysBetween, isBefore, isOnOrAfter, today } from "./dates.ts";
 
 describe("addDays", () => {
   it("adds days within a month", () => {
@@ -53,5 +53,23 @@ describe("today", () => {
   it("delegates to the injected clock, never the wall clock directly", () => {
     const fixed = makeIsoDate("2026-03-01");
     expect(today({ today: () => fixed })).toBe(fixed);
+  });
+});
+
+describe("daysBetween", () => {
+  it("is positive when `to` is later", () => {
+    expect(daysBetween(makeIsoDate("2026-08-20"), makeIsoDate("2026-08-22"))).toBe(2);
+  });
+
+  it("is negative when `to` is earlier (an already-expired lot)", () => {
+    expect(daysBetween(makeIsoDate("2026-08-20"), makeIsoDate("2026-08-18"))).toBe(-2);
+  });
+
+  it("is zero for the same date", () => {
+    expect(daysBetween(makeIsoDate("2026-08-20"), makeIsoDate("2026-08-20"))).toBe(0);
+  });
+
+  it("rolls over a month boundary", () => {
+    expect(daysBetween(makeIsoDate("2026-08-30"), makeIsoDate("2026-09-02"))).toBe(3);
   });
 });

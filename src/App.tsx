@@ -117,10 +117,20 @@ function ShellContainer() {
     });
     try {
       const created = await createWorkbook(DEFAULT_WORKBOOK_TITLE, auth, registry);
-      refreshActiveWorkbook();
       const transport = createGoogleSheetsTransport({ spreadsheetId: created.id, auth });
       const store = createSheetsWorkbookStore(transport);
       await bootstrapWorkbook(transport, store);
+      // Only now does `registry.getActive()` get mirrored into React state
+      // (flipping `ShellState` to "ready" and mounting routes, WP-21 fixed
+      // 2026-08-20): `createWorkbook` above already persisted the workbook
+      // to the registry and set it active, but the workbook itself isn't
+      // actually usable until bootstrap finishes writing the Meta row,
+      // Settings and the seeded catalog. Calling this earlier let a route
+      // mount (and e.g. `Meta.read()`) mid-bootstrap, racing an empty/
+      // partially-written workbook — WP-21's pantry route was the first to
+      // read `Meta` at mount and hit it as a hard "not bootstrapped
+      // correctly" error, but the race existed for every "ready" route.
+      refreshActiveWorkbook();
       showToast({
         variant: "success",
         title: "Workbook ready",
@@ -154,7 +164,7 @@ function ShellContainer() {
   const workbookContextValue = useMemo<WorkbookContextValue | undefined>(() => {
     if (!activeWorkbook) return undefined;
     const transport = createGoogleSheetsTransport({ spreadsheetId: activeWorkbook.id, auth });
-    return { store: createSheetsWorkbookStore(transport), clock: systemClock, rng };
+    return { store: createSheetsWorkbookStore(transport), clock: systemClock, rng, workbookId: activeWorkbook.id };
   }, [activeWorkbook, auth, rng]);
 
   return (
