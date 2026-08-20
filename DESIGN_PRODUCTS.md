@@ -1,8 +1,8 @@
 # Design addendum — Products, barcodes and prices
 
-**Status: PROPOSED, not settled.** Specified by the product owner on 2026-08-20.
-Three decisions are still open (§6) and two of them change decisions recorded as
-settled in `DESIGN.md`. Nothing here is buildable until those are resolved.
+**Status: mostly SETTLED (2026-08-20).** Units and cost tracking are decided by
+the owner; the photo *storage format* has one open sub-decision (§5). Scheduled as
+M6, after the M1–M5 pipeline.
 
 Companion to `DESIGN.md` (authoritative product design) and `HANDOVER.md` §4
 (invariants).
@@ -43,13 +43,17 @@ Provisional sheets, following the existing one-row-one-fact rule (invariant 6):
 
 | Sheet | Contents |
 |---|---|
-| `Products` | `barcode, name, brand, ingredient_id, package_quantity, package_unit, entered_unit, entered_quantity, shelf_life_days, is_bulk, photo_file_id` |
-| `PriceObservations` | append-only: `timestamp, barcode?, ingredient_id, quantity, unit, price, currency, source` |
+| `Products` | `barcode, name, brand, ingredient_id, canonical_quantity, canonical_unit, display_quantity, display_unit, shelf_life_days, is_bulk, photo_data_url` |
+| `PriceObservations` | append-only: `timestamp, barcode?, ingredient_id, quantity, unit, price, source` |
+
+`canonical_*` drives every calculation; `display_*` is shown to the human ("1 lb
+bag") and never used in arithmetic. `PriceObservations` carries no currency column —
+the household has one currency, held in Settings.
 
 `PriceObservations` is append-only for the same reason `InventoryEvents` is: it is
 a time series, corrections are new rows, and two clients appending never collide.
 
-## 3. ⚠️ Conflict 1 — units (invariant 3)
+## 3. Units — ✅ SETTLED: entry-time conversion, store both
 
 **This is the architectural one.**
 
@@ -83,11 +87,16 @@ That is conversion, and it is currently banned everywhere.
 This keeps every existing guarantee — FIFO, shopping maths and the fold still see
 one unit per ingredient — while not forcing a human to type 454.
 
-**This still weakens invariant 3's letter and needs the owner's explicit approval.**
-The alternative is to reject non-canonical entry outright, which is architecturally
-purer and materially worse to use in a shop.
+**Owner decision (2026-08-20): approved.** Store **both** values — the canonical
+quantity for all arithmetic, and the entered quantity purely for display. A 1 lb
+bag of rice records `454 g` as canonical and shows "1 lb bag" in the UI.
 
-## 4. ⚠️ Conflict 2 — cost tracking was a stated non-goal
+Invariant 3 is amended in scope, not abandoned: *no engine, codec, fold or sheet
+converts*. Conversion happens once, in the product editor, before anything is
+written. `HANDOVER.md` §4.3 must be updated to say so explicitly, or WP-11's codec
+guard will read as contradicting this.
+
+## 4. Cost tracking — ✅ SETTLED: in scope, single currency
 
 `DESIGN.md` §6: *"No nutrition, **cost tracking**, or recipe import/scraping."*
 
@@ -95,39 +104,53 @@ Price capture and price history are cost tracking. The owner may reverse their o
 decision, but `DESIGN.md` must be amended to say so rather than left contradicting
 the build.
 
-Consequences once accepted:
-- **Currency** becomes a settings field. Prices without a currency are unusable,
-  and a household that shops abroad will produce mixed rows.
+**Owner decision (2026-08-20): cost tracking is in scope.** `DESIGN.md` §6 must
+drop it from the non-goals list.
+
+- **Currency: a single value in Settings, defaulting to `$`.** Not per-row — the
+  household has one currency. Rows therefore need no currency column; the setting
+  is applied at display time.
 - Price per *weight* implies normalising to a comparable base (price per 100 g,
   say) for fluctuation to mean anything across a 500 g and a 1 kg pack. That
   normalisation is arithmetic on units — see §3.
 
-## 5. ⚠️ Conflict 3 — photos vs. a human-readable workbook
+## 5. Photos — data URL, but the size needs deciding
 
 `HANDOVER.md` §4.6: *"The workbook stays human-readable. No JSON blobs in cells."*
 An image cannot go in a cell.
 
-**Recommended resolution:** the app already holds the `drive.file` scope and can
-create files it owns. Store the photo as a Drive file and keep only its **file id**
-in the `Products` row. The cell stays a short readable string, the invariant holds,
-and no new scope is needed.
+**Owner decision (2026-08-20): store the image inline as a data URL**, user-cropped
+and compressed, rather than as a Drive file. Rationale: a Drive file is not shared
+when the workbook is shared, so household members would see broken thumbnails until
+each photo was individually permissioned.
 
-Costs to accept: photos are extra Drive round-trips, need their own offline story
-in the PWA (an image is far larger than an outbox event), and sharing a workbook
-does **not** automatically share the photos — each photo needs its own permission,
-or household members see broken thumbnails.
+**Two hard constraints bound the format:**
 
-**Alternative:** drop photos from v1. They are the least load-bearing part of the
-request and by far the most machinery.
+1. **A Google Sheets cell holds at most 50,000 characters.** Base64 inflates binary
+   by 4/3, so the ceiling is **~36.6 KB of image per cell**. A 1024px PNG is
+   400 KB–1.5 MB — between 11× and 40× over. Even 1024px WebP at q60 (~50 KB) does
+   not fit.
+2. **The snapshot cache lives in localStorage, ~5 MB total.** 100 products at 25 KB
+   of base64 each consumes half the entire quota, competing with the inventory
+   snapshot that actually needs it.
 
-## 6. Open decisions — blocking
+**Therefore:** **320 px longest side, WebP, quality ~0.6 (~12–18 KB).** Fits the
+cell limit with headroom and stays cheap to sync. PNG is explicitly rejected: it is
+lossless, built for flat graphics, and runs 5–10× larger than WebP on photographs.
 
-1. **Units.** Approve entry-time conversion (§3), or require canonical-unit entry?
-2. **Cost tracking.** Confirm the `DESIGN.md` §6 non-goal is reversed, and name the
-   currency handling.
-3. **Photos.** Drive-file-id in v1, or defer photos?
+Photos are **loaded lazily and excluded from the cached snapshot** — they are the
+one field that must never enter the localStorage fold.
 
-Non-blocking, coordinator will decide unless told otherwise: the product-lookup
+This is a bounded, documented exception to invariant 6 rather than a silent one:
+one column, one entity, and it is why the limit and the format are recorded here.
+
+## 6. Remaining decisions
+
+**Open (owner):** confirm 320px WebP for photos, given 1024px PNG cannot fit a cell
+(§5). If full-resolution photos matter more than automatic sharing, the Drive-file-id
+route is the alternative.
+
+**Coordinator will decide unless told otherwise:** the product-lookup
 source for unknown barcodes (Open Food Facts vs. manual-entry-only), and the iOS
 barcode decoder (`BarcodeDetector` is absent in Safari, so iPhone needs a WASM
 fallback with real bundle cost for an offline PWA).
