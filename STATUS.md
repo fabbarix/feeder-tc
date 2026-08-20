@@ -10,8 +10,8 @@ Last updated: 2026-08-20
 
 | WP | Title | State | Branch | Notes |
 |----|-------|-------|--------|-------|
-| WP-01 | Repo scaffold & CI | in-progress | `wp-01-scaffold` | Sequential gate. Dispatched. |
-| WP-02 | Interface contracts | pending | — | Gates all of Stage 1. Coordinator reviews vs HANDOVER §4 before merge. |
+| WP-01 | Repo scaffold & CI | **merged** | `wp-01-scaffold` (PR #1) | Merged 2026-08-20. 3 coordinator fixes applied at review — see integration log. |
+| WP-02 | Interface contracts | in-progress | `wp-02-contracts` | Gates all of Stage 1. Coordinator reviews vs HANDOVER §4 before merge. |
 
 ## Stage 1 — Parallel core (fan out after WP-02 merges)
 
@@ -55,4 +55,12 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 
 | Date | WP | Result |
 |------|----|--------|
-| — | — | — |
+| 2026-08-20 | WP-01 | Merged (PR #1, squash). Coordinator review found 3 issues, all fixed before merge: (1) E2E ran on port 5173 with `reuseExistingServer:true` and silently adopted an unrelated project's Vite server — moved to 5273, reuse disabled; (2) CI triggered on both `pull_request` and `push`, doubling every run — `pull_request` only; (3) msw worker (~400 kB) shipped to Pages as a dead chunk because the env check went through a getter and defeated static elimination — now read as a literal at the use site. main green: lint/typecheck/test/build/e2e. |
+
+## Known debt
+
+- **TypeScript pinned to `^6.0.3`**, not current 7.x: `typescript-eslint@8.67` declares
+  peer `<6.1.0`. Revisit as a dedicated dependency-bump task once the ecosystem
+  catches up — must not drift in via a feature branch.
+- **Picker API key referrer allowlist still contains `http://localhost:5173/*`.**
+  Needed for development; worth dropping from the production key at WP-31.
