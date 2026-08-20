@@ -27,18 +27,19 @@ Last updated: 2026-08-20
 | WP-16 | Seed ingredient catalog| **merged** | `wp-16` (PR #5) | Merged 2026-08-20. |
 | WP-17 | Sync layer: snapshot + outbox| **merged** | `wp-17` (PR #8) | Merged 2026-08-20. |
 
-| WP-15b | Component kit revision | in-progress | `wp-15b` | Dispatched 2026-08-20, E2E_PORT=5325. Implements `UI_DESIGN.md`. |
+| WP-15b | Component kit revision | **merged** | `wp-15b` (PR #15) | OKLCH, CSS Modules, React Aria, Phosphor, list-first. |
+| M6-A | Products/prices contracts + codecs | **merged** | `m6a-contracts` (PR #17) | Contract extension, entry-time conversion, 3 new sheets. |
 | WP-24a | App icons + manifest | **merged** | `wp-24a-app-icons` (PR #12) | Pulled forward from WP-24. |
 
 ## Stage 2 — Feature assembly (milestone pipeline)
 
 | WP | Title | State | Branch | Notes |
 |----|-------|-------|--------|-------|
-| WP-20 | M1 Catalog + Recipes UI | pending | — | needs WP-11, WP-15, WP-16 |
-| WP-21 | M2 Pantry UI | pending | — | needs WP-12, WP-17, WP-20 |
+| WP-20 | M1 Catalog + Recipes UI | **merged** | `wp-20` (PR #18) | Real auth wiring, catalog + recipe CRUD, header rebuild. |
+| WP-21 | M2 Pantry UI | in-progress | `wp-21` | Dispatched, E2E_PORT=5510. |
 | WP-22 | M3 Planner UI | pending | — | needs WP-13, WP-21 |
 | WP-23 | M4 Shopping UI | pending | — | needs WP-14, WP-22 |
-| WP-24 | M5 PWA + offline | pending | — | needs WP-17; final validation after WP-23 |
+| WP-24 | M5 PWA + offline | in-progress | `wp24-sw` (PR #16, **merged**), `wp24-ui` | SW merged. UI half (banner, outbox status, update prompt) dispatched, E2E_PORT=5520. |
 
 ## Stage 3 — Hardening & release
 
@@ -105,6 +106,15 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 | 2026-08-20 | — | **Stage 1 fan-out dispatched:** WP-10, 12, 13, 14, 15, 16, 17 in seven worktrees, each with its own `E2E_PORT` to keep concurrent Playwright runs from colliding on 5273. |
 
 ## Known debt
+
+- **The app white-screens if `VITE_GOOGLE_*` is unset.** WP-20's shell constructs the
+  Google wiring at first render and `src/env.ts` throws on first read of a missing
+  value, so a build without them renders nothing rather than showing a sign-in screen
+  that does not need them until clicked. Production always supplies them; a fork that
+  forgets gets a blank page instead of a useful error. WP-31 polish item.
+- **Bundle is 529 kB raw / 160 kB gzip**, past Vite's 500 kB warning. Wants route-level
+  code-splitting before release — the recipe editor and catalog need not be in the
+  initial chunk.
 
 - **No `LICENSE` file**, but `package.json` declares `"license": "ISC"`. The repo is
   public, so it currently has no effective licence. Owner decision — ISC, MIT, or

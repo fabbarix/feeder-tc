@@ -40,11 +40,15 @@ import type {
   WorkbookStore,
 } from "../domain/contracts.ts";
 import type {
+  Barcode,
   Ingredient,
   IngredientId,
   InventoryEvent,
   Meta,
   PlanSlot,
+  PriceObservation,
+  Product,
+  ProductPhoto,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -61,6 +65,9 @@ import {
   decodeInventoryEvent,
   decodeMeta,
   decodePlanSlot,
+  decodePriceObservation,
+  decodeProduct,
+  decodeProductPhoto,
   decodeRecipe,
   decodeRecipeIngredient,
   decodeRecipeStep,
@@ -71,6 +78,9 @@ import {
   encodeInventoryEvent,
   encodeMeta,
   encodePlanSlot,
+  encodePriceObservation,
+  encodeProduct,
+  encodeProductPhoto,
   encodeRecipe,
   encodeRecipeIngredient,
   encodeRecipeStep,
@@ -81,6 +91,9 @@ import {
   isBlankRow,
   META_HEADER,
   PLAN_SLOTS_HEADER,
+  PRICE_OBSERVATIONS_HEADER,
+  PRODUCT_PHOTOS_HEADER,
+  PRODUCTS_HEADER,
   RECIPE_INGREDIENTS_HEADER,
   RECIPE_STEPS_HEADER,
   RECIPES_HEADER,
@@ -212,6 +225,23 @@ async function replaceRowsForRecipe(
 
 async function readIngredients(transport: SheetsTransport): Promise<DecodeResult<Ingredient>> {
   return readAllOf(transport, "Ingredients", INGREDIENTS_HEADER, decodeIngredient);
+}
+
+/**
+ * Locates the physical row (1-based, header always row 1) whose first
+ * column equals `key`, reading ONLY that one column — never the rest of the
+ * row. This is what lets `productPhotos.read`/`upsert` (below) find "which
+ * row is this barcode" without pulling every other photo's `data_url` bytes
+ * down the wire just to search for one row (DESIGN_PRODUCTS.md §2/§5: the
+ * entire reason `ProductPhotos` is split into its own sheet with no
+ * `readAll`). Returns -1 if no row matches.
+ */
+async function findRowByFirstColumn(transport: SheetsTransport, sheet: WorkbookSheetName, key: string): Promise<number> {
+  const column = await transport.readRange(`${sheet}!A2:A`);
+  for (let i = 0; i < column.length; i += 1) {
+    if (column[i]?.[0] === key) return i + 2;
+  }
+  return -1;
 }
 
 function shoppingItemKey(item: Pick<ShoppingItem, "ingredientId" | "rangeStart" | "rangeEnd">): string {
@@ -358,6 +388,52 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
           shoppingItemKey,
           item,
         );
+      },
+    },
+
+    products: {
+      async readAll(): Promise<DecodeResult<Product>> {
+        return readAllOf(transport, "Products", PRODUCTS_HEADER, decodeProduct);
+      },
+      async upsert(product: Product): Promise<void> {
+        await upsertByKey(transport, "Products", PRODUCTS_HEADER, decodeProduct, encodeProduct, (p) => p.barcode, product);
+      },
+    },
+
+    productPhotos: {
+      async read(barcode: Barcode): Promise<ProductPhoto | undefined> {
+        const row = await findRowByFirstColumn(transport, "ProductPhotos", barcode);
+        if (row < 0) return undefined;
+        const lastCol = columnLetter(PRODUCT_PHOTOS_HEADER.length);
+        const range = await transport.readRange(`ProductPhotos!A${row}:${lastCol}${row}`);
+        const data = range[0];
+        if (!data || isBlankRow(data)) return undefined;
+        return decodeProductPhoto(data);
+      },
+      async upsert(photo: ProductPhoto): Promise<void> {
+        // Encode (and therefore the 50,000-character cell-limit check —
+        // see product-photos.ts) happens before any I/O: an oversized
+        // photo must fail loudly without first spending a round trip
+        // searching for a row to (not) write it to.
+        const encoded = encodeProductPhoto(photo);
+        const lastCol = columnLetter(PRODUCT_PHOTOS_HEADER.length);
+        const row = await findRowByFirstColumn(transport, "ProductPhotos", photo.barcode);
+        if (row >= 0) {
+          await transport.updateRange(`ProductPhotos!A${row}:${lastCol}${row}`, [encoded]);
+        } else {
+          await ensureHeader(transport, "ProductPhotos", PRODUCT_PHOTOS_HEADER);
+          await transport.appendRows("ProductPhotos", [encoded]);
+        }
+      },
+    },
+
+    priceObservations: {
+      async readAll(): Promise<DecodeResult<PriceObservation>> {
+        return readAllOf(transport, "PriceObservations", PRICE_OBSERVATIONS_HEADER, decodePriceObservation);
+      },
+      async append(observation: PriceObservation): Promise<void> {
+        await ensureHeader(transport, "PriceObservations", PRICE_OBSERVATIONS_HEADER);
+        await transport.appendRows("PriceObservations", [encodePriceObservation(observation)]);
       },
     },
   };

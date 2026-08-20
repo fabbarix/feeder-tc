@@ -5,17 +5,22 @@
 import { describe, expect, it } from "vitest";
 import type { WorkbookStore } from "../contracts.ts";
 import {
+  makeBarcode,
   makeEventId,
   makeIngredientId,
   makeIsoDate,
   makeIsoTimestamp,
   makeLotId,
   makePlanSlotId,
+  makePriceObservationId,
   makeQuantity,
   makeRecipeId,
   type Ingredient,
   type InventoryEvent,
   type PlanSlot,
+  type PriceObservation,
+  type Product,
+  type ProductPhoto,
   type Recipe,
   type RecipeIngredient,
   type RecipeStep,
@@ -26,6 +31,7 @@ import {
 const RICE = makeIngredientId("rice");
 const CHILI = makeRecipeId("chili");
 const SLOT_1 = makePlanSlotId("slot-1");
+const RICE_BAG_BARCODE = makeBarcode("8001120000123");
 
 function riceIngredient(overrides: Partial<Ingredient> = {}): Ingredient {
   return {
@@ -107,10 +113,53 @@ function shoppingRice(): ShoppingItem {
   };
 }
 
+function riceBagProduct(overrides: Partial<Product> = {}): Product {
+  return {
+    barcode: RICE_BAG_BARCODE,
+    name: "Riso Gallo Arborio",
+    brand: "Riso Gallo",
+    ingredientId: RICE,
+    canonicalQuantity: makeQuantity(1000, "g"),
+    displayQuantity: 1,
+    displayUnit: "kg",
+    shelfLifeDays: 730,
+    isBulk: false,
+    hasPhoto: false,
+    ...overrides,
+  };
+}
+
+function riceBagPhoto(overrides: Partial<ProductPhoto> = {}): ProductPhoto {
+  return {
+    barcode: RICE_BAG_BARCODE,
+    dataUrl: "data:image/webp;base64,dGVzdC1waG90by1ieXRlcw==",
+    ...overrides,
+  };
+}
+
+function ricePriceObservation(overrides: Partial<PriceObservation> = {}): PriceObservation {
+  return {
+    id: makePriceObservationId("obs-1"),
+    timestamp: makeIsoTimestamp("2026-03-01T09:00:00Z"),
+    barcode: RICE_BAG_BARCODE,
+    ingredientId: RICE,
+    quantity: makeQuantity(1000, "g"),
+    price: 2.5,
+    source: "Corner store",
+    ...overrides,
+  };
+}
+
 const SETTINGS: Settings = {
   householdSize: 4,
   slotLayout: [{ day: "monday", slots: ["dinner"] }],
   repeatExclusionWeeks: 3,
+  // M6-A: exercised explicitly here (rather than left absent) because
+  // decodeSettings always returns a concrete currency, defaulting a blank
+  // cell to "$" — see settings.ts. Leaving it out would make this
+  // round-trip assertion fail not because anything is broken, but because
+  // read() legitimately fills in a default the fixture didn't ask for.
+  currency: "£",
 };
 
 export function describeWorkbookStoreContract(makeSubject: () => WorkbookStore): void {
@@ -191,6 +240,50 @@ export function describeWorkbookStoreContract(makeSubject: () => WorkbookStore):
       await store.shoppingItems.upsert(shoppingRice());
       const { rows } = await store.shoppingItems.readAll();
       expect(rows).toEqual([shoppingRice()]);
+    });
+
+    it("products: upsert then readAll returns it, upsert with the same barcode replaces rather than duplicates", async () => {
+      const store = makeSubject();
+      await store.products.upsert(riceBagProduct());
+      await store.products.upsert(riceBagProduct({ hasPhoto: true }));
+      const { rows, warnings } = await store.products.readAll();
+      expect(rows).toEqual([riceBagProduct({ hasPhoto: true })]);
+      expect(warnings).toEqual([]);
+    });
+
+    it("productPhotos: read(barcode) is undefined before any upsert, and returns the photo after", async () => {
+      const store = makeSubject();
+      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toBeUndefined();
+      await store.productPhotos.upsert(riceBagPhoto());
+      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toEqual(riceBagPhoto());
+    });
+
+    it("productPhotos: upsert with the same barcode replaces rather than duplicates", async () => {
+      const store = makeSubject();
+      await store.productPhotos.upsert(riceBagPhoto());
+      await store.productPhotos.upsert(riceBagPhoto({ dataUrl: "data:image/webp;base64,dXBkYXRlZA==" }));
+      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toEqual(
+        riceBagPhoto({ dataUrl: "data:image/webp;base64,dXBkYXRlZA==" }),
+      );
+    });
+
+    it("productPhotos: upsert refuses a data URL over the 50,000-character Sheets cell limit rather than truncating it", async () => {
+      const store = makeSubject();
+      const oversized: ProductPhoto = { barcode: RICE_BAG_BARCODE, dataUrl: "A".repeat(50_001) };
+      await expect(store.productPhotos.upsert(oversized)).rejects.toThrow(/50,000-character|Google Sheets cell limit/);
+      // Nothing was written — not even a truncated row.
+      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toBeUndefined();
+    });
+
+    it("priceObservations: append is the only write, readAll returns everything appended", async () => {
+      const store = makeSubject();
+      const first = ricePriceObservation();
+      const second = ricePriceObservation({ id: makePriceObservationId("obs-2"), price: 2.75 });
+      await store.priceObservations.append(first);
+      await store.priceObservations.append(second);
+      const { rows, warnings } = await store.priceObservations.readAll();
+      expect(rows).toEqual([first, second]);
+      expect(warnings).toEqual([]);
     });
   });
 }

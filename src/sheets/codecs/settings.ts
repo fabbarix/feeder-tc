@@ -7,7 +7,10 @@
  * here so `Settings.slotLayout` — an array of arrays — never becomes a
  * packed/JSON cell, honouring invariant 6 (one row = one fact):
  *
- *  - one `"general"` row carries `household_size` / `repeat_exclusion_weeks`;
+ *  - one `"general"` row carries `household_size` / `repeat_exclusion_weeks` /
+ *    `currency` (M6-A — DESIGN_PRODUCTS.md §4: single household currency,
+ *    defaults to `DEFAULT_CURRENCY` when the cell is blank, including every
+ *    pre-M6-A "general" row);
  *  - one `"slot"` row per (day, position) pair carries `day` / `slot_index` /
  *    `meal_tag` — the most granular fact-per-row split available, so adding
  *    or removing a single slot is a single spreadsheet row edit, not a
@@ -25,15 +28,27 @@ export const SETTINGS_HEADER: CellRow = [
   "meal_tag",
   "household_size",
   "repeat_exclusion_weeks",
+  "currency",
 ];
+
+/** Applied whenever the "general" row's `currency` cell is blank — pre-M6-A workbooks and any hand-cleared cell (DESIGN_PRODUCTS.md §4: "defaulting to `$`"). */
+export const DEFAULT_CURRENCY = "$";
 
 export function encodeSettings(settings: Settings): CellRow[] {
   const rows: CellRow[] = [
-    ["general", "", "", "", settings.householdSize, settings.repeatExclusionWeeks],
+    [
+      "general",
+      "",
+      "",
+      "",
+      settings.householdSize,
+      settings.repeatExclusionWeeks,
+      settings.currency ?? DEFAULT_CURRENCY,
+    ],
   ];
   for (const day of settings.slotLayout) {
     day.slots.forEach((tag, index) => {
-      rows.push(["slot", day.day, index, tag, "", ""]);
+      rows.push(["slot", day.day, index, tag, "", "", ""]);
     });
   }
   return rows;
@@ -53,6 +68,7 @@ export function encodeSettings(settings: Settings): CellRow[] {
 export function decodeSettings(rows: readonly CellRow[]): Settings {
   let householdSize: number | undefined;
   let repeatExclusionWeeks: number | undefined;
+  let currency: string | undefined;
   const byDay = new Map<Weekday, { index: number; tag: MealTag }[]>();
 
   for (const row of rows) {
@@ -61,6 +77,11 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
     if (kind === "general") {
       householdSize = cellNumber(row, 4, "household_size");
       repeatExclusionWeeks = cellNumber(row, 5, "repeat_exclusion_weeks");
+      // Optional, unlike household_size/repeat_exclusion_weeks: a
+      // pre-M6-A "general" row (or a hand-cleared cell) has no currency
+      // cell at all, and that must not throw — it means "$" (see
+      // DEFAULT_CURRENCY), not a corrupted workbook.
+      currency = cellOptionalString(row, 6);
       continue;
     }
     if (kind === "slot") {
@@ -91,5 +112,5 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
     slots: slots.sort((a, b) => a.index - b.index).map((s) => s.tag),
   }));
 
-  return { householdSize, slotLayout, repeatExclusionWeeks };
+  return { householdSize, slotLayout, repeatExclusionWeeks, currency: currency ?? DEFAULT_CURRENCY };
 }

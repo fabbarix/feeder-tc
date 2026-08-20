@@ -14,6 +14,7 @@ import type { Settings, WorkbookSheetName } from "../domain/types.ts";
 import {
   columnLetter,
   decodeIngredient,
+  DEFAULT_CURRENCY,
   encodeIngredient,
   INGREDIENTS_HEADER,
   isBlankRow,
@@ -22,9 +23,12 @@ import {
 } from "./codecs/index.ts";
 
 /**
- * DESIGN.md §3, in the documented order. Deliberately independent of
- * spreadsheet.ts's own (private) list of the same nine names — WP-11 does
- * not reach into WP-10's module internals for this.
+ * DESIGN.md §3 plus DESIGN_PRODUCTS.md §2, in the documented order.
+ * Deliberately independent of spreadsheet.ts's own (private) list of the
+ * same twelve names — WP-11 does not reach into WP-10's module internals
+ * for this. (Was "nine" until M6-A added Products/ProductPhotos/
+ * PriceObservations; the count is easy to leave stale, so if you add a
+ * sheet, grep for "nine"/"twelve" across the repo.)
  */
 export const WORKBOOK_SHEET_NAMES: readonly WorkbookSheetName[] = [
   "Meta",
@@ -36,6 +40,9 @@ export const WORKBOOK_SHEET_NAMES: readonly WorkbookSheetName[] = [
   "PlanSlots",
   "InventoryEvents",
   "ShoppingItems",
+  "Products",
+  "ProductPhotos",
+  "PriceObservations",
 ];
 
 export const INITIAL_GENERATION = 1;
@@ -57,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { day: "sunday", slots: ["breakfast", "lunch", "dinner"] },
   ],
   repeatExclusionWeeks: 3,
+  currency: DEFAULT_CURRENCY,
 };
 
 /**
