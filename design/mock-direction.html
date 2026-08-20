@@ -1,0 +1,854 @@
+<title>Feeder Interface Direction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Archivo:wght@400;500;600;700&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────────────────
+   Tokens. Light on bare :root; dark redefined twice so all three viewer
+   states resolve (explicit light, explicit dark, and un-stamped system).
+   Neutrals carry a slight green bias — chosen to sit with the brand, not
+   inherited grey.
+   ───────────────────────────────────────────────────────────────────────── */
+:root {
+  --accent-hue: 155;
+
+  --paper:      oklch(0.985 0.006 var(--accent-hue));
+  --surface:    oklch(1 0 0);
+  --surface-2:  oklch(0.965 0.008 var(--accent-hue));
+  --line:       oklch(0.90 0.010 var(--accent-hue));
+  --line-soft:  oklch(0.945 0.008 var(--accent-hue));
+  --text:       oklch(0.24 0.020 var(--accent-hue));
+  --text-dim:   oklch(0.50 0.016 var(--accent-hue));
+  --text-faint: oklch(0.63 0.012 var(--accent-hue));
+
+  --accent:      oklch(0.55 0.14 var(--accent-hue));
+  --accent-text: oklch(0.99 0.02 var(--accent-hue));
+  --accent-bg:   oklch(0.95 0.05 var(--accent-hue));
+  --accent-line: oklch(0.80 0.09 var(--accent-hue));
+
+  /* Semantic colours are FIXED hues, never derived from --accent-hue.
+     The accent is user-selectable; if a user picked amber, a hue-derived
+     "expiring" would become invisible against it. */
+  --warn:    oklch(0.72 0.15 72);
+  --warn-bg: oklch(0.95 0.06 72);
+  --crit:    oklch(0.58 0.19 27);
+  --crit-bg: oklch(0.95 0.05 27);
+
+  --shadow-1: 0 1px 2px oklch(0.24 0.02 var(--accent-hue) / 0.06);
+  --shadow-2: 0 4px 16px -4px oklch(0.24 0.02 var(--accent-hue) / 0.14);
+
+  --r-sm: 8px; --r-md: 14px; --r-lg: 22px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  --display: "Fraunces", Georgia, serif;
+  --ui: "Archivo", ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      oklch(0.17 0.012 var(--accent-hue));
+    --surface:    oklch(0.215 0.014 var(--accent-hue));
+    --surface-2:  oklch(0.255 0.016 var(--accent-hue));
+    --line:       oklch(0.33 0.016 var(--accent-hue));
+    --line-soft:  oklch(0.27 0.014 var(--accent-hue));
+    --text:       oklch(0.95 0.010 var(--accent-hue));
+    --text-dim:   oklch(0.74 0.014 var(--accent-hue));
+    --text-faint: oklch(0.60 0.014 var(--accent-hue));
+    --accent:      oklch(0.76 0.13 var(--accent-hue));
+    --accent-text: oklch(0.18 0.03 var(--accent-hue));
+    --accent-bg:   oklch(0.30 0.06 var(--accent-hue));
+    --accent-line: oklch(0.45 0.08 var(--accent-hue));
+    --warn:    oklch(0.82 0.14 78);
+    --warn-bg: oklch(0.32 0.06 78);
+    --crit:    oklch(0.72 0.17 27);
+    --crit-bg: oklch(0.32 0.07 27);
+    --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
+    --shadow-2: 0 6px 20px -6px oklch(0 0 0 / 0.55);
+  }
+}
+:root[data-theme="dark"] {
+  --paper:      oklch(0.17 0.012 var(--accent-hue));
+  --surface:    oklch(0.215 0.014 var(--accent-hue));
+  --surface-2:  oklch(0.255 0.016 var(--accent-hue));
+  --line:       oklch(0.33 0.016 var(--accent-hue));
+  --line-soft:  oklch(0.27 0.014 var(--accent-hue));
+  --text:       oklch(0.95 0.010 var(--accent-hue));
+  --text-dim:   oklch(0.74 0.014 var(--accent-hue));
+  --text-faint: oklch(0.60 0.014 var(--accent-hue));
+  --accent:      oklch(0.76 0.13 var(--accent-hue));
+  --accent-text: oklch(0.18 0.03 var(--accent-hue));
+  --accent-bg:   oklch(0.30 0.06 var(--accent-hue));
+  --accent-line: oklch(0.45 0.08 var(--accent-hue));
+  --warn:    oklch(0.82 0.14 78);
+  --warn-bg: oklch(0.32 0.06 78);
+  --crit:    oklch(0.72 0.17 27);
+  --crit-bg: oklch(0.32 0.07 27);
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-2: 0 6px 20px -6px oklch(0 0 0 / 0.55);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--text);
+  font: 400 17px/1.6 var(--ui);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+
+/* ── Masthead ─────────────────────────────────────────────────────────── */
+header.top {
+  padding: 72px 0 40px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 48px;
+}
+.eyebrow {
+  font: 600 12px/1 var(--ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+h1 {
+  font: 300 clamp(38px, 6.5vw, 68px)/1.03 var(--display);
+  font-variation-settings: "opsz" 120;
+  letter-spacing: -0.02em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+h1 em { font-style: italic; color: var(--accent); }
+.standfirst {
+  font-size: 19px;
+  color: var(--text-dim);
+  max-width: 62ch;
+  margin: 0;
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────── */
+.controls {
+  display: flex; flex-wrap: wrap; gap: 20px 32px;
+  align-items: center;
+  margin-top: 36px; padding: 18px 20px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); box-shadow: var(--shadow-1);
+}
+.ctl-label {
+  font: 600 11px/1 var(--ui); letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.hues { display: flex; gap: 7px; }
+.hue {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  transition: transform 160ms var(--ease), border-color 160ms var(--ease);
+}
+.hue:hover { transform: scale(1.16); }
+.hue[aria-pressed="true"] { border-color: var(--text); transform: scale(1.16); }
+.hue:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.seg {
+  display: inline-flex; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px;
+}
+.seg button {
+  font: 500 13px/1 var(--ui); padding: 7px 14px; border: 0;
+  border-radius: 999px; background: transparent; color: var(--text-dim);
+  cursor: pointer; transition: background 180ms var(--ease), color 180ms var(--ease);
+}
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── Sections ─────────────────────────────────────────────────────────── */
+section { margin-top: 72px; }
+h2 {
+  font: 400 clamp(26px, 3.4vw, 36px)/1.15 var(--display);
+  font-variation-settings: "opsz" 60;
+  letter-spacing: -0.015em;
+  margin: 0 0 10px; text-wrap: balance;
+}
+.sub { color: var(--text-dim); margin: 0 0 32px; max-width: 62ch; }
+
+/* ── Diagnosis ────────────────────────────────────────────────────────── */
+.findings { display: grid; gap: 14px; }
+.finding {
+  display: grid; grid-template-columns: auto 1fr; gap: 16px;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 18px 20px;
+  transition: border-color 200ms var(--ease), transform 200ms var(--ease);
+}
+.finding:hover { border-color: var(--accent-line); transform: translateY(-1px); }
+.sev {
+  font: 600 10px/1 var(--ui); letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 6px 9px; border-radius: 999px; height: fit-content; white-space: nowrap;
+}
+.sev.a { background: var(--crit-bg); color: var(--crit); }
+.sev.b { background: var(--warn-bg); color: var(--warn); }
+.finding h3 { font: 600 16px/1.3 var(--ui); margin: 0 0 6px; }
+.finding p { margin: 0; color: var(--text-dim); font-size: 15px; }
+.finding code {
+  font-family: ui-monospace, monospace; font-size: 13px;
+  background: var(--surface-2); padding: 1px 5px; border-radius: 5px;
+  color: var(--text);
+}
+
+/* ── Phone mockups ────────────────────────────────────────────────────── */
+.screens {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 28px; align-items: start;
+}
+.phone {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 28px; overflow: hidden; box-shadow: var(--shadow-2);
+}
+.phone-cap {
+  font: 600 11px/1 var(--ui); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-faint); margin: 0 0 10px; padding-left: 4px;
+}
+.p-head {
+  padding: 18px 18px 14px; border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.p-title { font: 500 21px/1.1 var(--display); font-variation-settings: "opsz" 40; }
+.p-meta { font: 500 12px/1 var(--ui); color: var(--text-faint); }
+.p-body { padding: 12px 12px 16px; min-height: 232px; }
+
+.rowgroup { font: 600 10px/1 var(--ui); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-faint); padding: 12px 8px 8px; }
+
+/* Check row — the in-store control */
+.row {
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 12px;
+  align-items: center; width: 100%; text-align: left;
+  padding: 13px 10px; border: 0; border-radius: var(--r-sm);
+  background: transparent; color: inherit; cursor: pointer;
+  font: inherit;
+  transition: background 180ms var(--ease);
+}
+.row:hover { background: var(--surface-2); }
+.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tick {
+  width: 24px; height: 24px; border-radius: 8px;
+  border: 2px solid var(--line); position: relative;
+  transition: background 220ms var(--ease), border-color 220ms var(--ease);
+}
+.tick svg { position: absolute; inset: 3px; stroke: var(--accent-text);
+  stroke-width: 3.2; fill: none; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 24; stroke-dashoffset: 24; }
+.row[aria-pressed="true"] .tick { background: var(--accent); border-color: var(--accent); }
+.row[aria-pressed="true"] .tick svg { animation: draw 300ms var(--ease) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.row-name { font: 500 15px/1.25 var(--ui); transition: color 220ms var(--ease); }
+.row-sub  { font: 400 12.5px/1.3 var(--ui); color: var(--text-faint); margin-top: 2px; }
+.row-qty  {
+  font: 600 14px/1 var(--ui); font-variant-numeric: tabular-nums;
+  color: var(--text-dim); transition: color 220ms var(--ease);
+}
+.row[aria-pressed="true"] .row-name { color: var(--text-faint); text-decoration: line-through;
+  text-decoration-color: var(--accent-line); }
+.row[aria-pressed="true"] .row-qty { color: var(--text-faint); }
+
+/* Pantry rows with a freshness meter */
+.plot { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px;
+  padding: 12px 10px; border-radius: var(--r-sm); align-items: center; }
+.plot:hover { background: var(--surface-2); }
+.meter { grid-column: 1 / -1; height: 4px; border-radius: 999px;
+  background: var(--line-soft); overflow: hidden; margin-top: 8px; }
+.meter i { display: block; height: 100%; border-radius: 999px;
+  background: var(--accent); transform-origin: left;
+  animation: fill 900ms var(--ease) both; }
+.meter.w i { background: var(--warn); }
+.meter.c i { background: var(--crit); }
+@keyframes fill { from { transform: scaleX(0); } }
+.badge {
+  font: 600 11px/1 var(--ui); padding: 5px 9px; border-radius: 999px;
+  white-space: nowrap;
+}
+.badge.ok { background: var(--surface-2); color: var(--text-faint); }
+.badge.w  { background: var(--warn-bg); color: var(--warn); }
+.badge.c  { background: var(--crit-bg); color: var(--crit); }
+
+/* Tab bar */
+.tabs {
+  display: flex; border-top: 1px solid var(--line-soft); background: var(--surface);
+}
+.tab {
+  flex: 1; display: grid; justify-items: center; gap: 5px; padding: 11px 4px 13px;
+  border: 0; background: transparent; cursor: pointer; position: relative;
+  color: var(--text-faint); font: 500 10.5px/1 var(--ui);
+  transition: color 200ms var(--ease);
+}
+.tab svg { width: 21px; height: 21px; fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform 260ms var(--ease); }
+.tab[aria-current="page"] { color: var(--accent); }
+.tab[aria-current="page"] svg { transform: translateY(-2px) scale(1.08); }
+.tab[aria-current="page"]::after {
+  content: ""; position: absolute; top: 0; left: 50%; width: 26px; height: 2.5px;
+  background: var(--accent); border-radius: 0 0 3px 3px;
+  transform: translateX(-50%); animation: slide 260ms var(--ease); }
+@keyframes slide { from { width: 0; opacity: 0; } }
+
+/* Empty state */
+.empty { display: grid; justify-items: center; text-align: center; gap: 10px;
+  padding: 40px 24px; }
+.empty svg { width: 46px; height: 46px; stroke: var(--accent); fill: none;
+  stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.9; }
+.empty h4 { font: 500 18px/1.2 var(--display); margin: 4px 0 0; }
+.empty p { margin: 0; font-size: 14px; color: var(--text-dim); max-width: 30ch; }
+.btn {
+  margin-top: 8px; font: 600 14px/1 var(--ui); padding: 12px 20px;
+  border-radius: 999px; border: 0; background: var(--accent);
+  color: var(--accent-text); cursor: pointer;
+  transition: transform 160ms var(--ease), filter 160ms var(--ease);
+}
+.btn:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* ── Desktop frame ────────────────────────────────────────────────────── */
+.browser {
+  border: 1px solid var(--line); border-radius: var(--r-lg);
+  overflow: hidden; box-shadow: var(--shadow-2); background: var(--surface);
+}
+.browser-bar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 16px; background: var(--surface-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.dots { display: flex; gap: 6px; }
+.dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: block; }
+.urlbar {
+  flex: 1; font: 500 12px/1 var(--ui); color: var(--text-faint);
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 999px; padding: 6px 12px; max-width: 320px;
+}
+
+/* Top bar — the nav lives HERE on desktop, before main in the DOM */
+.dt-top {
+  display: flex; align-items: center; gap: 28px;
+  padding: 0 22px; border-bottom: 1px solid var(--line-soft);
+}
+.brand {
+  display: flex; align-items: center; gap: 9px;
+  font: 600 16px/1 var(--ui); padding: 15px 0; letter-spacing: -0.01em;
+}
+.brand-mark {
+  width: 25px; height: 25px; border-radius: 7px; background: var(--accent);
+  display: grid; place-items: center; flex: none;
+}
+.brand-mark svg { width: 15px; height: 15px; stroke: var(--accent-text); fill: none;
+  stroke-width: 2; stroke-linecap: round; }
+.dt-nav { display: flex; gap: 2px; margin-right: auto; }
+.dt-nav button {
+  position: relative; border: 0; background: transparent; cursor: pointer;
+  font: 500 14px/1 var(--ui); color: var(--text-dim);
+  padding: 18px 13px; transition: color 180ms var(--ease);
+}
+.dt-nav button:hover { color: var(--text); }
+.dt-nav button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+.dt-nav button[aria-current="page"]::after {
+  content: ""; position: absolute; left: 13px; right: 13px; bottom: -1px;
+  height: 2px; background: var(--accent); border-radius: 2px 2px 0 0;
+  animation: slide 260ms var(--ease);
+}
+.dt-actions { display: flex; align-items: center; gap: 9px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 500 13px/1 var(--ui); color: var(--text-dim);
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 8px 13px; cursor: pointer;
+  transition: border-color 180ms var(--ease), color 180ms var(--ease);
+}
+.chip:hover { border-color: var(--accent-line); color: var(--text); }
+.chip svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8;
+  stroke-linecap: round; stroke-linejoin: round; }
+.avatar {
+  width: 31px; height: 31px; border-radius: 50%; background: var(--accent-bg);
+  color: var(--accent); border: 1px solid var(--accent-line);
+  display: grid; place-items: center; font: 600 12px/1 var(--ui); cursor: pointer;
+}
+
+/* Content: a real measure, and the extra width earns its keep */
+.dt-body { padding: 26px 22px 30px; }
+.dt-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 4px; }
+.dt-h1 { font: 400 27px/1.1 var(--display); font-variation-settings: "opsz" 60;
+  letter-spacing: -0.015em; }
+.dt-sub { color: var(--text-faint); font-size: 13.5px; margin: 0 0 20px; }
+.dt-cols { display: grid; grid-template-columns: minmax(0,1fr) 268px; gap: 24px; align-items: start; }
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); overflow: hidden;
+}
+.card-head {
+  font: 600 11px/1 var(--ui); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-faint); padding: 14px 16px; border-bottom: 1px solid var(--line-soft);
+}
+.card-pad { padding: 8px; }
+.rail-stat { padding: 16px; border-bottom: 1px solid var(--line-soft); }
+.rail-stat:last-child { border-bottom: 0; }
+.rail-n { font: 600 26px/1 var(--ui); font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em; }
+.rail-l { font: 500 12px/1.3 var(--ui); color: var(--text-faint); margin-top: 5px; }
+.why { font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.why b { color: var(--text); font-weight: 600; }
+
+/* Week grid — what desktop is actually for */
+.week { display: grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 8px; }
+.day { background: var(--surface-2); border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm); padding: 9px; min-height: 128px; }
+.day-n { font: 600 10px/1 var(--ui); letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: 8px; }
+.slot {
+  font: 500 12px/1.25 var(--ui); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 7px; padding: 8px;
+  margin-bottom: 6px; cursor: pointer;
+  transition: border-color 180ms var(--ease), transform 180ms var(--ease);
+}
+.slot:hover { border-color: var(--accent-line); transform: translateY(-1px); }
+.slot .t { font: 600 9.5px/1 var(--ui); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-faint); display: block; margin-bottom: 4px; }
+.slot.pin { border-color: var(--accent-line); background: var(--accent-bg); }
+.slot.left { border-style: dashed; color: var(--text-dim); }
+.slot.add { color: var(--text-faint); text-align: center; border-style: dashed; }
+
+@media (max-width: 780px) {
+  .dt-cols { grid-template-columns: 1fr; }
+  .week { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .dt-nav { display: none; }
+}
+
+/* ── Spec tables ──────────────────────────────────────────────────────── */
+.specs { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.spec {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--r-md); padding: 22px;
+}
+.spec h3 { font: 600 14px/1 var(--ui); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--accent); margin: 0 0 14px; }
+.spec dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 9px 16px;
+  font-size: 14px; align-items: baseline; }
+.spec dt { color: var(--text-faint); font-weight: 500; white-space: nowrap; }
+.spec dd { margin: 0; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.note {
+  margin-top: 28px; padding: 20px 22px; border-radius: var(--r-md);
+  background: var(--accent-bg); border: 1px solid var(--accent-line);
+  font-size: 15px;
+}
+.note strong { color: var(--accent); }
+
+footer { margin-top: 80px; padding-top: 28px; border-top: 1px solid var(--line);
+  color: var(--text-faint); font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Interface direction · WP-15b</div>
+  <h1>Fresh food deserves an interface that <em>doesn't look expired</em></h1>
+  <p class="standfirst">
+    The current shell is six emoji, a stranded heading and a void. Here is the diagnosis,
+    and a system that replaces it: quiet by default, expressive exactly where the food is
+    about to go off. Everything below is live — change the accent and the theme and watch
+    the whole page follow.
+  </p>
+
+  <div class="controls">
+    <span class="ctl-label">Accent</span>
+    <div class="hues" id="hues"></div>
+    <span class="ctl-label">Theme</span>
+    <div class="seg" id="theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="system" aria-pressed="true">System</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</header>
+
+<section>
+  <h2>What the screenshot is actually telling us</h2>
+  <p class="sub">Six problems. Five are visual; one is a bug that only looks visual.</p>
+  <div class="findings">
+    <div class="finding"><span class="sev a">Bug</span><div>
+      <h3>The desktop nav isn't a nav, it's a footer</h3>
+      <p>There <em>is</em> a <code>min-width: 768px</code> rule setting the tab bar to <code>position: static</code> — but the nav is rendered after <code>&lt;main&gt;</code>. Dropping out of fixed positioning lands it below a full-height main, so it reads as a stuck mobile tab bar. The fix is DOM order, not CSS.</p>
+    </div></div>
+    <div class="finding"><span class="sev a">Identity</span><div>
+      <h3>The icons are emoji strings</h3>
+      <p><code>🏠 📖 🥫 📅 🛒 ⚙️</code> sit in <code>NAV_ITEMS</code> as text. They can't inherit <code>currentColor</code>, can't animate, can't take a weight, and render as a different artist's work on every OS. This one choice does most of the damage.</p>
+    </div></div>
+    <div class="finding"><span class="sev b">Surface</span><div>
+      <h3>One flat plane, no elevation</h3>
+      <p>Background, content and nav share a single near-black. Nothing is a card, nothing is raised, so the eye has no structure to hold — the page reads as a void with text in the corner.</p>
+    </div></div>
+    <div class="finding"><span class="sev b">Layout</span><div>
+      <h3>Content is stranded, not composed</h3>
+      <p>The heading sits hard against the top-left with no container, no measure, no rhythm. On a wide viewport that leaves roughly nine-tenths of the screen empty and unexplained.</p>
+    </div></div>
+    <div class="finding"><span class="sev b">Copy</span><div>
+      <h3>Developer text is leaking into the product</h3>
+      <p>“Stub route — see WP-23.” is a note to us, shown to the user. Every route needs a real empty state that says what to do next.</p>
+    </div></div>
+    <div class="finding"><span class="sev b">State</span><div>
+      <h3>Status is text, not affordance</h3>
+      <p>“No workbook · Signed out” are two dead labels where the two most important actions in the app should be. Nothing looks pressable.</p>
+    </div></div>
+  </div>
+</section>
+
+<section>
+  <h2>The proposal, running</h2>
+  <p class="sub">Tap a row. Switch the accent. These are the real interactions, not pictures of them.</p>
+  <div class="screens">
+
+    <div>
+      <p class="phone-cap">Shopping · in-store</p>
+      <div class="phone">
+        <div class="p-head">
+          <span class="p-title">Shopping</span>
+          <span class="p-meta">4 left · this week</span>
+        </div>
+        <div class="p-body" id="list">
+          <div class="rowgroup">Produce</div>
+          <button class="row" aria-pressed="false">
+            <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+            <span><span class="row-name">Tomatoes</span><span class="row-sub">Mon dinner · Thu lunch</span></span>
+            <span class="row-qty">5 piece</span>
+          </button>
+          <button class="row" aria-pressed="false">
+            <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+            <span><span class="row-name">Fresh basil</span><span class="row-sub">Mon dinner</span></span>
+            <span class="row-qty">30 g</span>
+          </button>
+          <div class="rowgroup">Dry goods</div>
+          <button class="row" aria-pressed="false">
+            <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+            <span><span class="row-name">Rice</span><span class="row-sub">Wed dinner</span></span>
+            <span class="row-qty">400 g</span>
+          </button>
+          <button class="row" aria-pressed="true">
+            <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+            <span><span class="row-name">Olive oil</span><span class="row-sub">bought · 1000 ml</span></span>
+            <span class="row-qty">500 ml</span>
+          </button>
+        </div>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shopping</button>
+        </nav>
+      </div>
+    </div>
+
+    <div>
+      <p class="phone-cap">Pantry · freshness as a cue</p>
+      <div class="phone">
+        <div class="p-head">
+          <span class="p-title">Pantry</span>
+          <span class="p-meta">2 expiring</span>
+        </div>
+        <div class="p-body">
+          <div class="rowgroup">Expiring soon</div>
+          <div class="plot">
+            <span><span class="row-name">Milk</span><div class="row-sub">Fridge · opened Tue</div></span>
+            <span class="badge c">2 days</span>
+            <span class="meter c"><i style="width:14%"></i></span>
+          </div>
+          <div class="plot">
+            <span><span class="row-name">Chicken breast</span><div class="row-sub">Fridge · 400 g</div></span>
+            <span class="badge w">4 days</span>
+            <span class="meter w"><i style="width:33%"></i></span>
+          </div>
+          <div class="rowgroup">Fresh</div>
+          <div class="plot">
+            <span><span class="row-name">Rice</span><div class="row-sub">Pantry · 1000 g</div></span>
+            <span class="badge ok">2 years</span>
+            <span class="meter"><i style="width:92%"></i></span>
+          </div>
+          <div class="plot">
+            <span><span class="row-name">Leftover: Chili</span><div class="row-sub">Fridge · 4 portions</div></span>
+            <span class="badge ok">3 days</span>
+            <span class="meter"><i style="width:62%"></i></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="phone-cap">Empty state · replaces the stub text</p>
+      <div class="phone">
+        <div class="p-head">
+          <span class="p-title">Plan</span>
+          <span class="p-meta">Week of 24 Aug</span>
+        </div>
+        <div class="p-body">
+          <div class="empty">
+            <svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/><path d="M9 15.5h6"/></svg>
+            <h4>No meals planned yet</h4>
+            <p>Generate a week from your staples, or pick meals one slot at a time.</p>
+            <button class="btn">Generate this week</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <h2>Desktop — where the current build fails hardest</h2>
+  <p class="sub">
+    Your screenshot was a 1133&nbsp;px viewport. The nav still sat at the bottom, and
+    roughly nine-tenths of the screen was empty. Desktop has to do two things the phone
+    can't: put navigation where a pointer expects it, and spend the extra width on
+    information rather than margin.
+  </p>
+
+  <div class="browser">
+    <div class="browser-bar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <div class="urlbar">feeder.torchetti.us/shopping</div>
+    </div>
+
+    <div class="dt-top">
+      <div class="brand">
+        <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>
+        Feeder
+      </div>
+      <nav class="dt-nav">
+        <button>Home</button>
+        <button>Recipes</button>
+        <button>Pantry</button>
+        <button>Plan</button>
+        <button aria-current="page">Shopping</button>
+        <button>Settings</button>
+      </nav>
+      <div class="dt-actions">
+        <button class="chip">
+          <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 10h16"/></svg>
+          Torchetti household
+          <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <button class="avatar">FT</button>
+      </div>
+    </div>
+
+    <div class="dt-body">
+      <div class="dt-head"><span class="dt-h1">Shopping</span></div>
+      <p class="dt-sub">Week of 24 August · 4 items left · synced just now</p>
+
+      <div class="dt-cols">
+        <div class="card">
+          <div class="card-head">To buy</div>
+          <div class="card-pad" id="dtlist">
+            <button class="row" aria-pressed="false">
+              <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+              <span><span class="row-name">Tomatoes</span><span class="row-sub">Monday dinner · Thursday lunch</span></span>
+              <span class="row-qty">5 piece</span>
+            </button>
+            <button class="row" aria-pressed="false">
+              <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+              <span><span class="row-name">Fresh basil</span><span class="row-sub">Monday dinner</span></span>
+              <span class="row-qty">30 g</span>
+            </button>
+            <button class="row" aria-pressed="false">
+              <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+              <span><span class="row-name">Rice</span><span class="row-sub">Wednesday dinner · pantry has 0 g</span></span>
+              <span class="row-qty">400 g</span>
+            </button>
+            <button class="row" aria-pressed="true">
+              <span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span>
+              <span><span class="row-name">Olive oil</span><span class="row-sub">bought 1000 ml · 500 ml to pantry</span></span>
+              <span class="row-qty">500 ml</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="rail-stat">
+            <div class="rail-n">4</div>
+            <div class="rail-l">items still to buy</div>
+          </div>
+          <div class="rail-stat">
+            <div class="rail-n">6</div>
+            <div class="rail-l">covered by the pantry already</div>
+          </div>
+          <div class="rail-stat">
+            <p class="why" style="margin:0">
+              <b>Why 5 tomatoes?</b><br>
+              Monday dinner needs 2, Thursday lunch needs 3, and no viable lot expires
+              on or after those dates.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sub" style="margin:34px 0 18px">
+    And the screen that most justifies a desktop at all — a week you can see whole,
+    instead of scrolling one day at a time.
+  </p>
+
+  <div class="browser">
+    <div class="browser-bar">
+      <div class="dots"><i></i><i></i><i></i></div>
+      <div class="urlbar">feeder.torchetti.us/plan</div>
+    </div>
+    <div class="dt-top">
+      <div class="brand">
+        <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>
+        Feeder
+      </div>
+      <nav class="dt-nav">
+        <button>Home</button>
+        <button>Recipes</button>
+        <button>Pantry</button>
+        <button aria-current="page">Plan</button>
+        <button>Shopping</button>
+        <button>Settings</button>
+      </nav>
+      <div class="dt-actions">
+        <button class="chip">Generate week</button>
+        <button class="avatar">FT</button>
+      </div>
+    </div>
+    <div class="dt-body">
+      <div class="dt-head"><span class="dt-h1">Week of 24 August</span></div>
+      <p class="dt-sub">Household of 4 · 2 staples placed · 1 slot empty</p>
+      <div class="week">
+        <div class="day"><div class="day-n">Mon 24</div>
+          <div class="slot pin"><span class="t">Dinner · pinned</span>Chili</div>
+          <div class="slot add">+ Lunch</div></div>
+        <div class="day"><div class="day-n">Tue 25</div>
+          <div class="slot left"><span class="t">Dinner</span>Leftover: Chili</div></div>
+        <div class="day"><div class="day-n">Wed 26</div>
+          <div class="slot"><span class="t">Dinner</span>Roast chicken</div></div>
+        <div class="day"><div class="day-n">Thu 27</div>
+          <div class="slot"><span class="t">Lunch</span>Tomato salad</div>
+          <div class="slot"><span class="t">Dinner</span>Carbonara</div></div>
+        <div class="day"><div class="day-n">Fri 28</div>
+          <div class="slot"><span class="t">Dinner</span>Store lasagna</div></div>
+        <div class="day"><div class="day-n">Sat 29</div>
+          <div class="slot"><span class="t">Dinner</span>Fish pie</div></div>
+        <div class="day"><div class="day-n">Sun 30</div>
+          <div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top:26px">
+    <strong>The right rail is the point, not decoration.</strong> On a phone,
+    “why is this on my list?” has to hide behind a tap. On desktop it can simply be
+    visible — which is the one thing the shopping engine already computes and the
+    current UI throws away. Width should buy information, not padding.
+  </div>
+</section>
+
+<section>
+  <h2>The system underneath</h2>
+  <p class="sub">Three rules do most of the work. The rest is spacing discipline.</p>
+  <div class="specs">
+    <div class="spec">
+      <h3>Colour</h3>
+      <dl>
+        <dt>Accent</dt><dd>Hue only, OKLCH, L fixed per role</dd>
+        <dt>Neutrals</dt><dd>Green-biased, never pure grey</dd>
+        <dt>Surfaces</dt><dd>3 levels: paper → surface → raised</dd>
+        <dt>Semantic</dt><dd>Fixed hues, independent of accent</dd>
+      </dl>
+    </div>
+    <div class="spec">
+      <h3>Motion</h3>
+      <dl>
+        <dt>Micro</dt><dd>160 ms — hover, press</dd>
+        <dt>State</dt><dd>220 ms — check, toggle</dd>
+        <dt>Entry</dt><dd>260–300 ms — tab, draw</dd>
+        <dt>Easing</dt><dd>cubic-bezier(.22,.61,.36,1)</dd>
+        <dt>Never</dt><dd>Layout or position animation</dd>
+      </dl>
+    </div>
+    <div class="spec">
+      <h3>Type</h3>
+      <dl>
+        <dt>Display</dt><dd>Fraunces — headings only</dd>
+        <dt>UI</dt><dd>Archivo — everything else</dd>
+        <dt>Quantities</dt><dd>tabular-nums, always</dd>
+        <dt>Measure</dt><dd>~65 characters</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>One rule earns its place above the others: only exceptions get colour.</strong>
+    Fresh items are neutral; amber means expiring; red means expired. That keeps a pantry
+    of thirty items calm instead of a fruit salad — and it sidesteps a real collision, because
+    the accent is user-selectable. If “fresh” were accent-green and someone picked amber, the
+    expiry warning would vanish into the interface. Semantic colour must never derive from the
+    accent hue.
+  </div>
+</section>
+
+<footer>
+  Feeder · interface direction for WP-15b · every colour on this page derives from the
+  accent hue you selected, exactly as the app will.
+</footer>
+</div>
+
+<script>
+const HUES = [155, 190, 235, 275, 320, 25, 55, 95];
+const huesEl = document.getElementById("hues");
+let active = 155;
+HUES.forEach(h => {
+  const b = document.createElement("button");
+  b.className = "hue";
+  b.style.background = `oklch(0.62 0.15 ${h})`;
+  b.setAttribute("aria-pressed", h === active ? "true" : "false");
+  b.setAttribute("aria-label", `Accent hue ${h}`);
+  b.onclick = () => {
+    active = h;
+    document.documentElement.style.setProperty("--accent-hue", h);
+    [...huesEl.children].forEach(c => c.setAttribute("aria-pressed", "false"));
+    b.setAttribute("aria-pressed", "true");
+  };
+  huesEl.appendChild(b);
+});
+
+const themeEl = document.getElementById("theme");
+themeEl.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-t]");
+  if (!btn) return;
+  [...themeEl.children].forEach(c => c.setAttribute("aria-pressed", "false"));
+  btn.setAttribute("aria-pressed", "true");
+  const t = btn.dataset.t;
+  if (t === "system") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+});
+
+// Delegate on the document so both the phone list and the desktop list respond.
+document.addEventListener("click", e => {
+  const row = e.target.closest(".row");
+  if (!row) return;
+  row.setAttribute("aria-pressed", row.getAttribute("aria-pressed") === "true" ? "false" : "true");
+});
+
+// Desktop nav + week slots are demo-only affordances; make them feel alive
+// without pretending to route anywhere.
+document.querySelectorAll(".dt-nav").forEach(nav => {
+  nav.addEventListener("click", e => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    [...nav.children].forEach(c => c.removeAttribute("aria-current"));
+    b.setAttribute("aria-current", "page");
+  });
+});
+</script>

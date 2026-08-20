@@ -1,0 +1,105 @@
+/*
+ * APPROVED MOCK — EXTRACTED VERBATIM. Do not edit to match the app;
+ * edit the app to match this.
+ *
+ * The owner approved a screen catalogue mock, then compared it against
+ * production and found them "not even close". Root cause: every UI package so
+ * far built to the PROSE in UI_DESIGN.md rather than to the mock, and prose
+ * cannot convey a green-tinted neutral or a four-column grid. This file is the
+ * missing artefact — the mock's own token and layout CSS, copied out unchanged.
+ *
+ * Three things production got wrong that are visible here:
+ *
+ *   1. NEUTRALS ARE HUE-DERIVED. Every surface carries a little of the accent
+ *      hue: oklch(0.17 0.012 var(--accent-hue)), not a flat #121316. That cast
+ *      is why the mock reads as a designed surface and production reads as
+ *      grey slate. The chroma is small (0.006-0.016) and deliberate.
+ *   2. GRID PAGES USE FULL WIDTH. .rgrid is auto-fill/minmax, four cards
+ *      across on a wide screen. Production capped every route at an 840px
+ *      reading measure, which is right for prose and wrong for a card grid.
+ *   3. NOTHING IS AN UNSTYLED ELEMENT. A bare <Link> inherits the browser's
+ *      purple; every interactive thing here has an explicit class.
+ *
+ * Values are the mock's own. Where the app's contrast sweep produced different
+ * accent constants (light --accent is oklch(0.45 0.18 H) in the app after the
+ * 360-hue sweep), the APP's accessible value wins over the mock's — contrast
+ * beats fidelity. Everything else should match.
+ */
+
+/* ---- tokens (light on :root, dark redefined twice for all three states) ---- */
+:root{
+  --accent-hue:155;
+  --paper:oklch(0.985 0.006 var(--accent-hue));
+  --surface:oklch(1 0 0);
+  --surface-2:oklch(0.965 0.008 var(--accent-hue));
+  --line:oklch(0.90 0.010 var(--accent-hue));
+  --line-soft:oklch(0.945 0.008 var(--accent-hue));
+  --text:oklch(0.24 0.020 var(--accent-hue));
+  --text-dim:oklch(0.50 0.016 var(--accent-hue));
+  --text-faint:oklch(0.63 0.012 var(--accent-hue));
+  --accent:oklch(0.55 0.14 var(--accent-hue));
+  --accent-text:oklch(0.99 0.02 var(--accent-hue));
+  --accent-bg:oklch(0.95 0.05 var(--accent-hue));
+  --accent-line:oklch(0.80 0.09 var(--accent-hue));
+  --warn:oklch(0.72 0.15 72); --warn-bg:oklch(0.95 0.06 72);
+  --crit:oklch(0.58 0.19 27); --crit-bg:oklch(0.95 0.05 27);
+  --shadow-1:0 1px 2px oklch(0.24 0.02 var(--accent-hue)/0.06);
+  --shadow-2:0 4px 18px -5px oklch(0.24 0.02 var(--accent-hue)/0.16);
+  --r-sm:8px; --r-md:14px; --r-lg:22px;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --display:"Fraunces",Georgia,serif;
+  --ui:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:oklch(0.17 0.012 var(--accent-hue));
+  --surface:oklch(0.215 0.014 var(--accent-hue));
+  --surface-2:oklch(0.255 0.016 var(--accent-hue));
+  --line:oklch(0.33 0.016 var(--accent-hue));
+  --line-soft:oklch(0.27 0.014 var(--accent-hue));
+  --text:oklch(0.95 0.010 var(--accent-hue));
+  --text-dim:oklch(0.74 0.014 var(--accent-hue));
+  --text-faint:oklch(0.60 0.014 var(--accent-hue));
+  --accent:oklch(0.76 0.13 var(--accent-hue));
+  --accent-text:oklch(0.18 0.03 var(--accent-hue));
+  --accent-bg:oklch(0.30 0.06 var(--accent-hue));
+  --accent-line:oklch(0.45 0.08 var(--accent-hue));
+  --warn:oklch(0.82 0.14 78); --warn-bg:oklch(0.32 0.06 78);
+  --crit:oklch(0.72 0.17 27); --crit-bg:oklch(0.32 0.07 27);
+  --shadow-1:0 1px 2px oklch(0 0 0/0.4);
+  --shadow-2:0 6px 22px -6px oklch(0 0 0/0.55);
+}}
+:root[data-theme="dark"]{
+  --paper:oklch(0.17 0.012 var(--accent-hue));
+  --surface:oklch(0.215 0.014 var(--accent-hue));
+  --surface-2:oklch(0.255 0.016 var(--accent-hue));
+  --line:oklch(0.33 0.016 var(--accent-hue));
+  --line-soft:oklch(0.27 0.014 var(--accent-hue));
+  --text:oklch(0.95 0.010 var(--accent-hue));
+  --text-dim:oklch(0.74 0.014 var(--accent-hue));
+  --text-faint:oklch(0.60 0.014 var(--accent-hue));
+  --accent:oklch(0.76 0.13 var(--accent-hue));
+  --accent-text:oklch(0.18 0.03 var(--accent-hue));
+  --accent-bg:oklch(0.30 0.06 var(--accent-hue));
+  --accent-line:oklch(0.45 0.08 var(--accent-hue));
+  --warn:oklch(0.82 0.14 78); --warn-bg:oklch(0.32 0.06 78);
+  --crit:oklch(0.72 0.17 27); --crit-bg:oklch(0.32 0.07 27);
+  --shadow-1:0 1px 2px oklch(0 0 0/0.4);
+  --shadow-2:0 6px 22px -6px oklch(0 0 0/0.55);
+}
+
+/* ---- recipe grid, cards, chips, search, page head ---- */
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:11px}
+.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:13px;cursor:pointer;transition:border-color 180ms var(--ease),transform 180ms var(--ease)}
+.rcard:hover{border-color:var(--accent-line);transform:translateY(-2px)}
+.rcard h4{font:500 15.5px/1.2 var(--ui);margin:0 0 5px}
+.rcard .rmeta{font:400 12px/1.3 var(--ui);color:var(--text-faint);display:flex;gap:9px;flex-wrap:wrap}
+.rcard .rtags{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+.tagpill{font:600 9.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:5px;background:var(--surface-2);color:var(--text-faint)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;padding:0 2px 12px}
+.fchip{font:500 12.5px/1 var(--ui);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-dim);cursor:pointer;transition:all 180ms var(--ease)}
+.fchip[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+.search{display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:10px 14px;margin-bottom:12px}
+.dt-body{padding:22px 18px 26px}
+.dt-h1{font:400 25px/1.1 var(--display);font-variation-settings:"opsz" 60;letter-spacing:-.015em}
+.dt-sub{color:var(--text-faint);font-size:13px;margin:2px 0 18px}
