@@ -13,13 +13,5 @@
     "jsx": "react-jsx",
     "erasableSyntaxOnly": true
   },
-  // "src" is included here too (in addition to tsconfig.app.json's own
-  // include) so that features/**/*.steps.ts can import production modules
-  // for feature-level (Gherkin) tests — see features/wp-17-offline-outbox
-  // .steps.ts, the first WP to need it. Not a project reference: app.json
-  // has noEmit (composite projects that get *referenced* must emit
-  // declarations, which would conflict with that), so this project simply
-  // type-checks its own independent copy of src's files rather than
-  // referencing the app project's build output.
   "include": ["features", "e2e", "src"]
 }
