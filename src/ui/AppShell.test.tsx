@@ -188,3 +188,37 @@ describe("AppShell — ready state", () => {
     expect(await axe(container)).toHaveNoViolations();
   });
 });
+
+describe("AppShell — service-worker update prompt (UI_DESIGN.md §8/§13, WP-24)", () => {
+  it("shows no prompt when no update is available", () => {
+    renderShell({ state: READY, updateAvailable: false });
+    expect(screen.queryByText(/new version/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the reload prompt once an update is available, and calls onApplyUpdate only on click", async () => {
+    const user = userEvent.setup();
+    const onApplyUpdate = vi.fn();
+    renderShell({ state: READY, updateAvailable: true, onApplyUpdate });
+
+    expect(screen.getByText(/new version/i)).toBeInTheDocument();
+    expect(onApplyUpdate).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /reload/i }));
+    expect(onApplyUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("shows the prompt even signed-out — a stale build is not gated on ShellState", () => {
+    renderShell({ state: { kind: "signed-out" }, updateAvailable: true, onApplyUpdate: vi.fn() });
+    expect(screen.getByText(/new version/i)).toBeInTheDocument();
+  });
+
+  it("does not render the prompt without an onApplyUpdate handler, even if updateAvailable is true", () => {
+    renderShell({ state: READY, updateAvailable: true });
+    expect(screen.queryByText(/new version/i)).not.toBeInTheDocument();
+  });
+
+  it("has no axe violations with the update prompt visible", async () => {
+    const { container } = renderShell({ state: READY, updateAvailable: true, onApplyUpdate: vi.fn() });
+    expect(await axe(container)).toHaveNoViolations();
+  });
+});

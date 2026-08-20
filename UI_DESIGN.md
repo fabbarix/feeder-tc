@@ -369,10 +369,16 @@ no default: it looks correct and is wrong.
 
 ### Brand
 
-The top bar shows the **mark alone**, not "Feeder" as a wordmark. The icon identifies
-the app; the word repeats what the tab title, the manifest and the URL already say,
-and it costs horizontal space the nav needs. Keep the wordmark for the signed-out
-screen, where it is the page's title rather than chrome.
+**The top bar shows the mark AND the "Feeder" wordmark together.**
+
+History, because this flipped twice and the next agent will otherwise flip it again:
+an earlier version of this section said "mark alone", on the reasoning that the word
+repeats what the tab title, manifest and URL already say. **The owner authorized
+mark + wordmark directly (2026-08-20)**, matching the approved mockup, whose `.brand`
+is mark + text. That decision supersedes the reasoning above.
+
+**Do not "restore" mark-alone by citing this section's history.** If the bar ever
+needs the horizontal space back, that is a new decision for the owner, not a revert.
 
 A union rather than two booleans, so the compiler forces all three cases.
 

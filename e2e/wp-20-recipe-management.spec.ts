@@ -30,10 +30,11 @@ test("Creating a bought meal", async ({ page }) => {
   await page.getByRole("button", { name: "Save recipe" }).click();
 
   // Then the recipe saves with prep time 0 — back on the recipe list, the
-  // card reads "Store-bought" and shows the cook time, never a prep time...
+  // card is tagged "Bought" and shows "0 prep" / "50 cook" directly...
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
-  await expect(page.getByRole("main")).toContainText("Store-bought");
-  await expect(page.getByRole("main")).toContainText("50 min to heat");
+  await expect(page.getByRole("main")).toContainText("Bought");
+  await expect(page.getByRole("main")).toContainText("0 prep");
+  await expect(page.getByRole("main")).toContainText("50 cook");
 
   // ...confirmed directly on the recipe itself: bought recipes never show
   // an editable prep-time field, only the fixed "0 min" hint.
@@ -64,26 +65,29 @@ test("Retiring a recipe", async ({ page }) => {
 
   // Arrange: a recipe "Liver stew" to retire (the scenario's own Given —
   // an existing recipe — is out of scope for a fresh workbook, so this
-  // creates it via the same UI as any other recipe).
+  // creates it via the same UI as any other recipe). Base servings defaults
+  // to 4 already (ServingsStepper's initial value), so nothing to fill there.
   await page.getByRole("link", { name: "Add recipe" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill("Liver stew");
-  await page.getByRole("textbox", { name: "Base servings" }).fill("4");
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill("40");
   await page.getByRole("button", { name: "Save recipe" }).click();
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 
-  // When the user sets "Liver stew" status to retired — the 3-state vote
-  // control lives right on the recipe's own card (UI_DESIGN.md §5), named
-  // by the recipe so it's addressable without walking the row's markup.
-  const statusControl = page.getByRole("radiogroup", { name: '"Liver stew" rotation status' });
-  await statusControl.getByRole("radio", { name: "Retired" }).click();
+  // When the user sets "Liver stew" status to retired — the 3-state
+  // "Household flag" control lives on the recipe's own page (moved there
+  // to match the approved mockup, owner-reported 2026-08-20 — it was
+  // originally on the list card), so open the recipe, flip it, and save.
+  await page.getByRole("link", { name: "Liver stew" }).click();
+  await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
+  await page.getByRole("radio", { name: "Retired" }).click();
+  await page.getByRole("button", { name: "Save recipe" }).click();
 
   // Then "Liver stew" shows as retired in the recipe list
-  await expect(statusControl.getByRole("radio", { name: "Retired" })).toBeChecked();
+  await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("Retired");
 
   // Persisted, not just local state — reload the list and check again.
   await page.getByRole("link", { name: "Home" }).click();
   await page.getByRole("link", { name: "Recipes" }).click();
-  await expect(statusControl.getByRole("radio", { name: "Retired" })).toBeChecked();
+  await expect(page.getByRole("main")).toContainText("Retired");
 });

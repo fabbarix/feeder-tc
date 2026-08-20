@@ -17,19 +17,32 @@
   gap: var(--space-1);
 }
 
+/* Matches QuantityInput.module.css's .label/.control exactly (bold,
+   --text-h label; --radius-md; accent border-color on focus) — this form
+   sits QuantityInput fields directly beside plain-text ones (RecipeEditor's
+   ingredient lines), so a lighter/smaller/differently-rounded look for the
+   plain fields read as a second, uncoordinated input style on one screen. */
 .field label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
 }
 
 .field input[type="text"] {
   min-height: var(--touch-target);
   padding: 0 var(--space-3);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-h);
   font: inherit;
+  font-size: 1rem;
+}
+
+.field input[type="text"]:focus-visible {
+  border-color: var(--accent);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .row {
@@ -42,10 +55,15 @@
   flex: 1 1 10em;
 }
 
+/* Matches the kit's own ListSection.module.css .heading (small-caps-style
+   group label) rather than inventing a second "section heading" look. */
 .sectionHeading {
-  font-weight: 600;
-  color: var(--text-h);
   margin: var(--space-2) 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
 }
 
 .line {
@@ -59,20 +77,30 @@
   flex: 1 1 12em;
 }
 
+/* Borderless icon button, background-on-hover only — matches the kit's own
+   icon-only affordance (Toast/Toast.module.css .dismiss) rather than an
+   independently-invented bordered box. */
 .removeButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: var(--touch-target);
   min-height: var(--touch-target);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: transparent;
   color: var(--crit);
   cursor: pointer;
   flex: none;
 }
 
+.removeButton:hover {
+  background: var(--crit-bg);
+}
+
+/* Same solid-border pill as AppShell's .secondaryAction (the gate screens'
+   "Open existing…" button) — a dashed border reads as a generic HTML-forms
+   convention, not this app's considered, pill-shaped button language. */
 .addButton {
   display: inline-flex;
   align-items: center;
@@ -80,11 +108,16 @@
   align-self: flex-start;
   min-height: var(--touch-target);
   padding: 0 var(--space-4);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
   color: var(--text-h);
+  font-weight: 600;
   cursor: pointer;
+}
+
+.addButton:hover {
+  background: var(--surface-2);
 }
 
 .actions {
@@ -129,4 +162,107 @@
 .hint {
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+/* Household-flag / meal-tag section labels — matches the mockup's
+   `.field-label` (small-caps, --text-muted, above a full-width control)
+   rather than the default <span> the .field wrapper otherwise gets. */
+.fieldLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.fullWidthControl {
+  width: 100%;
+}
+
+.fullWidthControl > * {
+  width: 100%;
+}
+
+/* Servings stepper — matches the mockup's `.qty` (bordered pill, flanking
+   +/- buttons, right-aligned tabular-nums value) rather than a bare number
+   field: base servings is stepped far more often than typed, in practice. */
+.qty {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+  max-width: 16em;
+}
+
+.qty button {
+  width: 44px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qty button:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.qtyValue {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  background: var(--surface);
+  font-weight: 600;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.qtyUnit {
+  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Ingredients/steps section container — a bordered card with a small-caps
+   header, matching the mockup's `.card`/`.card-head` rather than a bare
+   unbordered stack of rows. */
+.sectionCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.sectionCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sectionCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.sectionCardBody .line:not(:last-child) {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line-soft);
 }
