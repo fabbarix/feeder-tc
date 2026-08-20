@@ -9,16 +9,6 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
 
-    // A composite project referenced by another project (tsconfig.test.json,
-    // so features/*.steps.ts can import pure domain engines directly) must
-    // be able to emit — declaration-only, into a gitignored scratch dir.
-    // `vite build` still bundles src/ itself and never reads this output;
-    // this exists solely to satisfy tsc -b's project-reference contract.
-    "noEmit": false,
-    "emitDeclarationOnly": true,
-    "declaration": true,
-    "declarationDir": "./node_modules/.tmp/app-dts",
-
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",

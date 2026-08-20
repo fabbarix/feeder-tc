@@ -13,11 +13,5 @@
     "jsx": "react-jsx",
     "erasableSyntaxOnly": true
   },
-  // Feature step files under features/ import pure domain engines (e.g.
-  // src/domain/shopping.ts) directly, so this project needs a reference to
-  // the app project — otherwise tsc -b's composite-project boundary rejects
-  // the cross-project import (TS6307) even though it resolves fine at
-  // runtime under vitest/bundler resolution.
-  "references": [{ "path": "./tsconfig.app.json" }],
-  "include": ["features", "e2e"]
+  "include": ["features", "e2e", "src"]
 }
