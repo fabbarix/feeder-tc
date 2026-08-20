@@ -5,8 +5,12 @@ GitHub Pages, with a Google Sheets workbook as the backend. No server-side code.
 
 ## 1. Architecture
 
-- **Frontend**: Vite + React + TypeScript, hash-based routing (GitHub Pages has no
-  server rewrites), deployed to Pages via GitHub Actions.
+- **Frontend**: Vite + React + TypeScript, **History API path routing**
+  (`/recipes/12`), deployed to Pages via GitHub Actions. GitHub Pages has no
+  server rewrites, so the build emits `404.html` as an exact copy of
+  `index.html`; Pages serves it for any unmatched path and the SPA then routes
+  on `location.pathname`. (Revised 2026-08-20 at the owner's request — the
+  original design specified hash routing; see `HANDOVER.md` §5.)
 - **Backend**: one Google Sheets workbook per household, accessed **directly from the
   browser** via the Google Sheets REST API. No Apps Script.
 - **Auth**: Google Identity Services (OAuth token client) with the **non-sensitive

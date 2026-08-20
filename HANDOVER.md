@@ -51,7 +51,7 @@ Build a household meal-planning web app with a pantry-aware shopping list:
 | Shopping math | Needs minus viable stock: a lot counts only if expiry ≥ planned cook date; FIFO allocation; week or multi-week ranges |
 | In-store | Check-off immediately creates the purchase lot (pre-filled qty, editable for package sizes) |
 | Offline | Installable PWA; app-shell caching; append-only write outbox flushed on reconnect |
-| Stack | Vite + React + TypeScript, hash routing, GitHub Actions → Pages |
+| Stack | Vite + React + TypeScript, path routing (`404.html` SPA fallback), GitHub Actions → Pages |
 | Recipe storage | Join-row sheets (`RecipeIngredients`, `RecipeSteps`), not JSON blobs, not wide columns |
 | Delivery | Foundations-up milestones M1–M5 (recipe box → pantry → planner → shopping → offline) |
 
@@ -87,7 +87,21 @@ Build a household meal-planning web app with a pantry-aware shopping list:
   `npm test`, `npm run build` all green; mandatory BDD scenarios implemented and
   passing; no invariant violated.
 - Google API access in tests is always mocked; no real Google calls in CI.
-- Hash routing only (`/#/…`) — GitHub Pages cannot rewrite paths.
+- **Path routing** (`/recipes/12`), `createBrowserRouter`. **Superseded the
+  original hash-routing decision on 2026-08-20 at the product owner's request.**
+  GitHub Pages still cannot rewrite paths; the app works around it by emitting
+  `404.html` as an exact copy of `index.html` (see the `emit-spa-fallback`
+  plugin in `vite.config.ts`), which Pages serves for any unmatched path. Do
+  **not** reintroduce `createHashRouter` or assert on `#` fragments.
+  - The router's `basename` comes from `import.meta.env.BASE_URL`, so the same
+    build works under a base path or at a domain root.
+  - A cold deep link is served with HTTP status 404 while rendering correctly.
+    Accepted trade-off: the app is private and auth-gated, so crawler/SEO
+    behaviour is irrelevant, and WP-24's service worker serves navigations
+    from the precache with a 200 once installed.
+  - The 404.html fallback **cannot be verified locally** — `vite dev` and
+    `vite preview` both have their own SPA fallback and will mask a broken
+    one. Verify against the deployed site.
 
 ## 6. Coordination protocol
 
