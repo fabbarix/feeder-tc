@@ -314,3 +314,32 @@ cannot follow the user's chosen hue** (§3). So:
 - `background_color` (the splash) is `#ffffff` to match the default light theme —
   a manifest has no dark variant, so dark-mode users get one light splash frame.
   Deliberate: green-on-green would hide the icon's own tile.
+
+## 12. Auth-gated shell states
+
+Added 2026-08-20 after the product owner tested the running app: signed out, the
+shell still rendered the full nav and let you walk into every route.
+
+`AppShell` takes a **required** discriminated union. Three states, not two —
+signing in is not sufficient, because the app is useless until a workbook exists
+(`DESIGN.md` §1: the app creates one, or the user opens a shared one via Picker).
+
+```ts
+type ShellState =
+  | { kind: "signed-out" }   // branding + "Sign in with Google". Nothing else.
+  | { kind: "no-workbook" }  // "Create new meal planner" / "Open existing…" + sign out.
+  | { kind: "ready" }        // full shell: nav, workbook switcher, <Outlet />.
+```
+
+A union rather than two booleans, so the compiler forces all three cases.
+
+**Gate the route content, not just the nav.** Hiding nav links while `<Outlet />`
+still renders is a fake gate — a cold deep link to `/pantry` while signed out must
+show the sign-in screen. This is E2E-tested.
+
+**The shell never imports auth** (§7). State arrives as a prop; intent leaves via
+`onSignIn` / `onSignOut` / `onCreateWorkbook` / `onPickWorkbook`. WP-20 wires the
+real `createGoogleAuth` from `src/sheets/`. This also preserves WP-10's criterion
+that no Google API call happens before a user gesture.
+
+The signed-out screen passes axe like every other route.
