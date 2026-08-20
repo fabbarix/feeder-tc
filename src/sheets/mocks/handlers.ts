@@ -14,7 +14,7 @@
  * codes, Retry-After, JSON envelopes) on top.
  *
  * Every sheet tab is treated as already existing, matching production: the
- * workbook-creation flow (spreadsheet.ts) creates all nine WorkbookSheetName
+ * workbook-creation flow (spreadsheet.ts) creates every WorkbookSheetName
  * tabs up front, so by the time any read/append/update happens the tab is
  * already there. transport.test.ts covers the "tab genuinely missing"
  * fallback (values.append 400 -> batchUpdate addSheet -> retry) separately,
@@ -117,7 +117,9 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
     http.post(new RegExp(`^${escapeRegExp(base)}:batchUpdate$`), async ({ request }) => {
       const failure = checkRequest(request);
       if (failure) return failure;
-      // All nine tabs are pre-created in this double; addSheet is a no-op success.
+      // All tabs are pre-created in this double; addSheet is a no-op success.
+      // (Deliberately not a hardcoded count — it was "nine" until M6-A added
+      // Products/ProductPhotos/PriceObservations, and went stale silently.)
       return HttpResponse.json({ spreadsheetId: options.spreadsheetId, replies: [{}] });
     }),
 
