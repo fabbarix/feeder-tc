@@ -59,7 +59,14 @@
 .description {
   margin: var(--space-1) 0 0;
   font-size: 0.875rem;
-  color: var(--text);
+  /* `--text` on `--success-bg` measured 4.42:1 (axe, WCAG AA needs 4.5:1) —
+     found 2026-08-20 once WP-21's bootstrap-ordering fix made the "Workbook
+     ready" success toast reliably still on screen when a route's axe scan
+     runs, rather than sometimes already auto-dismissed. `--text-h` is the
+     token already used for `.title` above and for exactly this "needs to
+     read clearly over any of the four tinted variant backgrounds" case
+     elsewhere in the kit. */
+  color: var(--text-h);
 }
 
 .dismiss {

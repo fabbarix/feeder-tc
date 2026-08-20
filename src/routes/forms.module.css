@@ -145,6 +145,20 @@
   cursor: not-allowed;
 }
 
+.cancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .hint {
   font-size: 0.85rem;
   color: var(--text-muted);

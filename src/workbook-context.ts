@@ -16,6 +16,14 @@ export interface WorkbookContextValue {
   readonly clock: Clock;
   readonly rng: Rng;
   /**
+   * The active workbook's spreadsheet id. `WorkbookStore` has no accessor
+   * for it (it's an implementation detail of the transport it was built
+   * from) but WP-17's per-workbook `SnapshotStore`/`Outbox` keying needs it
+   * explicitly — added for WP-21, the first route to construct that sync
+   * machinery.
+   */
+  readonly workbookId: string;
+  /**
    * The active workbook's write outbox (WP-17/invariant 9) — a route that
    * checks something off enqueues a `PurchaseEvent` here (e.g. via
    * `checkOffShoppingItem` from `src/domain`), never appends to
