@@ -24,7 +24,22 @@
     color var(--motion-fast) ease-in-out;
 }
 
-.segmentSelected {
+/*
+ * Compound selector (`.segment.segmentSelected`), not `.segmentSelected`
+ * alone — WP-20's a11y suite caught this the first time a live route
+ * actually mounted this component (RecipeEditor/IngredientEditor): a
+ * single-class `.segmentSelected` rule has the SAME specificity as
+ * `.segment`'s own `color: var(--text-muted)`, so which one wins becomes a
+ * function of <style> tag insertion order — stable in a `vite build`
+ * bundle (one concatenated stylesheet, source order preserved) but not
+ * guaranteed in Vite dev's per-module HMR style injection, where it
+ * intermittently lost to `.segment`'s muted colour, failing
+ * `color-contrast` (axe measured ~1.11:1, white-on-accent text rendering
+ * as muted-grey-on-accent instead). The compound selector has strictly
+ * higher specificity than either rule alone, so it wins unconditionally —
+ * this is no longer an ordering question.
+ */
+.segment.segmentSelected {
   background: var(--accent);
   color: var(--accent-text);
   font-weight: 600;

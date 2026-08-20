@@ -104,7 +104,6 @@
   --accent-text: #fff;
   --accent-bg: oklch(0.95 0.05 var(--accent-hue));
   --accent-border: oklch(0.75 0.12 var(--accent-hue));
-  --social-bg: rgba(244, 243, 236, 0.5);
 
   /*
    * Semantic colours (UI_DESIGN.md §13 "only exceptions get colour"):
@@ -231,12 +230,22 @@
 
     /* Same fixed-L/C-per-role construction as the light tokens, lightness
        raised for the fill (so it reads against a dark surface) and lowered
-       for the on-fill text (so it stays dark-on-light-fill). */
-    --accent: oklch(0.75 0.17 var(--accent-hue));
+       for the on-fill text (so it stays dark-on-light-fill).
+
+       Chroma lowered from the original 0.17 to 0.13 (owner-reported,
+       2026-08-20, comparing the deployed site to the approved mockup):
+       oklch(0.75 0.17 156) rendered as a noticeably more vivid emerald
+       (#2dcd7f) than the mockup's softer sage-green (oklch(0.76 0.13 155)
+       -> #65c98c). Re-swept all 360 hues against --accent-text
+       (oklch(0.18 0.02 hue)) after the change, same methodology as the
+       original sweep documented above the light-mode tokens: worst case is
+       now 8.28:1 at hue 352 (up from the prior 7.58:1 at hue 21 — lower
+       chroma at this lightness/text pairing is strictly safer here, not a
+       trade-off), comfortably clear of the 4.5:1 threshold at every hue. */
+    --accent: oklch(0.76 0.13 var(--accent-hue));
     --accent-text: oklch(0.18 0.02 var(--accent-hue));
     --accent-bg: oklch(0.28 0.06 var(--accent-hue));
     --accent-border: oklch(0.45 0.14 var(--accent-hue));
-    --social-bg: rgba(47, 48, 58, 0.5);
 
     /* Fixed-hue semantic colours (§13) — never derived from --accent-hue. */
     --warn: oklch(0.8 0.16 72);
@@ -259,9 +268,6 @@
     --focus-ring: #7cb8ff;
   }
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
 }
 
 :root[data-theme="dark"] {
@@ -286,11 +292,12 @@
     0 6px 16px rgb(0 0 0 / 40%);
   --shadow: var(--shadow-lg);
 
-  --accent: oklch(0.75 0.17 var(--accent-hue));
+  /* Kept identical to the `prefers-color-scheme: dark` block above — see
+     the comment there for the chroma-lowering rationale and contrast sweep. */
+  --accent: oklch(0.76 0.13 var(--accent-hue));
   --accent-text: oklch(0.18 0.02 var(--accent-hue));
   --accent-bg: oklch(0.28 0.06 var(--accent-hue));
   --accent-border: oklch(0.45 0.14 var(--accent-hue));
-  --social-bg: rgba(47, 48, 58, 0.5);
 
   --warn: oklch(0.8 0.16 72);
   --warn-bg: oklch(0.28 0.08 72);
@@ -310,10 +317,6 @@
   --success-border: rgba(74, 222, 128, 0.45);
 
   --focus-ring: #7cb8ff;
-}
-
-:root[data-theme="dark"] #social .button-icon {
-  filter: invert(1) brightness(2);
 }
 
 /* Focus visibility is a shell-wide token so every kit component gets the
@@ -396,15 +399,17 @@
   border: 0;
 }
 
-/* App shell container. Mobile-first: full width, no centering border, text
-   left-aligned like any app (the WP-01 scaffold left this as a centered
-   landing-page card — WP-15 replaces that look with the real shell). On
-   wide viewports the content column caps out so long-form pantry/recipe
-   tables don't stretch edge to edge. */
+/* App shell container. Fills the viewport — no centering column here.
+   `max-width: 1126px; margin: 0 auto` was leftover WP-01 Vite-template
+   scaffolding: it capped the ENTIRE shell (header, nav and content alike)
+   into a narrow centred band, leaving the viewport empty on either side on
+   a wide screen (owner-reported, 2026-08-20). Chrome (AppShell's `.header`/
+   `.nav`) is full-bleed by design — its background/border must reach both
+   edges — while route content keeps its own reading measure via
+   `.mainMeasure` (AppShell.module.css, `max-width: 840px`); that measure
+   belongs to the content, not to `#root`. */
 #root {
   width: 100%;
-  max-width: 1126px;
-  margin: 0 auto;
   text-align: left;
   min-height: 100svh;
   display: flex;

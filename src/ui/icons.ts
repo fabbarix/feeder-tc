@@ -59,4 +59,6 @@ export {
   SignOut,
   FileArrowUp,
   FolderOpen,
+  // The workbook chip (§12/§13 header) — the active spreadsheet, at a glance.
+  Table,
 } from "@phosphor-icons/react";

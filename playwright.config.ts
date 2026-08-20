@@ -76,6 +76,16 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         VITE_ENABLE_MOCKS: "true",
+        // WP-20 wires the real createGoogleAuth/Picker into AppShell. Those
+        // read env lazily (src/env.ts) only when a user clicks "Sign in" —
+        // never at import time — but by then something must be there.
+        // Neither var is set in CI (only deploy.yml's build job gets the real
+        // ones), and requiring a local .env.local just to run E2E would be
+        // hostile. The values are never checked against a real Google
+        // backend: msw fakes every request that would carry them, so any
+        // non-empty string works.
+        VITE_GOOGLE_CLIENT_ID: "e2e-fake-client-id.apps.googleusercontent.com",
+        VITE_GOOGLE_API_KEY: "e2e-fake-api-key",
       },
     },
     {
@@ -94,6 +104,19 @@ export default defineConfig({
       url: PWA_BASE_URL,
       reuseExistingServer: false,
       timeout: 120_000,
+      env: {
+        // Required even though this project mocks nothing. WP-20's shell
+        // constructs the Google wiring at first render, and src/env.ts throws
+        // on the first READ of a missing VITE_GOOGLE_* value — so a build
+        // without them white-screens instead of rendering the sign-in screen,
+        // and every assertion here fails looking for a heading that never
+        // mounted. Production always has them (deploy.yml passes the repo
+        // vars), so supplying fakes here mirrors the real build rather than
+        // papering over anything. See STATUS.md "Known debt" for the
+        // underlying fragility, which is a WP-31 polish item.
+        VITE_GOOGLE_CLIENT_ID: "e2e-fake-client-id.apps.googleusercontent.com",
+        VITE_GOOGLE_API_KEY: "e2e-fake-api-key",
+      },
     },
   ],
 });

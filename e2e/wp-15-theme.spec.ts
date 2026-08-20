@@ -19,15 +19,13 @@ test.describe("theme toggle — system-dark device", () => {
   test.use({ colorScheme: "dark" });
 
   test("System (default) follows the OS: dark background, no data-theme attribute", async ({ page }) => {
-    await enterReadyShell(page);
-    await page.goto("settings");
+    await enterReadyShell(page, "settings");
     expect(await readDataTheme(page)).toBeNull();
     expect(await readBg(page)).toBe("#121316");
   });
 
   test("THE GUARD: choosing Light overrides a dark OS", async ({ page }) => {
-    await enterReadyShell(page);
-    await page.goto("settings");
+    await enterReadyShell(page, "settings");
     await page.getByRole("radio", { name: "Light" }).click();
 
     expect(await readDataTheme(page)).toBe("light");
@@ -39,15 +37,13 @@ test.describe("theme toggle — system-light device", () => {
   test.use({ colorScheme: "light" });
 
   test("System (default) follows the OS: light background, no data-theme attribute", async ({ page }) => {
-    await enterReadyShell(page);
-    await page.goto("settings");
+    await enterReadyShell(page, "settings");
     expect(await readDataTheme(page)).toBeNull();
     expect(await readBg(page)).toBe("#f5f4f0");
   });
 
   test("THE GUARD (other direction): choosing Dark overrides a light OS", async ({ page }) => {
-    await enterReadyShell(page);
-    await page.goto("settings");
+    await enterReadyShell(page, "settings");
     await page.getByRole("radio", { name: "Dark" }).click();
 
     expect(await readDataTheme(page)).toBe("dark");
@@ -55,8 +51,7 @@ test.describe("theme toggle — system-light device", () => {
   });
 
   test("returning to System removes the override and follows the OS again", async ({ page }) => {
-    await enterReadyShell(page);
-    await page.goto("settings");
+    await enterReadyShell(page, "settings");
     await page.getByRole("radio", { name: "Dark" }).click();
     expect(await readDataTheme(page)).toBe("dark");
 
@@ -67,8 +62,7 @@ test.describe("theme toggle — system-light device", () => {
 });
 
 test("choosing an accent hue rewrites the theme-color meta tag to follow it", async ({ page }) => {
-  await enterReadyShell(page);
-  await page.goto("settings");
+  await enterReadyShell(page, "settings");
 
   const before = await page.locator('meta#theme-color-dynamic').getAttribute("content");
   expect(before).toBeTruthy();
@@ -83,8 +77,7 @@ test("choosing an accent hue rewrites the theme-color meta tag to follow it", as
 test("the choice persists across a reload (pre-paint script reads localStorage before first paint)", async ({
   page,
 }) => {
-  await enterReadyShell(page);
-  await page.goto("settings");
+  await enterReadyShell(page, "settings");
   await page.getByRole("radio", { name: "Dark" }).click();
   expect(await readDataTheme(page)).toBe("dark");
 

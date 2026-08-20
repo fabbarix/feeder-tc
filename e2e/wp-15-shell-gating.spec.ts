@@ -3,9 +3,9 @@ import { expect, test } from "@playwright/test";
 // UI_DESIGN.md §12 (product-owner requirement, folded into WP-15b):
 // "when signed out, show only the login button — no menu items" — and a
 // cold deep link must be gated too, not just the nav links. Each Playwright
-// test gets its own fresh browser context (and therefore empty
-// sessionStorage — see e2e/support/shell.ts), so this spec needs no special
-// setup: a bare goto() is already "signed out".
+// test gets its own fresh browser context — and WP-20 wired the real
+// (msw-mocked) `createGoogleAuth`, whose access token deliberately lives
+// only in memory, never persisted — so a bare goto() is always "signed out".
 test("a cold deep link to /pantry while signed out shows the sign-in screen, not pantry content or nav", async ({
   page,
 }) => {
@@ -45,16 +45,22 @@ test("creating a workbook reveals the nav and the originally-requested route", a
   await page.getByRole("button", { name: "Sign in with Google" }).click();
   await page.getByRole("button", { name: "Create new meal planner" }).click();
 
-  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  // Bootstrap writes nine sheet headers plus the ~100-row seeded ingredient
+  // catalog sequentially (src/sheets/bootstrap.ts) — allow more than the
+  // default 5s.
+  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible({ timeout: 20_000 });
 });
 
 test("signing out from the ready state re-gates the app", async ({ page }) => {
   await page.goto("");
   await page.getByRole("button", { name: "Sign in with Google" }).click();
   await page.getByRole("button", { name: "Create new meal planner" }).click();
-  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible({ timeout: 20_000 });
 
-  await page.getByRole("button", { name: /sign out/i }).click();
+  // Sign-out lives in the avatar's account menu, not a standalone header
+  // button (UI_DESIGN.md §12/§13, owner-reported 2026-08-20).
+  await page.getByRole("button", { name: /account menu/i }).click();
+  await page.getByRole("button", { name: /^sign out$/i }).click();
 
   await expect(page.getByRole("button", { name: "Sign in with Google" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" })).not.toBeVisible();

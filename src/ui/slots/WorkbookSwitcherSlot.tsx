@@ -1,12 +1,15 @@
 import type { ReactNode } from "react";
 
 /**
- * Seam for WP-10's multi-workbook registry (switch/add a household
- * workbook). Same pattern as `AuthStatusSlot`: WP-10 injects its real
- * component via `AppShell`'s `workbookSwitcherSlot` prop rather than
- * editing this file.
+ * Seam for the header's workbook-name display. `AppShell` always passes
+ * real `children` (the active workbook's name) derived from `ShellState`
+ * when `state.kind === "ready"` — see `renderHeaderSlots` in
+ * `../AppShell.tsx`.
  *
- *   <AppShell workbookSwitcherSlot={<RealWorkbookSwitcher />} />
+ * No fallback here for missing `children`, for the same reason as
+ * `AuthStatusSlot` (UI_DESIGN.md §12, amended 2026-08-20): a hardcoded
+ * "No workbook" placeholder that ignores the actual `ShellState` is a
+ * state-blind default, which is worse than rendering nothing.
  */
 export interface WorkbookSwitcherSlotProps {
   readonly children?: ReactNode;
@@ -15,7 +18,7 @@ export interface WorkbookSwitcherSlotProps {
 export function WorkbookSwitcherSlot({ children }: WorkbookSwitcherSlotProps) {
   return (
     <div className="workbook-switcher-slot" data-slot="workbook-switcher">
-      {children ?? <span className="slot-placeholder">No workbook</span>}
+      {children}
     </div>
   );
 }
