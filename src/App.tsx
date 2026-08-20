@@ -14,7 +14,7 @@ import { Plan } from "./routes/Plan";
 import { Shopping } from "./routes/Shopping";
 import { Settings } from "./routes/Settings";
 import { env } from "./env.ts";
-import { systemClock, createSeededRng } from "./domain/index.ts";
+import { systemClock, createSeededRng, type Outbox } from "./domain/index.ts";
 import {
   createGoogleAuth,
   createGooglePickerLauncher,
@@ -32,6 +32,12 @@ import type { WorkbookRegistry, WorkbookRegistryEntry } from "./sheets/registry.
 import type { PickerLauncher } from "./sheets/picker.ts";
 import { deriveShellState } from "./shell-state.ts";
 import { WorkbookContext, type WorkbookContextValue } from "./workbook-context.ts";
+import {
+  createLocalStorageOutbox,
+  createBrowserConnectivityMonitor,
+  createOutboxSyncController,
+} from "./sync/index.ts";
+import { createPwaUpdateWatcher } from "./pwa/update.ts";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -72,6 +78,84 @@ function ShellContainer() {
   const [authState, setAuthState] = useState<AuthState>(() => auth.state());
   const [user, setUser] = useState<ShellUser | undefined>(undefined);
   const [activeWorkbook, setActiveWorkbook] = useState<WorkbookRegistryEntry | undefined>(() => registry.getActive());
+
+  // WP-24: sync state for AppShell's offline banner (UI_DESIGN.md §8) — a
+  // single app-lifetime connectivity monitor (offline-ness isn't scoped to
+  // one workbook), read here and passed down as props/callbacks so
+  // `src/ui/**` never imports `src/sync/**` directly (UI_DESIGN.md §7,
+  // eslint-enforced).
+  const [connectivity] = useState(() => createBrowserConnectivityMonitor());
+  const [offline, setOffline] = useState(() => !connectivity.isOnline());
+  useEffect(() => connectivity.subscribe((online) => setOffline(!online)), [connectivity]);
+
+  const [pendingCount, setPendingCount] = useState(0);
+
+  // One Outbox per active workbook (invariant 9 — offline writes are events
+  // appended via the outbox, never in-place edits), rebuilt whenever the
+  // active workbook changes. `refreshPendingCount` re-reads it rather than
+  // trusting a locally-tracked delta, so this container's count can never
+  // drift from what is actually durably queued (same "always re-read"
+  // discipline `createLocalStorageOutbox` itself follows — see its header
+  // comment).
+  const outbox = useMemo<Outbox | undefined>(() => {
+    if (!activeWorkbook) return undefined;
+    return createLocalStorageOutbox(activeWorkbook.id);
+  }, [activeWorkbook]);
+
+  // `pendingCount`/`loading`-style state is only ever set from a promise's
+  // own resolution, never synchronously in the effect body itself (matches
+  // Recipes.tsx's fetch pattern, and react-hooks' set-state-in-effect rule)
+  // — the `useState(0)` above already covers "nothing queued yet".
+  const refreshPendingCount = useCallback(() => {
+    void (outbox ? outbox.pending() : Promise.resolve([])).then((pending) => setPendingCount(pending.length));
+  }, [outbox]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (outbox ? outbox.pending() : Promise.resolve([])).then((pending) => {
+      if (!cancelled) setPendingCount(pending.length);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [outbox]);
+
+  // A route (WP-23's shopping list, once it exists) enqueues through THIS
+  // wrapper, via `useWorkbookContext().outbox` — never the raw Outbox —
+  // purely so every enqueue/acknowledge/clear also refreshes the banner's
+  // count. The controller below is given the same wrapper as its outbox, so
+  // a flush's `acknowledge` calls refresh it too.
+  const countedOutbox = useMemo<Outbox | undefined>(() => {
+    if (!outbox) return undefined;
+    return {
+      async enqueue(event) {
+        await outbox.enqueue(event);
+        refreshPendingCount();
+      },
+      pending: () => outbox.pending(),
+      async acknowledge(eventId) {
+        await outbox.acknowledge(eventId);
+        refreshPendingCount();
+      },
+      async clear() {
+        await outbox.clear();
+        refreshPendingCount();
+      },
+    };
+  }, [outbox, refreshPendingCount]);
+
+  // WP-24 update prompt (`src/pwa/update.ts`): constructed once, lazily —
+  // `createPwaUpdateWatcher`'s default parameter reads `navigator.serviceWorker`
+  // at call time, so this must not run at module-import time either, same
+  // reasoning as `createGoogleWiring` above.
+  const [pwaUpdate] = useState(() => createPwaUpdateWatcher());
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  useEffect(() => pwaUpdate.onUpdateAvailable(() => setUpdateAvailable(true)), [pwaUpdate]);
+  // Only ever called from AppShell's own "Reload" button (a user gesture) —
+  // never automatically. See `PwaUpdateApi.applyUpdate`'s doc comment for why.
+  const handleApplyUpdate = useCallback(() => {
+    void pwaUpdate.applyUpdate();
+  }, [pwaUpdate]);
 
   useEffect(() => auth.subscribe(setAuthState), [auth]);
 
@@ -152,10 +236,25 @@ function ShellContainer() {
   const shellState = deriveShellState(authState, user, activeWorkbook);
 
   const workbookContextValue = useMemo<WorkbookContextValue | undefined>(() => {
-    if (!activeWorkbook) return undefined;
+    if (!activeWorkbook || !countedOutbox) return undefined;
     const transport = createGoogleSheetsTransport({ spreadsheetId: activeWorkbook.id, auth });
-    return { store: createSheetsWorkbookStore(transport), clock: systemClock, rng };
-  }, [activeWorkbook, auth, rng]);
+    return { store: createSheetsWorkbookStore(transport), clock: systemClock, rng, outbox: countedOutbox };
+  }, [activeWorkbook, auth, rng, countedOutbox]);
+
+  // Flush automatically on reconnect (and once immediately, if already
+  // online) whenever there is both a workbook to flush into and an outbox to
+  // flush from — restarted whenever either changes (e.g. switching
+  // workbooks). `countedOutbox` (not the raw `outbox`) so a flush's own
+  // `acknowledge` calls refresh the banner's pending count too.
+  useEffect(() => {
+    if (!workbookContextValue || !countedOutbox) return;
+    const controller = createOutboxSyncController({
+      outbox: countedOutbox,
+      workbookStore: workbookContextValue.store,
+      connectivity,
+    });
+    return controller.start();
+  }, [workbookContextValue, countedOutbox, connectivity]);
 
   return (
     <WorkbookContext.Provider value={workbookContextValue}>
@@ -165,6 +264,10 @@ function ShellContainer() {
         onSignOut={() => void handleSignOut()}
         onCreateWorkbook={() => void handleCreateWorkbook()}
         onPickWorkbook={() => void handlePickWorkbook()}
+        offline={offline}
+        pendingCount={pendingCount}
+        updateAvailable={updateAvailable}
+        onApplyUpdate={handleApplyUpdate}
       />
     </WorkbookContext.Provider>
   );

@@ -1,0 +1,62 @@
+/* Fixed overlay, not part of the normal flow (UI_DESIGN.md §13 motion rule —
+   see the component's own doc comment): appearing/disappearing never shoves
+   page content, so there is nothing to reserve space for and nothing to
+   animate. Positioned above the mobile bottom tab bar and its safe-area
+   inset, same technique as ToastViewport, but top-anchored so the two
+   surfaces (transient toasts vs. this persistent prompt) never compete for
+   the same strip of screen. */
+.root {
+  position: fixed;
+  left: var(--space-3);
+  right: var(--space-3);
+  top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+  z-index: var(--z-toast);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-h);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 768px) {
+  .root {
+    left: auto;
+    width: min(360px, 100%);
+  }
+}
+
+.message {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.reload {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--motion-micro) ease-in-out;
+}
+
+.reload:hover {
+  opacity: 0.9;
+}
+
+.reload:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
