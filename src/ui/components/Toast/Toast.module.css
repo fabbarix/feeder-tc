@@ -1,4 +1,4 @@
-.toast-viewport {
+.viewport {
   position: fixed;
   left: var(--space-3);
   right: var(--space-3);
@@ -11,7 +11,7 @@
 }
 
 @media (min-width: 768px) {
-  .toast-viewport {
+  .viewport {
     left: auto;
     width: min(360px, 100%);
   }
@@ -30,40 +30,43 @@
   box-shadow: var(--shadow);
 }
 
-.toast--warning {
+.warning {
   border-color: var(--warning-border);
   background: var(--warning-bg);
 }
 
-.toast--error {
+.error {
   border-color: var(--danger-border);
   background: var(--danger-bg);
 }
 
-.toast--success {
+.success {
   border-color: var(--success-border);
   background: var(--success-bg);
 }
 
-.toast__body {
+.body {
   flex: 1;
   min-width: 0;
 }
 
-.toast__title {
+.title {
   margin: 0;
   font-weight: 600;
   font-size: 0.95rem;
 }
 
-.toast__description {
+.description {
   margin: var(--space-1) 0 0;
   font-size: 0.875rem;
   color: var(--text);
 }
 
-.toast__dismiss {
+.dismiss {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 32px;
   height: 32px;
   min-width: 32px;
@@ -71,11 +74,9 @@
   border: none;
   background: transparent;
   color: var(--text);
-  font-size: 1.25rem;
-  line-height: 1;
   cursor: pointer;
 }
 
-.toast__dismiss:hover {
+.dismiss:hover {
   background: var(--border);
 }

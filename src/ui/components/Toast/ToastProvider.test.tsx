@@ -5,17 +5,24 @@ import { axe } from "vitest-axe";
 import { ToastProvider } from "./ToastProvider.tsx";
 import { ToastViewport } from "./ToastViewport.tsx";
 import { useToast } from "./useToast.ts";
-import type { DataWarning } from "../../../domain/contracts.ts";
 
 function Harness() {
-  const { showToast, showWarning } = useToast();
-  const warning: DataWarning = { sheet: "Ingredients", row: 7, reason: "unknown unit banana-units" };
+  const { showToast } = useToast();
   return (
     <>
       <button type="button" onClick={() => showToast({ variant: "success", title: "Saved" })}>
         Fire toast
       </button>
-      <button type="button" onClick={() => showWarning(warning)}>
+      <button
+        type="button"
+        onClick={() =>
+          showToast({
+            variant: "warning",
+            title: "Skipped row 7 in Ingredients",
+            description: "unknown unit banana-units",
+          })
+        }
+      >
         Fire warning
       </button>
       <ToastViewport />
@@ -37,7 +44,7 @@ describe("ToastProvider / useToast", () => {
     expect(screen.getByText("Saved")).toBeInTheDocument();
   });
 
-  it("converts a DataWarning (WP-11) into a visible toast with sheet/row/reason", async () => {
+  it("renders a warning-variant toast with title and description", async () => {
     const user = userEvent.setup();
     render(
       <ToastProvider>

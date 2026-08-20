@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { enterReadyShell } from "./support/shell.ts";
 
 // Trivial proof that the Playwright harness runs headless against the app,
 // through History API routing and the configured base path. Later WPs add real
@@ -7,8 +8,12 @@ import { expect, test } from "@playwright/test";
 // and a goto() argument with a LEADING SLASH is resolved against the origin, so
 // "/pantry" would silently drop the "/feeder-tc" prefix. Always pass a RELATIVE
 // path ("pantry", "" for the index) so it resolves against the base.
+//
+// UI_DESIGN.md §12 (added mid-WP-15b): every route is gated behind AppShell's
+// signed-out → no-workbook → ready states, so these need enterReadyShell()
+// first — see e2e/wp-15-shell-gating.spec.ts for the gating behavior itself.
 test("navigates from home to the pantry route", async ({ page }) => {
-  await page.goto("");
+  await enterReadyShell(page);
   await expect(page.getByRole("heading", { name: "Feeder" })).toBeVisible();
 
   await page.getByRole("link", { name: "Pantry" }).click();
@@ -25,6 +30,7 @@ test("navigates from home to the pantry route", async ({ page }) => {
 // real check is `curl -sI https://<host>/recipes/12` against the deployed
 // site — see the emit-spa-fallback plugin in vite.config.ts.
 test("resolves a deep link with a route parameter on cold load", async ({ page }) => {
+  await enterReadyShell(page);
   await page.goto("recipes/12");
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
   await expect(page).toHaveURL(/\/recipes\/12$/);

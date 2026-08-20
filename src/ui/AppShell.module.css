@@ -1,0 +1,236 @@
+.skipLink {
+  position: absolute;
+  left: var(--space-2);
+  top: -100px;
+  z-index: var(--z-dialog);
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: var(--radius-sm);
+  transition: top var(--motion-fast) ease-in-out;
+}
+
+.skipLink:focus {
+  top: var(--space-2);
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-nav);
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--text-h);
+}
+
+.slots {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.signOutButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: var(--space-1);
+}
+
+.signOutButton:hover {
+  color: var(--text-h);
+}
+
+/* Global offline/pending banner (UI_DESIGN.md §8) — never a per-item dot.
+   Pending is normal, so it uses a muted neutral background, not --warning
+   or --danger; only the "offline" wording differs, not the color, since
+   pending itself is not a failure. */
+.syncBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.main {
+  flex: 1;
+  padding: var(--space-4);
+  /* Room to scroll content above the fixed bottom nav on mobile. */
+  padding-bottom: calc(var(--touch-target) + var(--space-6));
+}
+
+/*
+ * A real container with a measure (UI_DESIGN.md §13 "Desktop") — content
+ * must not sit flush top-left the way a plain full-bleed <main> does at
+ * wide viewports. Full width on mobile (no measure needed at a 380px
+ * viewport); capped and centered from 768px up so paragraph text stays
+ * readable and cards don't stretch edge to edge. The shopping/planner
+ * screens (WP-22/23) that need MORE width for a multi-column layout do so
+ * deliberately by overriding this locally, not by this default being wide.
+ */
+.mainMeasure {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .mainMeasure {
+    max-width: 840px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .main {
+    padding-bottom: var(--space-4);
+  }
+}
+
+/*
+ * Bottom tab bar, mobile-first: fixed to the bottom of the viewport so every
+ * section is one thumb-reach away — the shopping list is used one-handed in
+ * a store aisle (WP-23's in-store mode). Each item meets --touch-target.
+ * `env(safe-area-inset-bottom)` is REQUIRED (UI_DESIGN.md §11) or the bar
+ * sits under the home indicator on notched iPhones — `viewport-fit=cover`
+ * in index.html is what makes the env() resolve to a real value.
+ * On wide viewports the bar becomes an ordinary in-flow top-adjacent row
+ * (still usable with a mouse, no fixed positioning needed once there's a
+ * pointer and room).
+ */
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-nav);
+  display: flex;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.navItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: var(--touch-target);
+  padding: var(--space-1);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.7rem;
+  transition: color var(--motion-fast) ease-in-out;
+}
+
+.navIcon {
+  flex: none;
+}
+
+.navItemActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .nav {
+    position: static;
+    border-top: none;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .navItem {
+    flex-direction: row;
+    font-size: 0.9rem;
+  }
+}
+
+/* Signed-out / no-workbook gates (UI_DESIGN.md §12) — full-bleed, no nav, no route content. */
+.gate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+  max-width: 28em;
+  margin: var(--space-6) auto;
+  padding: var(--space-4);
+}
+
+.gateDescription {
+  color: var(--text-muted);
+}
+
+.gateActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.primaryAction {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.secondaryAction {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-h);
+}
+
+.signOutLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
+}

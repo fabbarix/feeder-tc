@@ -45,7 +45,7 @@ Last updated: 2026-08-20
 | WP | Title | State | Branch | Notes |
 |----|-------|-------|--------|-------|
 | WP-30 | Cross-feature E2E suite | pending | — | needs WP-23; runs alongside WP-24 |
-| WP-31 | Release | pending | — | needs WP-24, WP-30 |
+| WP-31 | Release | in-progress | `wp31-readme` (PR #14, **merged**) | README done and merged early. Remaining: onboarding polish, tag v1.0.0, owner's full-loop check. |
 
 ## Parked / blocked on owner
 
@@ -105,6 +105,12 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 | 2026-08-20 | — | **Stage 1 fan-out dispatched:** WP-10, 12, 13, 14, 15, 16, 17 in seven worktrees, each with its own `E2E_PORT` to keep concurrent Playwright runs from colliding on 5273. |
 
 ## Known debt
+
+- **No `LICENSE` file**, but `package.json` declares `"license": "ISC"`. The repo is
+  public, so it currently has no effective licence. Owner decision — ISC, MIT, or
+  none — then add the file or drop the field.
+- **No `.env.local.example`.** The README names the two variables directly instead,
+  but a template would be friendlier for a fork.
 
 - **TypeScript pinned to `^6.0.3`**, not current 7.x: `typescript-eslint@8.67` declares
   peer `<6.1.0`. Revisit as a dedicated dependency-bump task once the ecosystem
