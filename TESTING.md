@@ -77,9 +77,12 @@ path against Sheets/Drive/Picker, mock it here.
    `expect`. Copy the `@e2e`-tagged Gherkin scenario text from
    `IMPLEMENTATION_PLAN.md` into the spec's description/comments so intent
    stays traceable back to the plan.
-2. Use `page.goto("/...")` — `baseURL` already includes the `/feeder-tc/`
-   base path (`playwright.config.ts`); routes are hash-based
-   (`createHashRouter`), so assert on `page` URL fragments like `#/pantry`.
+2. Pass a **relative** path to `page.goto()` — `"pantry"`, or `""` for the
+   index. `baseURL` carries the base path (`http://localhost:5273/feeder-tc/`),
+   and an argument with a **leading slash resolves against the origin**, so
+   `page.goto("/pantry")` silently drops the `/feeder-tc` prefix and exercises
+   the wrong URL. Routes are real History API paths (`createBrowserRouter`),
+   so assert on the pathname — `/\/pantry$/` — never on a `#` fragment.
 3. Any network calls (Google auth, Sheets) must be served by the msw browser
    worker — see above. Do not add real network calls to an E2E spec.
 4. Run `npm run test:e2e` (headless Chromium + a `mobile-chrome` project on

@@ -12,6 +12,7 @@ Last updated: 2026-08-20
 |----|-------|-------|--------|-------|
 | WP-01 | Repo scaffold & CI | **merged** | `wp-01-scaffold` (PR #1) | Merged 2026-08-20. 3 coordinator fixes applied at review — see integration log. |
 | WP-02 | Interface contracts | in-progress | `wp-02-contracts` | Gates all of Stage 1. Coordinator reviews vs HANDOVER §4 before merge. |
+| WP-03 | Path routing + custom domain | in-review | `wp-03-routing` (PR #2) | Owner-requested, added 2026-08-20. Routing done; **domain cutover held** until DNS resolves. |
 
 ## Stage 1 — Parallel core (fan out after WP-02 merges)
 
@@ -48,6 +49,26 @@ Last updated: 2026-08-20
 - **WP-10 live verification** — dev-server sign-in + Google Picker open with a real
   Google account. Requires the product owner at the browser. Will be requested once
   the dev server runs an auth screen. Not blocking other packages.
+
+- **Custom domain `feeder.torchetti.us` — needs two owner actions.** Not blocking
+  any package; the site stays on `fabbarix.github.io/feeder-tc/` until cutover.
+  1. **DNS at GoDaddy** (`torchetti.us` is on ns77/ns78.domaincontrol.com): add
+     `CNAME  feeder  →  fabbarix.github.io`. Note the zone currently has a
+     **wildcard** — every name, including the apex, resolves to `192.168.5.1`
+     (a private address, so nothing public is being served today). An explicit
+     `feeder` record overrides the wildcard for that one name and breaks nothing.
+  2. **Google Cloud Console** → OAuth client → Authorized JavaScript origins:
+     add `https://feeder.torchetti.us`. There is no API for this on personal
+     accounts (HANDOVER §7), so it must be done by hand. **Sign-in will fail on
+     the new domain until this is done.**
+
+  Coordinator does at cutover, after DNS resolves: set the Pages custom domain,
+  add the new referrer to the Picker API key (`gcloud services api-keys update`),
+  flip `base` to `/` in `vite.config.ts`, enable Enforce HTTPS, and verify the
+  404 fallback with `curl -sI https://feeder.torchetti.us/recipes/12`.
+  Setting the Pages domain **before** DNS resolves would make the site
+  unreachable, since Pages then redirects the github.io URL to the custom one —
+  hence the ordering.
 
 ## Integration log
 

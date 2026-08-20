@@ -51,7 +51,7 @@ pipeline (WP-20 → 21 → 22 → 23) with WP-24/WP-30 overlapping its tail.
 
 ### WP-01 · Repo scaffold & CI  *(sequential gate)*
 
-Scope: `git init`; Vite + React + TypeScript (strict) app with hash routing;
+Scope: `git init`; Vite + React + TypeScript (strict) app with path routing;
 ESLint + Prettier; Vitest + `@amiceli/vitest-cucumber`; Playwright configured with
 msw; `npm run` scripts (`dev`, `build`, `lint`, `typecheck`, `test`, `test:e2e`);
 GitHub Actions workflow: CI (lint/typecheck/test/build) on PR, deploy `dist/` to
@@ -282,7 +282,7 @@ Feature: Shopping list computation
 
 ### WP-15 · UI shell + component kit
 
-Scope: app layout (nav, workbook switcher slot, auth status), hash routes for all
+Scope: app layout (nav, workbook switcher slot, auth status), path routes for all
 sections (stub pages), shared components (entity table, quantity input honoring
 canonical units, date picker, confirm dialog, toast/warning surface), responsive
 mobile-first styling (in-store one-handed use), light/dark.
