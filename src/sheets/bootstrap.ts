@@ -11,7 +11,7 @@
 import { seedCatalog } from "../data/seed-catalog.ts";
 import type { SheetsTransport, WorkbookStore } from "../domain/contracts.ts";
 import type { Settings, WorkbookSheetName } from "../domain/types.ts";
-import { columnLetter, SCHEMA_VERSION, WORKBOOK_HEADERS } from "./codecs/index.ts";
+import { columnLetter, DEFAULT_CURRENCY, SCHEMA_VERSION, WORKBOOK_HEADERS } from "./codecs/index.ts";
 
 /**
  * DESIGN.md §3, in the documented order. Deliberately independent of
@@ -28,6 +28,9 @@ export const WORKBOOK_SHEET_NAMES: readonly WorkbookSheetName[] = [
   "PlanSlots",
   "InventoryEvents",
   "ShoppingItems",
+  "Products",
+  "ProductPhotos",
+  "PriceObservations",
 ];
 
 export const INITIAL_GENERATION = 1;
@@ -49,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { day: "sunday", slots: ["breakfast", "lunch", "dinner"] },
   ],
   repeatExclusionWeeks: 3,
+  currency: DEFAULT_CURRENCY,
 };
 
 /**

@@ -27,6 +27,7 @@ export type RecipeId = Brand<string, "RecipeId">;
 export type LotId = Brand<string, "LotId">;
 export type PlanSlotId = Brand<string, "PlanSlotId">;
 export type EventId = Brand<string, "EventId">;
+export type PriceObservationId = Brand<string, "PriceObservationId">;
 
 function assertNonEmpty(raw: string, label: string): void {
   if (raw.trim().length === 0) {
@@ -62,6 +63,34 @@ export function makePlanSlotId(raw: string): PlanSlotId {
 export function makeEventId(raw: string): EventId {
   assertNonEmpty(raw, "EventId");
   return raw as EventId;
+}
+
+/** Validating constructor: wraps a raw string as a PriceObservationId. */
+export function makePriceObservationId(raw: string): PriceObservationId {
+  assertNonEmpty(raw, "PriceObservationId");
+  return raw as PriceObservationId;
+}
+
+// ---------------------------------------------------------------------------
+// Barcode (M6-A — DESIGN_PRODUCTS.md §2)
+//
+// A separate brand from the other ids above: a barcode is scanned/typed by a
+// human, not client-minted (contrast EventId/LotId, which `ids.ts` mints via
+// the injected Rng), and it has a real external format (EAN-8/UPC-A/EAN-13/
+// GTIN-14) worth validating at construction time rather than "any non-empty
+// string".
+// ---------------------------------------------------------------------------
+
+export type Barcode = Brand<string, "Barcode">;
+
+const BARCODE_RE = /^\d{6,14}$/;
+
+/** Validating constructor: wraps a raw string as a Barcode. Accepts 6-14 digits (covers UPC-E/EAN-8/UPC-A/EAN-13/GTIN-14). */
+export function makeBarcode(raw: string): Barcode {
+  if (!BARCODE_RE.test(raw)) {
+    throw new Error(`Barcode must be 6-14 digits, got ${JSON.stringify(raw)}`);
+  }
+  return raw as Barcode;
 }
 
 // ---------------------------------------------------------------------------
@@ -103,6 +132,19 @@ export function makeQuantity(amount: number, unit: Unit): Quantity {
   }
   return { amount, unit };
 }
+
+/**
+ * Units a human can enter in the product editor (M6-A — DESIGN_PRODUCTS.md
+ * §3), deliberately a *different* type from `Unit`. `Unit` stays exactly
+ * `g | ml | piece | portion` (invariant 3) — nothing here widens it. An
+ * `EntryUnit` is converted into an ingredient's canonical `Unit` exactly
+ * once, by `src/domain/units.ts`, before anything is written; it is never
+ * itself used in arithmetic. `"piece"` here is the same concept the design
+ * doc calls "number" for a count-based product (e.g. "12 eggs") — spelled
+ * `"piece"` to match `Unit`'s existing count label instead of introducing a
+ * second word for the same idea.
+ */
+export type EntryUnit = "kg" | "g" | "lb" | "oz" | "l" | "ml" | "fl oz" | "piece";
 
 // ---------------------------------------------------------------------------
 // Dates
@@ -165,7 +207,10 @@ export type WorkbookSheetName =
   | "RecipeSteps"
   | "PlanSlots"
   | "InventoryEvents"
-  | "ShoppingItems";
+  | "ShoppingItems"
+  | "Products"
+  | "ProductPhotos"
+  | "PriceObservations";
 
 // ---------------------------------------------------------------------------
 // Shared enums-as-unions (erasableSyntaxOnly forbids real `enum`)
@@ -455,6 +500,17 @@ export interface Settings {
   readonly slotLayout: readonly DaySlotLayout[];
   /** N-week window: recipes cooked within this many weeks are excluded from the generator. */
   readonly repeatExclusionWeeks: number;
+  /**
+   * Single household currency symbol/code (M6-A — DESIGN_PRODUCTS.md §4:
+   * "a single value in Settings, defaulting to `$`. Not per-row — the
+   * household has one currency."). Optional, not required, so this addition
+   * stays additive: every `Settings` object literal written before M6-A
+   * (fixtures, other work packages' tests) still type-checks without it.
+   * Absent means "$" — see `DEFAULT_SETTINGS` (src/sheets/bootstrap.ts) and
+   * `decodeSettings` (src/sheets/codecs/settings.ts), which both apply that
+   * default explicitly rather than leaving callers to do it ad hoc.
+   */
+  readonly currency?: string;
 }
 
 export interface Meta {
@@ -473,4 +529,96 @@ export interface ShoppingItem {
   readonly neededQuantity: Quantity;
   readonly checked: boolean;
   readonly boughtQuantity?: Quantity;
+}
+
+// ---------------------------------------------------------------------------
+// Products, photos & prices (M6-A — DESIGN_PRODUCTS.md §2)
+//
+// A Product is a new first-class entity, distinct from an Ingredient: an
+// ingredient is *rice*, a product is *Riso Gallo Arborio 1 kg, barcode
+// 8001120000123*. Many products map to one ingredient (`ingredientId`).
+//
+// `canonicalQuantity` is the ONLY field arithmetic ever touches — it is
+// always in the linked ingredient's canonical `Unit` (invariant 3).
+// `displayQuantity`/`displayUnit` are exactly what the human typed at entry
+// time ("1", "lb" -> "1 lb bag"), kept for display/provenance only. Nothing
+// in `src/domain`, `src/sheets`, or any fold may read `displayQuantity`/
+// `displayUnit` to compute anything — see `src/domain/units.ts`, the single
+// module allowed to turn one into the other, and only at entry time.
+// ---------------------------------------------------------------------------
+
+export interface Product {
+  readonly barcode: Barcode;
+  readonly name: string;
+  readonly brand?: string;
+  readonly ingredientId: IngredientId;
+  /** Package size in the ingredient's canonical unit — drives all arithmetic. Never hand-edit without going through src/domain/units.ts. */
+  readonly canonicalQuantity: Quantity;
+  /** As entered by the human ("1"), display/provenance only — never used in arithmetic. */
+  readonly displayQuantity: number;
+  /** As entered by the human ("lb"), display/provenance only — never used in arithmetic. */
+  readonly displayUnit: EntryUnit;
+  /** Unopened shelf life, in days, for a purchased unit of this specific product. */
+  readonly shelfLifeDays: number;
+  readonly isBulk: boolean;
+  /** Denormalised presence flag so a `Products.readAll()` listing never needs to touch `ProductPhotos` (see `ProductPhoto` below) just to know whether to show a placeholder. */
+  readonly hasPhoto: boolean;
+}
+
+/**
+ * Hard Google Sheets per-cell character ceiling (DESIGN_PRODUCTS.md §5).
+ * Lives here, not just in the codec, because it is part of the
+ * `WorkbookStore.productPhotos` *contract*, not an implementation detail of
+ * one backend: both `src/sheets/codecs/product-photos.ts` (the real,
+ * Sheets-backed codec) and `src/domain/fakes/workbook-store.ts` (the
+ * in-memory fake every other work package tests against) must refuse an
+ * oversized `dataUrl` identically, or a package developing against the fake
+ * would never see the failure the real backend enforces.
+ */
+export const MAX_PRODUCT_PHOTO_DATA_URL_LENGTH = 50_000;
+
+/**
+ * Deliberately its own entity/sheet, not a `Product` column
+ * (DESIGN_PRODUCTS.md §2/§5): `WorkbookStore.products.readAll()` would
+ * otherwise drag every product's photo down the wire on every listing —
+ * 100 products x ~30 KB is ~3 MB on a shop connection. `WorkbookStore`
+ * exposes this as read-one-by-barcode + upsert only, never `readAll` (see
+ * contracts.ts) — that split is the entire point of the separate sheet.
+ *
+ * `dataUrl` is a bounded, documented exception to invariant 6
+ * ("human-readable workbook, no blobs") — see DESIGN_PRODUCTS.md §5 for the
+ * byte budget the encoder targets and `MAX_PRODUCT_PHOTO_DATA_URL_LENGTH`
+ * above for the hard backstop every `WorkbookStore` implementation enforces
+ * on write.
+ */
+export interface ProductPhoto {
+  readonly barcode: Barcode;
+  readonly dataUrl: string;
+}
+
+/**
+ * Append-only time series, like `InventoryEvents` (DESIGN_PRODUCTS.md §2:
+ * "corrections are new rows, and two clients appending never collide").
+ * `WorkbookStore.priceObservations` therefore exposes no update/delete
+ * method, only append (contracts.ts).
+ *
+ * No currency field by design — the household has exactly one currency,
+ * held in `Settings.currency` and applied at display time, not stored
+ * per-row. `quantity` is in the linked ingredient's canonical unit (same
+ * rule as `Product.canonicalQuantity`), so `price` divided by `quantity`
+ * needs no unit conversion to be meaningful; see
+ * `src/domain/price-normalization.ts` for comparing observations of
+ * different package sizes on a common per-100g/per-100ml/per-piece basis.
+ */
+export interface PriceObservation {
+  readonly id: PriceObservationId;
+  readonly timestamp: IsoTimestamp;
+  /** Which specific product this price was seen on, if scanned rather than entered against a bare ingredient. */
+  readonly barcode?: Barcode;
+  readonly ingredientId: IngredientId;
+  readonly quantity: Quantity;
+  /** In the household's single currency (`Settings.currency`). */
+  readonly price: number;
+  /** Free-text provenance ("Trader Joe's", "corner store") — DESIGN_PRODUCTS.md §7 defers a structured `Shops` sheet to M7; this column is why that later addition won't require rewriting price history. */
+  readonly source?: string;
 }

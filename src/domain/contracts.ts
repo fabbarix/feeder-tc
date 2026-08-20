@@ -11,6 +11,7 @@
  * no new value exports of its own beyond the interfaces/types declared here.
  */
 import type {
+  Barcode,
   EventId,
   Ingredient,
   InventoryEvent,
@@ -18,6 +19,9 @@ import type {
   IsoTimestamp,
   Meta,
   PlanSlot,
+  PriceObservation,
+  Product,
+  ProductPhoto,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -170,6 +174,37 @@ export interface WorkbookStore {
   readonly shoppingItems: {
     readAll(): Promise<DecodeResult<ShoppingItem>>;
     upsert(item: ShoppingItem): Promise<void>;
+  };
+  /** M6-A — DESIGN_PRODUCTS.md §2. `upsert` is insert-or-replace by `barcode`, same as `ingredients`/`recipes` above. */
+  readonly products: {
+    readAll(): Promise<DecodeResult<Product>>;
+    upsert(product: Product): Promise<void>;
+  };
+  /**
+   * M6-A — DESIGN_PRODUCTS.md §2/§5. Deliberately NO `readAll` here: photos
+   * live in their own sheet precisely so a `products.readAll()` listing
+   * never has to pay for every photo's bytes. A caller fetches one photo,
+   * on demand, only when it is actually displayed.
+   */
+  readonly productPhotos: {
+    read(barcode: Barcode): Promise<ProductPhoto | undefined>;
+    upsert(photo: ProductPhoto): Promise<void>;
+  };
+  /**
+   * M6-A — DESIGN_PRODUCTS.md §2. Append-only like `inventoryEvents` above
+   * (no update/delete method exists on this namespace): a price observation
+   * is a point-in-time fact, and corrections are new rows, not edits.
+   * `readAll` rather than a cursor-paged `readFrom`, unlike
+   * `inventoryEvents`: nothing in M6-A folds this incrementally into a
+   * client-side snapshot (that is future work, not part of this contract
+   * change), so there is no cursor to resume from yet. A future work
+   * package that needs incremental reads can add a `readFrom` method here
+   * without touching this one (additive, same pattern as
+   * `InventoryEventsPage` above).
+   */
+  readonly priceObservations: {
+    readAll(): Promise<DecodeResult<PriceObservation>>;
+    append(observation: PriceObservation): Promise<void>;
   };
 }
 
