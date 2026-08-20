@@ -12,7 +12,19 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
-    "erasableSyntaxOnly": true
+    "erasableSyntaxOnly": true,
+
+    // Declaration-only emit so tsconfig.test.json can hold a project
+    // reference to this project (composite-project rule TS6307: a file from
+    // one project can't be imported by another composite project unless
+    // it's referenced and has emitted declarations). `vite build` bundles
+    // src/ directly and never reads these — they exist purely for `tsc -b`'s
+    // cross-project resolution and stay out of git (node_modules/ is
+    // already ignored wholesale).
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./node_modules/.tmp/app-dts"
   },
   "include": ["src"]
 }
