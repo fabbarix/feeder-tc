@@ -16,5 +16,17 @@ export default defineConfig({
     // features/ as `<feature-name>.steps.ts`. Playwright specs under e2e/
     // are intentionally NOT matched here — they run under @playwright/test.
     include: ["src/**/*.test.{ts,tsx}", "features/**/*.steps.ts"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      // WP-12's success criterion is 100% branch coverage specifically on
+      // the inventory fold and the FIFO allocator (IMPLEMENTATION_PLAN.md
+      // WP-12) — scope coverage reporting to that directory so `npm test --
+      // --coverage` gives a number that actually answers that question,
+      // rather than an average diluted by the rest of the (still-growing)
+      // domain layer.
+      include: ["src/domain/inventory/**/*.ts"],
+      exclude: ["src/domain/inventory/**/*.test.ts"],
+    },
   },
 });

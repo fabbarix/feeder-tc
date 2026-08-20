@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WP-10 manual verification</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; }
+      button { display: block; margin: 0.5rem 0; padding: 0.5rem 1rem; }
+      pre { background: #f0f0f0; padding: 0.75rem; overflow-x: auto; }
+      .status { font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <h1>WP-10 manual verification (dev only)</h1>
+    <p>
+      Not part of the app's routed UI (WP-15/WP-20 own that) - this page exists only so a
+      real sign-in + Picker open can be checked by hand against the live Google APIs, from
+      <code>npm run dev</code> (port 5173, the OAuth client's registered origin). It is not
+      part of the production build - <code>vite build</code> only ever bundles
+      <code>index.html</code>.
+    </p>
+    <p class="status" id="status">Not signed in.</p>
+    <button id="sign-in">1. Sign in with Google (drive.file scope only)</button>
+    <button id="sign-out" disabled>Sign out</button>
+    <button id="create" disabled>2a. Create a test workbook</button>
+    <button id="pick" disabled>2b. Open a workbook via Picker</button>
+    <button id="read" disabled>3. Read Meta!A1:B1 from the active workbook</button>
+    <pre id="log">Click "Sign in with Google" to start.</pre>
+    <script type="module" src="/src/sheets/dev-verify.ts"></script>
+  </body>
+</html>
