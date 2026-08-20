@@ -87,6 +87,22 @@ path against Sheets/Drive/Picker, mock it here.
 
 See `e2e/wp-01-harness.spec.ts` for a trivial worked example.
 
+## Ports
+
+| Port   | Owner              | Why                                                                  |
+| ------ | ------------------ | -------------------------------------------------------------------- |
+| `5173` | `npm run dev` only | The OAuth client's registered JS origin (HANDOVER §7). Keep it free. |
+| `5273` | `npm run test:e2e` | Override with `E2E_PORT=<n>` if taken.                               |
+
+E2E deliberately does not use 5173: that port belongs to the dev server the
+product owner signs into for the live Google check, and several agents may be
+running on one machine. Playwright always starts its **own** server
+(`reuseExistingServer: false`, `--strictPort`) — if you see a startup failure
+saying the port is in use, that is working as intended. Never "fix" it by
+re-enabling server reuse: a foreign Vite server answers the health check with
+its SPA fallback, and the entire suite then passes or fails against somebody
+else's app.
+
 ## Definition of done (every WP)
 
 ```

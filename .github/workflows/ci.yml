@@ -1,12 +1,11 @@
 name: CI
 
-# Runs on every PR and on pushes to any branch except main (main is deploy.yml's
-# territory). CI must never call a real Google API — src/mocks/* (msw) covers that.
+# Runs on every PR. Deliberately NOT also on `push`: every work package lands
+# through a PR, and having both triggers ran the whole suite twice per commit.
+# main is deploy.yml's territory.
+# CI must never call a real Google API — src/mocks/* (msw) covers that.
 on:
   pull_request:
-  push:
-    branches-ignore:
-      - main
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

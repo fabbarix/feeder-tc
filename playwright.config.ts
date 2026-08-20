@@ -8,10 +8,14 @@ import { defineConfig, devices } from "@playwright/test";
 // VITE_ENABLE_MOCKS=true starts the msw browser worker (src/mocks/browser.ts)
 // so E2E never calls a real Google API — see TESTING.md.
 //
-// Defaults to 5173 to match the OAuth client's registered JS origin
-// (HANDOVER.md §7). Override with E2E_PORT if something else already holds
-// 5173 on your machine (e.g. another project's dev server).
-const PORT = Number(process.env.E2E_PORT) || 5173;
+// Deliberately NOT 5173. That port is reserved for `npm run dev`, which is the
+// server the product owner signs into for the live Google verification (the
+// OAuth client's registered JS origin is http://localhost:5173 — HANDOVER.md
+// §7). E2E never talks to Google (msw mocks everything), so it does not need
+// that origin, and squatting on it would collide with a running dev server —
+// or with an unrelated project's, which is exactly how a green E2E run can end
+// up testing someone else's app. Override with E2E_PORT if 5273 is also taken.
+const PORT = Number(process.env.E2E_PORT) || 5273;
 const BASE_URL = `http://localhost:${PORT}/feeder-tc/`;
 
 export default defineConfig({
@@ -40,7 +44,12 @@ export default defineConfig({
   webServer: {
     command: `npm run dev -- --port ${PORT} --strictPort`,
     url: BASE_URL,
-    reuseExistingServer: !process.env.CI,
+    // Always start our own server, never adopt one already on the port. With
+    // reuse enabled, a foreign Vite server answers the health check (its SPA
+    // fallback 200s on any path) and the whole suite silently runs against the
+    // wrong app. --strictPort then turns a collision into a loud startup
+    // failure instead of a mysterious "element not found".
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
       VITE_ENABLE_MOCKS: "true",

@@ -28,11 +28,19 @@ export const env = {
   get googleClientId(): string {
     return requireEnvVar("VITE_GOOGLE_CLIENT_ID", import.meta.env.VITE_GOOGLE_CLIENT_ID);
   },
+  /**
+   * Picker API key. Used ONLY to initialise the Google Picker widget. It must
+   * never be attached to a Sheets or Drive REST call — those authenticate with
+   * the user's OAuth bearer token alone. The key is referrer-restricted and
+   * API-target-restricted to picker.googleapis.com, so sending it elsewhere
+   * would fail anyway, but the rule is about blast radius, not just failure.
+   */
   get googleApiKey(): string {
     return requireEnvVar("VITE_GOOGLE_API_KEY", import.meta.env.VITE_GOOGLE_API_KEY);
   },
-  /** True when the app should start the msw browser worker instead of talking to Google. */
-  get mocksEnabled(): boolean {
-    return import.meta.env.VITE_ENABLE_MOCKS === "true";
-  },
 };
+
+// Note: there is deliberately no `mocksEnabled` helper here. The msw toggle is
+// read as a literal `import.meta.env.VITE_ENABLE_MOCKS` at its use site so Vite
+// can statically eliminate the mock import from production builds — see
+// src/main.tsx. Wrapping it in a getter would silently ship msw to Pages.

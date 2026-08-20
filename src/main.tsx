@@ -2,10 +2,15 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App";
-import { env } from "./env";
 
 async function enableMocksIfRequested(): Promise<void> {
-  if (!env.mocksEnabled) return;
+  // Read import.meta.env directly rather than via env.mocksEnabled. Vite
+  // substitutes this expression with a literal at build time, so with mocks
+  // off the whole branch is statically dead and the msw chunk (~400 kB) is
+  // dropped from the bundle entirely. Behind a getter it is opaque to the
+  // optimiser and ships to Pages as a dead asset — which WP-24's service
+  // worker would then precache. Keep this check inline.
+  if (import.meta.env.VITE_ENABLE_MOCKS !== "true") return;
   const { worker } = await import("./mocks/browser");
   await worker.start({
     onUnhandledRequest: "bypass",
