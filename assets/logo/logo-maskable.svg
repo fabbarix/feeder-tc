@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Feeder">
+  <title>Feeder</title>
+  <!--
+    Android maskable variant (purpose: "maskable").
+
+    Android crops the icon to a device-chosen shape — circle, squircle, teardrop,
+    rounded square. Only the inner 80% (a circle of diameter 51.2 on this 64 grid)
+    is guaranteed to survive; anything outside the "safe zone" may be clipped.
+
+    So: the background is FULL BLEED (no rounded corners of our own — the OS
+    supplies the shape) and the glyph is scaled to ~62% and centred, keeping every
+    mark well inside the safe circle. Using logo.svg here would get its rim bar
+    clipped on circular masks.
+  -->
+  <rect width="64" height="64" fill="#1c9b5e"/>
+  <g transform="translate(32 32) scale(0.62) translate(-32 -32)">
+    <g transform="rotate(24 32 26.5)"><path d="M32 7 C38.5 13.5 38.5 20.5 32 26.5 C25.5 20.5 25.5 13.5 32 7 Z" fill="#ffffff"/></g>
+    <rect x="8.5" y="29" width="47" height="6" rx="3" fill="#ffffff"/>
+    <path d="M13 37 C13 47.5 21.5 56 32 56 C42.5 56 51 47.5 51 37 Z" fill="#ffffff"/>
+  </g>
+</svg>

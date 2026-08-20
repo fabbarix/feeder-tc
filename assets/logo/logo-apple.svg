@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Feeder">
+  <title>Feeder</title>
+  <!--
+    iOS apple-touch-icon variant.
+
+    Two iOS-specific rules drive this file:
+
+    1. iOS applies its OWN rounded-rect (squircle) mask. If we ship pre-rounded
+       corners they get rounded twice, leaving pale slivers at the corners. So the
+       background is FULL BLEED and square.
+    2. iOS composites the icon over BLACK, not over the page. Any transparency
+       reads as black, so the background must be fully opaque — never a
+       transparent PNG.
+
+    Glyph at ~78%: smaller than logo.svg so nothing crowds the corners iOS
+    rounds off, larger than the Android maskable version because iOS's mask is a
+    generous squircle rather than a possible circle.
+  -->
+  <rect width="64" height="64" fill="#1c9b5e"/>
+  <g transform="translate(32 32) scale(0.78) translate(-32 -32)">
+    <g transform="rotate(24 32 26.5)"><path d="M32 7 C38.5 13.5 38.5 20.5 32 26.5 C25.5 20.5 25.5 13.5 32 7 Z" fill="#ffffff"/></g>
+    <rect x="8.5" y="29" width="47" height="6" rx="3" fill="#ffffff"/>
+    <path d="M13 37 C13 47.5 21.5 56 32 56 C42.5 56 51 47.5 51 37 Z" fill="#ffffff"/>
+  </g>
+</svg>
