@@ -279,11 +279,13 @@ export interface PlanSlot {
 // could edit an event in place — violating invariant 1 is a compile error,
 // not a code-review note.
 //
-// `use` and `spoil` carry only ingredientId + quantity, not a lotId: FIFO
-// consumption (invariant 4) is a fold-time decision by the inventory engine
-// (WP-12) over whichever lots exist at fold time, not a choice the event
-// author (UI/outbox) makes per-event. `purchase`, `adjust`, `move`, `open`
-// name a specific lot because they are inherently lot-specific operations.
+// `use` carries only ingredientId + quantity, not a lotId: FIFO consumption
+// (invariant 4) is a fold-time decision by the inventory engine (WP-12) over
+// whichever lots exist at fold time, not a choice the event author
+// (UI/outbox) makes per-event. `purchase`, `spoil`, `adjust`, `move`, `open`
+// all name a specific lot because they are inherently lot-specific
+// operations — see `SpoilEvent`'s doc comment for why it differs from `use`
+// even though invariant 1 lists both as "consumption".
 // ---------------------------------------------------------------------------
 
 interface InventoryEventBase {
@@ -310,22 +312,77 @@ export interface UseEvent extends InventoryEventBase {
   readonly quantity: Quantity;
 }
 
-/** FIFO-consumed across existing lots for `ingredientId` at fold time. */
+/**
+ * Names a specific lot — deliberately unlike `UseEvent`. Invariant 4's FIFO
+ * requirement scopes to "usage, shopping allocation" only; spoilage is not
+ * in that list. A user looking at the pantry view (WP-21, "grouped by
+ * ingredient with lots") identifies spoilage by *looking at a lot* — a
+ * visibly mouldy lot in the fridge might be newer than an untouched lot in
+ * the freezer, so FIFO-oldest would name the wrong one. "Lot X spoiled" is
+ * the fact being recorded, not "some quantity of ingredient Y spoiled,
+ * figure out which lot." Do not remove `lotId` to make this symmetric with
+ * `UseEvent` — the asymmetry is intentional, see coordinator review on
+ * WP-02's PR.
+ */
 export interface SpoilEvent extends InventoryEventBase {
   readonly type: "spoil";
+  readonly lotId: LotId;
   readonly quantity: Quantity;
 }
 
 /**
  * A correction to a specific lot (invariant 1: corrections are new events,
- * never edits to a prior row). `delta` is signed: positive adds back,
- * negative removes.
+ * never edits to a prior row). Two independent kinds of correction share
+ * this one event type rather than getting a seventh event kind, per
+ * DESIGN.md/WP-02's scope fixing the union at exactly six types:
+ *
+ * - `delta`: a signed quantity correction. Positive adds back, negative
+ *   removes.
+ * - `expiry`: a replacement expiry for the lot (DESIGN.md §2 "Overrides:
+ *   the user can hand-edit any lot's expiry when reality disagrees"). A
+ *   fold that applies an `expiry` correction sets the resulting `Lot`'s
+ *   `expiryOverridden` to `true` — this is the only event that can produce
+ *   that state after purchase time (`PurchaseEvent.expiryOverride` only
+ *   covers purchase time).
+ *
+ * At least one of `delta`/`expiry` must be present — use `makeAdjustEvent`
+ * rather than an object literal, it enforces this. WP-11's codec must
+ * likewise reject a decoded row with neither (as a data warning, not a
+ * throw — see `DataWarning`/`DecodeResult`).
  */
 export interface AdjustEvent extends InventoryEventBase {
   readonly type: "adjust";
   readonly lotId: LotId;
-  readonly delta: Quantity;
+  readonly delta?: Quantity;
+  readonly expiry?: IsoDate;
   readonly reason?: string;
+}
+
+export interface AdjustEventInput {
+  readonly id: EventId;
+  readonly timestamp: IsoTimestamp;
+  readonly ingredientId: IngredientId;
+  readonly lotId: LotId;
+  readonly delta?: Quantity;
+  readonly expiry?: IsoDate;
+  readonly reason?: string;
+}
+
+/** Validating constructor: throws unless at least one of `delta`/`expiry` is given. */
+export function makeAdjustEvent(input: AdjustEventInput): AdjustEvent {
+  if (input.delta === undefined && input.expiry === undefined) {
+    throw new Error("AdjustEvent requires at least one of `delta` or `expiry`");
+  }
+  return {
+    type: "adjust",
+    id: input.id,
+    timestamp: input.timestamp,
+    ingredientId: input.ingredientId,
+    lotId: input.lotId,
+    ...(input.delta !== undefined ? { delta: input.delta } : {}),
+    ...(input.expiry !== undefined ? { expiry: input.expiry } : {}),
+    ...(input.reason !== undefined ? { reason: input.reason } : {}),
+  };
 }
 
 /** Location change for a specific lot (e.g. pantry → freezer suspends expiry). */

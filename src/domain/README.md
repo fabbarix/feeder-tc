@@ -34,6 +34,23 @@ The helper modules (`dates.ts`, `quantity.ts`, `ids.ts`, `clock.ts`, `rng.ts`)
 are not under the same formal freeze, but seven packages depend on them too —
 treat a breaking change to their exported signatures with the same caution.
 
+**Post-merge amendments from coordinator review (WP-02 PR #3), both in
+`types.ts`, kept here so the reasoning survives:**
+
+- `SpoilEvent` carries a required `lotId`, unlike `UseEvent`. Invariant 4's
+  FIFO requirement scopes to "usage, shopping allocation" — spoilage is not
+  in that list, and a user identifying a specific mouldy lot on the pantry
+  view must be able to name *that* lot rather than have FIFO-oldest guess
+  wrong. Do not delete `lotId` to make this symmetric with `UseEvent`.
+- `AdjustEvent.delta` is optional and `AdjustEvent.expiry?: IsoDate` was
+  added, covering DESIGN.md §2's "the user can hand-edit any lot's expiry
+  when reality disagrees" — the only way `Lot.expiryOverridden` can become
+  `true` after purchase time. At least one of `delta`/`expiry` must be
+  present; construct these via `makeAdjustEvent(...)`, which throws
+  otherwise, rather than an object literal. This stays a sixth event type
+  reusing `adjust`, not a new seventh kind, per DESIGN.md/WP-02 fixing the
+  union at six.
+
 ## The purity rule
 
 Every module in `src/domain` is pure: no I/O, no React, no browser/Node
