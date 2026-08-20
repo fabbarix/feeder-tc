@@ -92,6 +92,48 @@ path against Sheets/Drive/Picker, mock it here.
 
 See `e2e/wp-01-harness.spec.ts` for a trivial worked example.
 
+## Accessibility checks
+
+Every WP that adds a route or a kit component runs axe. Two entry points,
+chosen so both run in CI with no manual step — do not invent a third:
+
+1. **Shell / route level — `@axe-core/playwright` in Playwright.**
+   `e2e/wp-15-a11y.spec.ts` runs `new AxeBuilder({ page }).analyze()` against
+   every routed page (both Playwright projects, so mobile is covered too)
+   and asserts `results.violations` is empty. Adding a new route: add its
+   relative path to the `ROUTES` array in that file. Always wait for the
+   shell to render before scanning (`await expect(page.getByRole("main")).toBeVisible()`)
+   — the app boots asynchronously (`src/main.tsx` awaits the msw browser
+   worker before the first React render), so scanning right after `goto()`
+   catches an empty `<div id="root">` and reports false landmark/heading
+   violations.
+2. **Component / kit level — `vitest-axe`'s `axe()` runner plus a local
+   `toHaveNoViolations` matcher, in a component's own `*.test.tsx`.**
+   Pattern (see `src/ui/components/QuantityInput.test.tsx` or any other
+   `src/ui/**/*.test.tsx`):
+   ```ts
+   import { axe } from "vitest-axe";
+   // ...
+   const { container } = render(<MyComponent />);
+   expect(await axe(container)).toHaveNoViolations();
+   ```
+   The matcher and its TypeScript types are registered once, for the whole
+   suite, by `src/testing/vitest.setup.ts` and `src/testing/vitest-axe.d.ts`
+   — a new component test just imports `axe` and calls the matcher, no
+   further setup. **Do not** `import "vitest-axe/extend-expect"` or import
+   `toHaveNoViolations` from `"vitest-axe/matchers"`: the installed version
+   (0.1.0) ships an empty compiled `extend-expect` module and typings that
+   mark the matcher export `export type *` (unusable as a value under
+   `verbatimModuleSyntax`) — both are upstream packaging bugs. `vitest-axe`
+   is still the right dependency for the `axe()` runner, which does work;
+   only its matcher wiring is broken, so this repo supplies its own.
+   Contrast checks (`color-contrast`) are unreliable under jsdom (no real
+   layout/canvas — see the harmless "Not implemented: HTMLCanvasElement's
+   getContext()" warnings in `npm test` output) even though most structural
+   rules (labels, roles, ARIA) do work; treat the Playwright/`@axe-core`
+   check as the source of truth for contrast and the component-level check
+   as a fast structural smoke test.
+
 ## Ports
 
 | Port   | Owner              | Why                                                                  |

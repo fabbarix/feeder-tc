@@ -1,0 +1,56 @@
+.quantity-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.quantity-input__label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.quantity-input__unit {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.quantity-input__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.quantity-input__field {
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-6) var(--space-2) var(--space-3);
+  font-size: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  box-sizing: border-box;
+}
+
+.quantity-input__field[aria-invalid="true"] {
+  border-color: var(--danger-border);
+}
+
+.quantity-input__field:disabled {
+  opacity: 0.6;
+}
+
+.quantity-input__suffix {
+  position: absolute;
+  right: var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.quantity-input__error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
