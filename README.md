@@ -228,5 +228,4 @@ Worth stating plainly, because it's genuinely unusual for a web app:
 
 ## License
 
-`package.json` declares ISC. No `LICENSE` file has been added to the
-repository yet.
+MIT — see [`LICENSE`](LICENSE).

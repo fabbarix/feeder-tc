@@ -57,10 +57,23 @@ Store a hue angle (e.g. `285`), not a hex value:
 --accent-border: oklch(0.75 0.12 var(--accent-hue));
 ```
 
-Because lightness is pinned per role and only hue rotates, **contrast is guaranteed by
-construction** — every hue lands at the same perceptual lightness, so it passes for all
-hues or fails for none. Test once. Dark mode redefines the same tokens with different
-L values.
+Pinning lightness per role and rotating only the hue **greatly reduces** contrast
+variance across accents — but it does **not** eliminate it, and an earlier version of
+this section wrongly claimed it did.
+
+OKLCH `L` is *perceptual* lightness; WCAG contrast is computed from *relative
+luminance*, which is not the same function. At a fixed `L`, yellows and greens carry
+more relative luminance than blues, so the contrast ratio still moves with hue and
+chroma. WP-15b's axe checks caught exactly this: the constants originally written here
+bottomed out at **3.73:1 around hue 189** — a real failure against the 4.5:1 threshold.
+
+**So: sweep all 360 hues and pick constants whose *worst case* passes.** Do not test one
+hue and assume the rest follow. The corrected light-mode accent is
+`oklch(0.45 0.18 H)` (worst case now 5.95:1); dark mode's original values already
+passed. Dark mode redefines the same tokens with different `L`.
+
+The mechanism is still right — one hue variable drives everything, and a user cannot
+produce an unreadable accent. What was wrong was the claim that it needs testing once.
 
 UI: **a grid of ~12 hue swatches**, not a slider. Tappable targets suit a thumb and
 avoid `<input type="range">`.
