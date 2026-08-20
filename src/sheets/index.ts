@@ -31,3 +31,4 @@ export {
   type SheetsAuthAdapter,
 } from "./transport.ts";
 export { createSheetsWorkbookStore } from "./workbook-store.ts";
+export { fetchAuthenticatedUser, type AuthenticatedUser } from "./user-info.ts";

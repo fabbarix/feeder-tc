@@ -20,12 +20,22 @@
   min-height: 100svh;
 }
 
+/* Full-bleed bar — background/border reach both edges of the viewport
+   regardless of width. Owner-reported regression (2026-08-20): a leftover
+   `#root { max-width: 1126px }` from the WP-01 scaffold used to cap the
+   whole shell into a narrow centred column, so on a wide screen the header
+   read as a floating band with empty space either side. `#root`'s
+   max-width is gone (src/index.css); `.headerInner` below is what now
+   supplies a measure, scoped to just this bar's contents.
+
+   ONE bar (amended 2026-08-20, owner compared the deployed shell to the
+   approved mockup): the primary nav is nested INSIDE this header at
+   >=768px (see AppShell.tsx) rather than rendered as a second row
+   underneath, so `.header` alone owns the sticky top-bar chrome; `.nav`
+   itself supplies the mobile bottom-bar chrome (border-top/background)
+   only when it's actually positioned there — see `.nav`'s own comment. */
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  padding: 0 var(--space-4);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   position: sticky;
@@ -33,35 +43,160 @@
   z-index: var(--z-nav);
 }
 
-.brand {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: var(--text-h);
+/* Same measure as `.mainMeasure` below (840px, centred, >=768px only) so the
+   mark, nav and the workbook/avatar controls line up vertically with the
+   page content underneath them, instead of stretching to the bar's own
+   full-bleed edges. Three flex children (mark / nav / headerRight) at
+   desktop; `.nav`'s own `flex: 1` (set at >=768px) absorbs the space
+   between the mark and the right-hand controls, so `justify-content:
+   space-between` here only has visible effect at mobile, where `.nav` is
+   `position: fixed` and therefore not part of this flex flow at all —
+   leaving exactly the two children (mark, headerRight) it was written for. */
+.headerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 56px;
 }
 
-.slots {
+@media (min-width: 768px) {
+  .headerInner {
+    max-width: 840px;
+    margin: 0 auto;
+  }
+}
+
+.mark {
+  color: var(--accent);
+  flex: none;
+  display: block;
+}
+
+.headerRight {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: 0.9rem;
-  color: var(--text-muted);
 }
 
-.signOutButton {
+/* The active workbook, at a glance — a small pill, not the plain text a
+   screen reader (or a sighted user scanning the bar) previously had no way
+   to tell apart from surrounding chrome. */
+.workbookChip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.85rem;
-  cursor: pointer;
-  padding: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-h);
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
-.signOutButton:hover {
+.workbookChipName {
+  max-width: 12em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 480px) {
+  /* Narrow phones: keep the pill (it's the only workbook indicator at all)
+     but let long names truncate harder — the icon alone still reads as
+     "this is the workbook". */
+  .workbookChipName {
+    max-width: 6em;
+  }
+}
+
+.userMenuRoot {
+  position: relative;
+  display: inline-flex;
+}
+
+.avatarButton {
+  display: inline-flex;
+  border: none;
+  background: none;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.avatarButton:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+
+.avatarInitials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex: none;
+}
+
+/* The avatar's own dropdown (UI_DESIGN.md §12, amended 2026-08-20): sign-out
+   moved here from a standalone header button — the mockup has no visible
+   "Sign out" text in the bar itself. Built on react-aria's useOverlay
+   (AppShell.tsx), same overlay/dismiss substrate as SelectSheet/ConfirmDialog. */
+.userMenu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  display: flex;
+  flex-direction: column;
+  min-width: 14em;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dialog);
+}
+
+.userMenuEmail {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userMenuSignOut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
   color: var(--text-h);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.userMenuSignOut:hover {
+  background: var(--surface-2);
 }
 
 /* Global offline/pending banner (UI_DESIGN.md §8) — never a per-item dot.
@@ -113,15 +248,23 @@
 }
 
 /*
- * Bottom tab bar, mobile-first: fixed to the bottom of the viewport so every
+ * Nav landmark, nested inside `.header` (AppShell.tsx) so the two collapse
+ * into one visual bar at >=768px (owner-reported, 2026-08-20 — the mockup
+ * has one ~56px bar, not a header row plus a separate nav row underneath).
+ *
+ * Mobile-first: `position: fixed` to the bottom of the viewport so every
  * section is one thumb-reach away — the shopping list is used one-handed in
- * a store aisle (WP-23's in-store mode). Each item meets --touch-target.
+ * a store aisle (WP-23's in-store mode) — with its OWN chrome
+ * (border/background), since at this width it is visually a second bar,
+ * not part of the header. Each item meets --touch-target.
  * `env(safe-area-inset-bottom)` is REQUIRED (UI_DESIGN.md §11) or the bar
  * sits under the home indicator on notched iPhones — `viewport-fit=cover`
  * in index.html is what makes the env() resolve to a real value.
- * On wide viewports the bar becomes an ordinary in-flow top-adjacent row
- * (still usable with a mouse, no fixed positioning needed once there's a
- * pointer and room).
+ *
+ * At >=768px it becomes `position: static` and flows inline inside
+ * `.headerInner`, between the mark and the right-hand controls — it no
+ * longer needs its own border/background at all, since `.header` already
+ * supplies the bar's chrome.
  */
 .nav {
   position: fixed;
@@ -129,10 +272,32 @@
   right: 0;
   bottom: 0;
   z-index: var(--z-nav);
-  display: flex;
   border-top: 1px solid var(--border);
   background: var(--surface);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.navInner {
+  display: flex;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .nav {
+    position: static;
+    border-top: none;
+    background: transparent;
+    padding-bottom: 0;
+    /* Absorbs the space between the mark and .headerRight — see
+       .headerInner's comment. */
+    flex: 1;
+    min-width: 0;
+  }
+
+  .navInner {
+    width: auto;
+    gap: var(--space-5);
+  }
 }
 
 .navItem {
@@ -147,7 +312,13 @@
   color: var(--text-muted);
   text-decoration: none;
   font-size: 0.7rem;
-  transition: color var(--motion-fast) ease-in-out;
+  /* Reserve the underline's space at all times (a 2px transparent border) so
+     only its COLOUR transitions in on activation — UI_DESIGN.md §13 motion
+     rule: colour/opacity only, never layout or position. */
+  border-bottom: 2px solid transparent;
+  transition:
+    color var(--motion-fast) ease-in-out,
+    border-color var(--motion-entry) var(--ease-standard);
 }
 
 .navIcon {
@@ -160,16 +331,29 @@
 }
 
 @media (min-width: 768px) {
-  .nav {
-    position: static;
-    border-top: none;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0;
-  }
-
   .navItem {
+    flex: none;
     flex-direction: row;
     font-size: 0.9rem;
+    min-height: auto;
+    padding: var(--space-2) 0;
+    gap: var(--space-2);
+  }
+
+  /* Icons carry meaning on the cramped mobile tab bar; at desktop the text
+     label alone is enough and the icons just add noise (owner-reported,
+     comparing the deployed shell to the mockup — the mockup's desktop nav
+     is text-only). Hidden via CSS rather than left out of the JSX so there
+     is exactly one nav item markup, not two near-duplicate ones. */
+  .navIcon {
+    display: none;
+  }
+
+  /* The underline indicator (owner-reported: "needs an underline, not just
+     accent-coloured text"). Only the border's colour changes — see the
+     base .navItem rule for why the 2px space is reserved unconditionally. */
+  .navItemActive {
+    border-bottom-color: var(--accent);
   }
 }
 
@@ -220,17 +404,4 @@
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-h);
-}
-
-.signOutLink {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 0.85rem;
-  text-decoration: underline;
-  cursor: pointer;
 }

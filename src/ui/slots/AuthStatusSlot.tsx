@@ -1,16 +1,20 @@
 import type { ReactNode } from "react";
 
 /**
- * Seam for WP-10's real auth status (signed-in email / sign-in button).
- * WP-15 only defines where it lives in the header and what it looks like
- * with nothing wired up yet — WP-10 does not implement auth here, it passes
- * its own component as `AppShell`'s `authStatusSlot` prop instead of editing
- * this file:
+ * Seam for the header's auth-status display (name + avatar). `AppShell`
+ * always passes real `children` derived from `ShellState` (see
+ * `renderHeaderSlots` in `../AppShell.tsx`) — this component never renders
+ * on its own without them.
  *
- *   <AppShell authStatusSlot={<RealAuthStatus />} />
- *
- * Rendered as-is (no prop) when nothing has replaced it yet, so the seam is
- * visible during Stage 1 development instead of silently empty.
+ * There is deliberately NO fallback here for missing `children`
+ * (UI_DESIGN.md §12, amended 2026-08-20): an earlier version rendered a
+ * hardcoded "Signed out" placeholder whenever nothing was passed in,
+ * *regardless of the actual shell state* — so a signed-in user with no
+ * workbook yet could see "Signed out" in the header while the body offered
+ * "Sign out". A default that renders plausible-looking text without
+ * consulting state is worse than no default: it looks correct and is
+ * wrong. Rendering nothing when `children` is absent fails loudly (an empty
+ * slot) instead of failing convincingly.
  */
 export interface AuthStatusSlotProps {
   readonly children?: ReactNode;
@@ -19,7 +23,7 @@ export interface AuthStatusSlotProps {
 export function AuthStatusSlot({ children }: AuthStatusSlotProps) {
   return (
     <div className="auth-status-slot" data-slot="auth-status">
-      {children ?? <span className="slot-placeholder">Signed out</span>}
+      {children}
     </div>
   );
 }

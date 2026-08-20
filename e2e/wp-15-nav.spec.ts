@@ -39,9 +39,12 @@ test("navigates to every section via the primary nav and back to home", async ({
 });
 
 test("every route is reachable by a (now-ready) deep link", async ({ page }) => {
-  await enterReadyShell(page);
+  // Each iteration is a real `page.goto` — a full navigation, which drops
+  // the in-memory (never-persisted) access token by design (see
+  // e2e/support/shell.ts) — so "ready, at this exact deep link" is
+  // re-established per route rather than reused across the loop.
   for (const route of ROUTES) {
-    await page.goto(route.path);
+    await enterReadyShell(page, route.path);
     await expect(page.getByRole("heading", { name: route.heading })).toBeVisible();
   }
 });

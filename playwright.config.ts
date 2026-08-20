@@ -57,6 +57,16 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       VITE_ENABLE_MOCKS: "true",
+      // WP-20 wires the real createGoogleAuth/Picker into AppShell, which
+      // reads these lazily (src/env.ts) only once a user clicks "Sign in"
+      // — never at import time — but by then something has to be there:
+      // neither var is set in CI (only the deploy.yml build job gets the
+      // real ones), and a local dev .env.local shouldn't be required just
+      // to run E2E. The values themselves are never checked against a real
+      // Google backend — msw (src/mocks/handlers.ts) fakes every request
+      // that would otherwise carry them, so any non-empty string works.
+      VITE_GOOGLE_CLIENT_ID: "e2e-fake-client-id.apps.googleusercontent.com",
+      VITE_GOOGLE_API_KEY: "e2e-fake-api-key",
     },
   },
 });

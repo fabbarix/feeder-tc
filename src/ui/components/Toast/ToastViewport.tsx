@@ -27,7 +27,13 @@ export function ToastViewport() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className={styles.viewport} aria-label="Notifications">
+    // `role="region"` turns this into a proper landmark once it has
+    // content (WP-20's a11y suite caught this: axe's "region" rule flags
+    // ANY visible content outside a landmark, and a toast can appear while
+    // the user is on an otherwise fully-landmarked route). An `aria-label`
+    // alone supplies an accessible NAME, but only a role turns a <div> into
+    // something landmark-aware tooling recognises as a region at all.
+    <div className={styles.viewport} role="region" aria-label="Notifications">
       {toasts.map((toast) => (
         <div
           key={toast.id}

@@ -13,7 +13,18 @@ import { enterReadyShell } from "./support/shell.ts";
 // behind signed-out → no-workbook → ready, so this spec scans the two gate
 // screens explicitly, then walks into "ready" (via enterReadyShell, no real
 // Google call — see e2e/support/shell.ts) before scanning each real route.
-const ROUTES = ["", "recipes", "recipes/12", "pantry", "plan", "shopping", "settings"];
+const ROUTES = [
+  "",
+  "recipes",
+  "recipes/new",
+  "recipes/12",
+  "recipes/ingredients",
+  "recipes/ingredients/new",
+  "pantry",
+  "plan",
+  "shopping",
+  "settings",
+];
 
 test("signed-out gate screen has no axe violations", async ({ page }) => {
   await page.goto("");
@@ -32,8 +43,11 @@ test("no-workbook gate screen has no axe violations", async ({ page }) => {
 
 for (const route of ROUTES) {
   test(`ready route "/${route}" has no axe violations`, async ({ page }) => {
-    await enterReadyShell(page);
-    await page.goto(route);
+    // enterReadyShell(page, route) lands directly on this route before
+    // signing in, then signs in from there — a second `page.goto` after
+    // reaching "ready" would drop the in-memory (never-persisted) access
+    // token and re-gate the app (see e2e/support/shell.ts).
+    await enterReadyShell(page, route);
     // The app boots asynchronously (src/main.tsx awaits the msw browser
     // worker before the first React render), so scanning immediately after
     // goto() can catch an empty <div id="root">. Wait for the shell to be

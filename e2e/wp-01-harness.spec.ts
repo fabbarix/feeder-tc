@@ -30,8 +30,16 @@ test("navigates from home to the pantry route", async ({ page }) => {
 // real check is `curl -sI https://<host>/recipes/12` against the deployed
 // site — see the emit-spa-fallback plugin in vite.config.ts.
 test("resolves a deep link with a route parameter on cold load", async ({ page }) => {
-  await enterReadyShell(page);
-  await page.goto("recipes/12");
-  await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
+  // enterReadyShell(page, path) lands directly on this route before signing
+  // in, then signs in from there — a plain `page.goto` after reaching
+  // "ready" would be a second full navigation, which drops the in-memory
+  // (never-persisted) access token and re-gates the app (see
+  // e2e/support/shell.ts).
+  await enterReadyShell(page, "recipes/12");
+  // WP-20's real RecipeEditor reads the ":recipeId" param and renders "Edit
+  // recipe" for any id (id "12" doesn't exist in a fresh workbook, so the
+  // body below the heading is an error state — irrelevant to what this
+  // test proves: the router resolved the parameterised path at all).
+  await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
   await expect(page).toHaveURL(/\/recipes\/12$/);
 });

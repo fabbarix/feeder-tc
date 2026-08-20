@@ -1,59 +1,172 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { AppShell, type ShellState } from "./ui/AppShell";
+import { AppShell, type ShellUser } from "./ui/AppShell";
 import { ThemeProvider } from "./ui/theme/ThemeProvider";
 import { ToastProvider } from "./ui/components/Toast/ToastProvider";
+import { useToast } from "./ui/components/Toast/useToast.ts";
 import { Home } from "./routes/Home";
 import { Recipes } from "./routes/Recipes";
+import { RecipeEditor } from "./routes/RecipeEditor.tsx";
+import { Ingredients } from "./routes/Ingredients.tsx";
+import { IngredientEditor } from "./routes/IngredientEditor.tsx";
 import { Pantry } from "./routes/Pantry";
 import { Plan } from "./routes/Plan";
 import { Shopping } from "./routes/Shopping";
 import { Settings } from "./routes/Settings";
+import { env } from "./env.ts";
+import { systemClock, createSeededRng } from "./domain/index.ts";
+import {
+  createGoogleAuth,
+  createGooglePickerLauncher,
+  createGoogleSheetsTransport,
+  createSheetsWorkbookStore,
+  createWorkbook,
+  createWorkbookRegistry,
+  fetchAuthenticatedUser,
+  pickWorkbook,
+  bootstrapWorkbook,
+  type GoogleAuth,
+  type AuthState,
+} from "./sheets/index.ts";
+import type { WorkbookRegistry, WorkbookRegistryEntry } from "./sheets/registry.ts";
+import type { PickerLauncher } from "./sheets/picker.ts";
+import { deriveShellState } from "./shell-state.ts";
+import { WorkbookContext, type WorkbookContextValue } from "./workbook-context.ts";
 
-// Session-scoped placeholder for the real sign-in / workbook state
-// (UI_DESIGN.md §12). WP-10's auth (src/sheets/auth.ts) and WP-11's
-// workbook registry exist, but wiring AppShell to them — and to the Picker —
-// is WP-20's job, not WP-15b's (component-kit revision). AppShell itself is
-// prop-driven and imports nothing from src/sheets/ (enforced by the
-// no-restricted-imports rule in eslint.config.js); this container is the
-// ONLY thing standing in for that real wiring today, and it makes zero
-// network calls (no Google API, not even mocked) — purely local state, kept
-// in sessionStorage (not localStorage — this is a session-scoped stand-in,
-// not a cache the app should trust across browser restarts) so the shell
-// stays exercisable end-to-end across page navigations within one browser
-// session/E2E run. WP-20 deletes this component and replaces it with real
-// `createGoogleAuth`-driven state plus Picker-driven workbook selection.
-const DEMO_STATE_KEY = "feeder:demo-shell-state";
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
-function loadDemoStateKind(): ShellState["kind"] {
-  try {
-    const raw = window.sessionStorage.getItem(DEMO_STATE_KEY);
-    if (raw === "signed-out" || raw === "no-workbook" || raw === "ready") return raw;
-  } catch {
-    // sessionStorage unavailable — fall through to the default below.
-  }
-  return "signed-out";
+/** Default title for a freshly created workbook — human-readable, editable later like any spreadsheet title (invariant 6). */
+const DEFAULT_WORKBOOK_TITLE = "Feeder meal planner";
+
+/**
+ * Real auth/registry/Picker wiring for `AppShell`'s three-state `ShellState`
+ * (UI_DESIGN.md §12, WP-20). Constructed once, lazily, on this component's
+ * first render — never at module import time — so `npm test`/`npm run
+ * build` stay green with `VITE_GOOGLE_CLIENT_ID`/`VITE_GOOGLE_API_KEY`
+ * unset (they are only wired into the production build job — see
+ * src/env.ts), and so no Google API call happens before a user gesture:
+ * `createGoogleAuth`/`createGooglePickerLauncher` themselves are pure
+ * object construction — no script load, no network call, nothing touches
+ * `window.google` until `signIn()`/the Picker's `open()` runs, both of
+ * which only ever fire from a button's `onClick` below.
+ */
+function createGoogleWiring(): { auth: GoogleAuth; registry: WorkbookRegistry; pickerLauncher: PickerLauncher } {
+  return {
+    auth: createGoogleAuth(env.googleClientId),
+    registry: createWorkbookRegistry(window.localStorage),
+    pickerLauncher: createGooglePickerLauncher(env.googleApiKey),
+  };
 }
 
 function ShellContainer() {
-  const [stateKind, setStateKind] = useState<ShellState["kind"]>(loadDemoStateKind);
+  const [{ auth, registry, pickerLauncher }] = useState(createGoogleWiring);
+  // A single app-lifetime Rng seeded from real entropy — production's
+  // counterpart to the deterministic seeded Rng domain tests use (design
+  // requirement 6: engines take Rng injected, never call Math.random()
+  // themselves; something outside src/domain has to be that source).
+  const [rng] = useState(() => createSeededRng((Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0));
+  const { showToast } = useToast();
 
-  useEffect(() => {
+  const [authState, setAuthState] = useState<AuthState>(() => auth.state());
+  const [user, setUser] = useState<ShellUser | undefined>(undefined);
+  const [activeWorkbook, setActiveWorkbook] = useState<WorkbookRegistryEntry | undefined>(() => registry.getActive());
+
+  useEffect(() => auth.subscribe(setAuthState), [auth]);
+
+  const refreshActiveWorkbook = useCallback(() => {
+    setActiveWorkbook(registry.getActive());
+  }, [registry]);
+
+  const handleSignIn = useCallback(async () => {
     try {
-      window.sessionStorage.setItem(DEMO_STATE_KEY, stateKind);
-    } catch {
-      // Best-effort only; in-memory state still works for the rest of this session.
+      await auth.signIn();
+      const token = await auth.getAccessToken();
+      const authenticatedUser = await fetchAuthenticatedUser(token);
+      setUser(authenticatedUser);
+    } catch (err) {
+      // Keep authState/user consistent (deriveShellState treats a missing
+      // user as signed-out regardless of the auth machine's own state) —
+      // sign back out rather than leaving a half-signed-in dead end the
+      // header can't render sensibly.
+      await auth.signOut().catch(() => undefined);
+      setUser(undefined);
+      showToast({ variant: "error", title: "Sign-in failed", description: messageOf(err) });
     }
-  }, [stateKind]);
+  }, [auth, showToast]);
+
+  const handleSignOut = useCallback(async () => {
+    try {
+      await auth.signOut();
+    } finally {
+      // The workbook registry is deliberately NOT cleared here — it's a
+      // bookmark (spreadsheet id + name), not a credential (registry.ts),
+      // so the same workbook is offered again on the next sign-in without
+      // re-running Picker. Only the access token is ever discarded.
+      setUser(undefined);
+    }
+  }, [auth]);
+
+  const handleCreateWorkbook = useCallback(async () => {
+    showToast({
+      variant: "info",
+      title: "Setting up your workbook…",
+      description: "Creating the spreadsheet and writing the seeded ingredient catalog.",
+      durationMs: 4000,
+    });
+    try {
+      const created = await createWorkbook(DEFAULT_WORKBOOK_TITLE, auth, registry);
+      refreshActiveWorkbook();
+      const transport = createGoogleSheetsTransport({ spreadsheetId: created.id, auth });
+      const store = createSheetsWorkbookStore(transport);
+      await bootstrapWorkbook(transport, store);
+      showToast({
+        variant: "success",
+        title: "Workbook ready",
+        description: `Created "${created.name}" with the seeded ingredient catalog.`,
+        durationMs: 5000,
+      });
+    } catch (err) {
+      showToast({ variant: "error", title: "Couldn't create the workbook", description: messageOf(err) });
+    }
+  }, [auth, registry, refreshActiveWorkbook, showToast]);
+
+  const handlePickWorkbook = useCallback(async () => {
+    try {
+      const picked = await pickWorkbook(pickerLauncher, auth, registry);
+      if (picked) {
+        refreshActiveWorkbook();
+        showToast({
+          variant: "success",
+          title: "Workbook opened",
+          description: `Switched to "${picked.name}".`,
+          durationMs: 5000,
+        });
+      }
+    } catch (err) {
+      showToast({ variant: "error", title: "Couldn't open the picker", description: messageOf(err) });
+    }
+  }, [auth, pickerLauncher, registry, refreshActiveWorkbook, showToast]);
+
+  const shellState = deriveShellState(authState, user, activeWorkbook);
+
+  const workbookContextValue = useMemo<WorkbookContextValue | undefined>(() => {
+    if (!activeWorkbook) return undefined;
+    const transport = createGoogleSheetsTransport({ spreadsheetId: activeWorkbook.id, auth });
+    return { store: createSheetsWorkbookStore(transport), clock: systemClock, rng };
+  }, [activeWorkbook, auth, rng]);
 
   return (
-    <AppShell
-      state={{ kind: stateKind }}
-      onSignIn={() => setStateKind("no-workbook")}
-      onSignOut={() => setStateKind("signed-out")}
-      onCreateWorkbook={() => setStateKind("ready")}
-      onPickWorkbook={() => setStateKind("ready")}
-    />
+    <WorkbookContext.Provider value={workbookContextValue}>
+      <AppShell
+        state={shellState}
+        onSignIn={() => void handleSignIn()}
+        onSignOut={() => void handleSignOut()}
+        onCreateWorkbook={() => void handleCreateWorkbook()}
+        onPickWorkbook={() => void handlePickWorkbook()}
+      />
+    </WorkbookContext.Provider>
   );
 }
 
@@ -81,7 +194,11 @@ const router = createBrowserRouter(
       children: [
         { index: true, element: <Home /> },
         { path: "recipes", element: <Recipes /> },
-        { path: "recipes/:recipeId", element: <Recipes /> },
+        { path: "recipes/ingredients", element: <Ingredients /> },
+        { path: "recipes/ingredients/new", element: <IngredientEditor /> },
+        { path: "recipes/ingredients/:ingredientId", element: <IngredientEditor /> },
+        { path: "recipes/new", element: <RecipeEditor /> },
+        { path: "recipes/:recipeId", element: <RecipeEditor /> },
         { path: "pantry", element: <Pantry /> },
         { path: "plan", element: <Plan /> },
         { path: "shopping", element: <Shopping /> },
