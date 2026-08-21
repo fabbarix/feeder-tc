@@ -345,17 +345,42 @@ so depletion stops being wrong in the first place.
 
 ---
 
-## 11. Open decisions — round two
+## 11. Decisions — round two (all resolved)
 
-**11.1 — Which cup?** Recommend the US legal set: cup 240 ml, tbsp 15 ml, tsp 5 ml
-(§10.2). Needs an explicit nod because it is hard to change once recipes exist.
+**11.1 — Which cup? — ✅ DECIDED by the owner 2026-08-21: the US set.**
+`cup` = 240 ml, `tbsp` = 15 ml, `tsp` = 5 ml. Internally consistent
+(1 cup = 16 tbsp = 48 tsp). The UI must **state which cup it means** rather
+than leave the household guessing between US legal (240), US customary
+(236.6), metric (250) and Imperial (284).
 
-**11.2 — Which seeds move to grams, and which stay countable?** §10.4 pass 1 is a
-per-item judgement (tomato → g, but egg → stays piece). Worth your eye on the list
-before it ships, since re-uniting a genuinely countable item silently turns off its
-whole-unit rounding.
+**11.2 — Which seeds move to grams — coordinator's call, taken 2026-08-21**
+(owner asked for sane defaults rather than a per-item interview).
 
-**11.3 — Still open from round one:** §9.2 (ingredient-level pack sizes now vs.
-waiting for M6 barcodes), §9.3 (leftover created at mark-cooked vs. plan time),
-§9.4 (defer `roundTo`). Recommendations unchanged and unblocking — say nothing and
-I will take the recommendation.
+Of the 26 `piece` seeds, the interesting group turned out **not** to be the
+produce — it is the jars and tins. A recipe says "1 tbsp honey" or "400 g
+chopped tomatoes", never "0.05 jars", so these are exactly the §3 whole-pack
+case, and re-uniting them is what makes the mayonnaise scenario (§5 rows 5–8)
+work at all:
+
+- **→ `g`/`ml`, with a `packSize`** (packaged, but measured by weight in
+  recipes): Tinned tomatoes, Tinned chickpeas, Tinned black beans, Tinned
+  tuna, Tinned corn, Tomato passata, Pasta sauce, Peanut butter, Jam, Honey,
+  Olives, Pickles.
+- **→ `g`, `loose`** (produce genuinely bought by weight): Tomato, Onion,
+  Bell pepper.
+- **Stay `piece`** (genuinely counted, and sold as items): Eggs, Bread,
+  Lettuce, Cucumber, Lemon, Avocado, Banana, Apple, Garlic, Frozen pizza,
+  Tea bags. Garlic especially — recipes say "2 cloves", and grams there would
+  be worse, not better.
+
+Re-uniting a genuinely countable item silently turns off its whole-unit
+rounding, which is why the third list is deliberately the longest. Revisable
+per item until recipes exist.
+
+**11.3 — Round-one items — taken as recommended** (owner declined to
+re-litigate): §9.2 ingredient-level pack sizes now, with `Product` overriding
+later; §9.3 leftover forecast shown in the plan but created at mark-cooked;
+§9.4 `roundTo` deferred.
+
+**Nothing in this document is now blocked on the owner.** It is ready to
+implement once the mock is approved.
