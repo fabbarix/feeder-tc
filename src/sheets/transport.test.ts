@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createGoogleSheetsTransport, type SheetsAuthAdapter } from "./transport.ts";
+import { columnLetter, WORKBOOK_HEADERS } from "./codecs/index.ts";
 import { ReAuthRequiredError, SheetsHttpError } from "./errors.ts";
 
 function jsonResponse(body: unknown, init?: { status?: number; headers?: Record<string, string> }): Response {
@@ -156,11 +157,18 @@ describe("createGoogleSheetsTransport", () => {
     expect(invalidate).toHaveBeenCalled();
   });
 
-  it("appendRows: when the target sheet tab does not exist yet, creates it via batchUpdate then retries the append once", async () => {
+  it("appendRows: when the target sheet tab does not exist yet, creates it, writes its header row, then retries the append once", async () => {
+    // REGRESSION (fix-missing-tabs): before this fix, a tab created
+    // implicitly by an append got no header row at all - its data rows
+    // landed at physical row 1, which every reader in workbook-store.ts
+    // treats as the header (invariant 6: header row on every sheet).
+    const header = WORKBOOK_HEADERS.Ingredients;
+    const lastCol = columnLetter(header.length);
     const { fetchImpl, requests } = scriptedFetch([
-      () => jsonResponse({ error: { message: "Unable to parse range: NewSheet!A1" } }, { status: 400 }),
+      () => jsonResponse({ error: { message: "Unable to parse range: Ingredients!A1" } }, { status: 400 }),
       () => jsonResponse({ replies: [{}] }), // batchUpdate addSheet
-      () => jsonResponse({ updates: { updatedRange: "NewSheet!A1:B1" } }), // retried append
+      () => jsonResponse({ updatedRange: `Ingredients!A1:${lastCol}1` }), // header PUT
+      () => jsonResponse({ updates: { updatedRange: "Ingredients!A2:B2" } }), // retried append
     ]);
     const transport = createGoogleSheetsTransport({
       spreadsheetId: "sheet-1",
@@ -171,10 +179,15 @@ describe("createGoogleSheetsTransport", () => {
 
     const result = await transport.appendRows("Ingredients", [["ing-1", "Rice"]]);
 
-    expect(result.updatedRange).toBe("NewSheet!A1:B1");
-    expect(requests).toHaveLength(3);
+    expect(result.updatedRange).toBe("Ingredients!A2:B2");
+    expect(requests).toHaveLength(4);
     expect(requests[1]?.url).toContain(":batchUpdate");
     expect(requests[1]?.method).toBe("POST");
+    expect(requests[2]?.method).toBe("PUT");
+    expect(requests[2]?.url).toContain(encodeURIComponent(`Ingredients!A1:${lastCol}1`));
+    expect(await requests[2]?.json()).toEqual({ values: [header] });
+    expect(requests[3]?.method).toBe("POST");
+    expect(requests[3]?.url).toContain(":append");
   });
 
   it("updateRange sends the rows to the exact requested range via PUT", async () => {
@@ -191,6 +204,66 @@ describe("createGoogleSheetsTransport", () => {
     expect(requests).toHaveLength(1);
     expect(requests[0]?.method).toBe("PUT");
     expect(requests[0]?.url).toContain(encodeURIComponent("Recipes!A1:C1"));
+  });
+
+  it("updateRange: when the target sheet tab does not exist yet, creates it via batchUpdate then retries the PUT once", async () => {
+    // REGRESSION (fix-missing-tabs): bootstrapWorkbook and workbook-store.ts's
+    // ensureHeader both write a header via updateRange, including onto a tab
+    // that may not exist yet on a stale (pre-current-schema) workbook.
+    const { fetchImpl, requests } = scriptedFetch([
+      () => jsonResponse({ error: { message: "Unable to parse range: Products!A1:F1" } }, { status: 400 }),
+      () => jsonResponse({ replies: [{}] }), // batchUpdate addSheet
+      () => jsonResponse({ updatedRange: "Products!A1:F1" }), // retried PUT
+    ]);
+    const transport = createGoogleSheetsTransport({
+      spreadsheetId: "sheet-1",
+      auth: fixedTokenAuth("tok-abc"),
+      fetchImpl,
+      sleep: async () => {},
+    });
+
+    await transport.updateRange("Products!A1:F1", [["barcode", "name"]]);
+
+    expect(requests).toHaveLength(3);
+    expect(requests[1]?.url).toContain(":batchUpdate");
+    expect(requests[2]?.method).toBe("PUT");
+  });
+
+  it("readRange returns an empty grid, not a thrown error, when the target sheet tab does not exist yet", async () => {
+    // REGRESSION (fix-missing-tabs): this is the production bug itself - the
+    // scan route's `store.products.readAll()` calling `readRange` on a
+    // workbook created before `Products` existed used to surface a raw
+    // "Sheets API request failed with 400" straight to the UI. A tab that
+    // doesn't exist has no rows; the honest read result is empty, not a
+    // crash.
+    const { fetchImpl } = scriptedFetch([
+      () => jsonResponse({ error: { message: "Unable to parse range: Products!A2:F" } }, { status: 400 }),
+    ]);
+    const transport = createGoogleSheetsTransport({
+      spreadsheetId: "sheet-1",
+      auth: fixedTokenAuth("tok-abc"),
+      fetchImpl,
+      sleep: async () => {},
+    });
+
+    await expect(transport.readRange("Products!A2:F")).resolves.toEqual([]);
+  });
+
+  it("readRange still throws SheetsHttpError for a 400 that is NOT the missing-tab shape", async () => {
+    // The missing-tab tolerance must not swallow every 400 - only the
+    // specific "unable to parse range" one Sheets returns for a tab that
+    // isn't there.
+    const { fetchImpl } = scriptedFetch([
+      () => jsonResponse({ error: { message: "Invalid range specified" } }, { status: 400 }),
+    ]);
+    const transport = createGoogleSheetsTransport({
+      spreadsheetId: "sheet-1",
+      auth: fixedTokenAuth("tok-abc"),
+      fetchImpl,
+      sleep: async () => {},
+    });
+
+    await expect(transport.readRange("Products!A2:F")).rejects.toBeInstanceOf(SheetsHttpError);
   });
 
   it("batchRead requests every range in one call and returns grids in the same order", async () => {
@@ -213,5 +286,53 @@ describe("createGoogleSheetsTransport", () => {
     expect(settingsRows).toEqual([["4"]]);
     expect(requests).toHaveLength(1);
     expect(requests[0]?.url).toContain("values:batchGet");
+  });
+
+  it("batchRead falls back to independent per-range reads when the batch fails because one range's tab is missing, so present ranges are not blanked", async () => {
+    // REGRESSION (fix-missing-tabs) / design decision: unlike a single
+    // readRange/append, values:batchGet fails the ENTIRE request the moment
+    // ANY one of the requested ranges names a tab that doesn't exist yet -
+    // and the error names only the first offending range, so there is no way
+    // to tell from the response alone which ranges are missing versus merely
+    // collateral damage. The fix falls back to one independent read per
+    // range (each itself tolerant of a missing tab) rather than guessing, so
+    // a present range's real data is never blanked out by an absent sibling.
+    const requestUrls: string[] = [];
+    const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const req = input instanceof Request ? input : new Request(input, init);
+      requestUrls.push(req.url);
+      const url = new URL(req.url);
+      if (url.pathname.endsWith(":batchGet")) {
+        return jsonResponse({ error: { message: "Unable to parse range: Missing!A1:A" } }, { status: 400 });
+      }
+      const encodedRange = url.pathname.slice(url.pathname.indexOf("/values/") + "/values/".length);
+      const range = decodeURIComponent(encodedRange);
+      if (range === "Missing!A1:A") {
+        return jsonResponse({ error: { message: "Unable to parse range: Missing!A1:A" } }, { status: 400 });
+      }
+      if (range === "Present!A1:A") {
+        return jsonResponse({ range, values: [["ok"]] });
+      }
+      throw new Error(`unexpected request: ${req.url}`);
+    }) as typeof fetch;
+
+    const transport = createGoogleSheetsTransport({
+      spreadsheetId: "sheet-1",
+      auth: fixedTokenAuth("tok-abc"),
+      fetchImpl,
+      sleep: async () => {},
+    });
+
+    const [presentRows, missingRows] = await transport.batchRead(["Present!A1:A", "Missing!A1:A"]);
+
+    expect(presentRows).toEqual([["ok"]]);
+    expect(missingRows).toEqual([]);
+    expect(requestUrls.filter((u) => u.includes(":batchGet"))).toHaveLength(1);
+    // Exactly one individual GET per range in the fallback - present's tab
+    // is read once (successfully), not silently skipped or re-requested.
+    const individualGets = requestUrls.filter((u) => u.includes("/values/") && !u.includes(":batchGet"));
+    expect(individualGets).toHaveLength(2);
+    expect(individualGets.some((u) => u.includes(encodeURIComponent("Present!A1:A")))).toBe(true);
+    expect(individualGets.some((u) => u.includes(encodeURIComponent("Missing!A1:A")))).toBe(true);
   });
 });

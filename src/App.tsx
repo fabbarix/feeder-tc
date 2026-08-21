@@ -16,6 +16,7 @@ import {
   createSheetsWorkbookStore,
   createWorkbook,
   createWorkbookRegistry,
+  ensureWorkbookSchema,
   fetchAuthenticatedUser,
   pickWorkbook,
   bootstrapWorkbook,
@@ -339,6 +340,38 @@ function ShellContainer() {
       outbox: countedOutbox,
     };
   }, [activeWorkbook, auth, rng, countedOutbox, user]);
+
+  // Bring a workbook that predates the current schema up to date whenever it
+  // is OPENED, not only when it is created — a spreadsheet the Picker points
+  // at (or one restored from the registry on reload) may be missing a tab a
+  // later work package added (M6-A's Products/PriceObservations, WP-PHOTO's
+  // Photos), which is exactly the production bug this fix exists to close
+  // (the scan route's `store.products.readAll()` 400ing on such a workbook).
+  // `readRange`/`batchRead` (transport.ts) already tolerate a missing tab on
+  // their own, so this is a background repair, not a correctness dependency:
+  // deliberately fire-and-forget, never awaited before `shellState` goes
+  // "ready" — a slow or offline migration attempt must not block first
+  // paint or gate any route mounting. `ensureWorkbookSchema` itself is cheap
+  // when there is nothing to fix (one "list this spreadsheet's tabs" call,
+  // no writes), so this costs at most one extra request per workbook open.
+  useEffect(() => {
+    if (!activeWorkbook) return;
+    const spreadsheetId = activeWorkbook.id;
+    const transport = createGoogleSheetsTransport({ spreadsheetId, auth });
+    let cancelled = false;
+    void ensureWorkbookSchema({ spreadsheetId, auth, transport }).catch((err: unknown) => {
+      // Best-effort only. A failed attempt (offline, a transient API error)
+      // leaves the workbook exactly as tolerant as it already was — every
+      // reader still treats a missing tab as empty, and the next write to
+      // that sheet self-heals it via `ensureHeader`/`appendRows`'s own
+      // fallback (workbook-store.ts / transport.ts) regardless. Nothing here
+      // should ever surface a toast for a repair the user didn't ask for.
+      if (!cancelled) console.warn("Workbook schema migration failed", err);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWorkbook, auth]);
 
   // Flush automatically on reconnect (and once immediately, if already
   // online) whenever there is both a workbook to flush into and an outbox to

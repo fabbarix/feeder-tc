@@ -10,6 +10,7 @@
  */
 import type { CellGrid, CellRow, SheetsTransport } from "../domain/contracts.ts";
 import type { WorkbookSheetName } from "../domain/types.ts";
+import { columnLetter, WORKBOOK_HEADERS } from "./codecs/index.ts";
 import { ReAuthRequiredError, SheetsHttpError } from "./errors.ts";
 
 const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -117,7 +118,20 @@ function toCellGrid(values: unknown): CellGrid {
   return values.map((row): CellRow => (Array.isArray(row) ? (row as CellRow) : []));
 }
 
-async function ensureSheetExists(
+/**
+ * Creates one sheet tab via `batchUpdate`'s `addSheet` request. Exported (not
+ * just used internally by `appendRows`'s own fallback below) so the
+ * open-an-existing-workbook migration path (`migrate.ts`) can create several
+ * missing tabs up front after listing what the spreadsheet already has,
+ * rather than waiting for a write to fail first.
+ *
+ * Concurrency: two clients racing to fix the same stale workbook both call
+ * this for the same sheet. Whichever request Google processes second gets a
+ * 400 "already exists" - treated as success here, same as a retry of our own
+ * previous attempt would be. Callers (both this file's `appendRows`/
+ * `updateRange` fallbacks and `migrate.ts`) rely on that idempotency.
+ */
+export async function ensureSheetExists(
   spreadsheetId: string,
   sheetName: WorkbookSheetName,
   buildAuth: SheetsAuthAdapter,
@@ -137,9 +151,43 @@ async function ensureSheetExists(
   throw new SheetsHttpError(response.status, "Failed to create missing sheet tab", text);
 }
 
-/** True for the specific "range refers to a tab that doesn't exist yet" error Sheets returns on values.append. */
+/** True for the specific "range refers to a tab that doesn't exist yet" error Sheets returns on values.get/append/update/batchGet. */
 function looksLikeMissingSheet(status: number, text: string): boolean {
   return status === 400 && /unable to parse range/i.test(text);
+}
+
+/**
+ * Every range this codebase ever builds is `${sheetName}!...` (or, for
+ * `appendRows`, a bare sheet name with no `!` at all) - never a sheet name
+ * containing `!` itself (no `WorkbookSheetName` does). Splitting on the
+ * first `!` therefore always recovers the real sheet name; the cast just
+ * recovers the type this module's own string-based A1Range erased.
+ */
+function sheetNameOfRange(range: string): WorkbookSheetName {
+  const bang = range.indexOf("!");
+  return (bang === -1 ? range : range.slice(0, bang)) as WorkbookSheetName;
+}
+
+/**
+ * Fetches one spreadsheet's current tab titles in a single round trip -
+ * `fields=` restricts the response to just what's needed. Used by the
+ * open-an-existing-workbook migration path (`migrate.ts`) to find out which
+ * `WorkbookSheetName` tabs are missing before writing anything, rather than
+ * discovering that one at a time via failed reads/writes.
+ */
+export async function listSheetTitles(
+  spreadsheetId: string,
+  options: Pick<CreateSheetsTransportOptions, "auth" | "fetchImpl" | "sleep" | "maxRetries">,
+): Promise<readonly string[]> {
+  const response = await requestWithRetry(
+    (accessToken) =>
+      new Request(`${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties.title`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }),
+    options,
+  );
+  const body = (await response.json()) as { sheets?: readonly { properties?: { title?: string } }[] };
+  return (body.sheets ?? []).flatMap((sheet) => (sheet.properties?.title ? [sheet.properties.title] : []));
 }
 
 export function createGoogleSheetsTransport(options: CreateSheetsTransportOptions): SheetsTransport {
@@ -179,24 +227,85 @@ export function createGoogleSheetsTransport(options: CreateSheetsTransportOption
     );
   }
 
+  async function updateOnce(range: string, rows: readonly CellRow[]): Promise<void> {
+    await requestWithRetry(
+      (accessToken) =>
+        new Request(`${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeRange(range)}?valueInputOption=RAW`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ values: rows }),
+        }),
+      retryOptions,
+    );
+  }
+
+  /** Writes a sheet's header row (row 1) - shared by `appendRows`' and `updateRange`'s missing-tab fallbacks below. */
+  async function writeHeader(sheetName: WorkbookSheetName): Promise<void> {
+    const header = WORKBOOK_HEADERS[sheetName];
+    const lastCol = columnLetter(header.length);
+    await updateOnce(`${sheetName}!A1:${lastCol}1`, [header]);
+  }
+
+  /**
+   * A tab that doesn't exist yet has no rows - the honest read result is
+   * empty, not a crash. This is the fix for the production bug this module
+   * exists to close: a workbook created before the current schema (missing,
+   * say, `Products`) must not turn every read of that sheet into a hard
+   * "Sheets API request failed with 400" error surfaced straight to the UI.
+   * Reads deliberately do NOT create the tab (that would make a read a
+   * hidden write) - see `migrate.ts` for the explicit, opt-in path that
+   * brings a stale workbook's tabs up to date.
+   */
+  async function readOrEmpty(range: string): Promise<CellGrid> {
+    try {
+      return await readOnce(range);
+    } catch (err) {
+      if (err instanceof SheetsHttpError && looksLikeMissingSheet(err.status, err.body ?? "")) {
+        return [];
+      }
+      throw err;
+    }
+  }
+
   return {
     async readRange(range) {
-      return readOnce(range);
+      return readOrEmpty(range);
     },
 
     async batchRead(ranges) {
+      if (ranges.length === 0) return [];
       const query = ranges.map((range) => `ranges=${encodeRange(range)}`).join("&");
-      const response = await requestWithRetry(
-        (accessToken) =>
-          new Request(
-            `${SHEETS_API_BASE}/${spreadsheetId}/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&${query}`,
-            { headers: { Authorization: `Bearer ${accessToken}` } },
-          ),
-        retryOptions,
-      );
-      const body = (await response.json()) as { valueRanges?: readonly { values?: unknown }[] };
-      const valueRanges = body.valueRanges ?? [];
-      return ranges.map((_, i) => toCellGrid(valueRanges[i]?.values));
+      try {
+        const response = await requestWithRetry(
+          (accessToken) =>
+            new Request(
+              `${SHEETS_API_BASE}/${spreadsheetId}/values:batchGet?valueRenderOption=UNFORMATTED_VALUE&${query}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } },
+            ),
+          retryOptions,
+        );
+        const body = (await response.json()) as { valueRanges?: readonly { values?: unknown }[] };
+        const valueRanges = body.valueRanges ?? [];
+        return ranges.map((_, i) => toCellGrid(valueRanges[i]?.values));
+      } catch (err) {
+        if (err instanceof SheetsHttpError && looksLikeMissingSheet(err.status, err.body ?? "")) {
+          // Unlike `appendRows`/`readRange`'s single range, `values:batchGet`
+          // fails the ENTIRE request the moment any one of `ranges` names a
+          // tab that doesn't exist yet - and the error names only the first
+          // offending range, not every bad one, so there is no way to tell
+          // from the response alone which of `ranges` are missing and which
+          // are merely collateral damage. Falling back to `ranges.length`
+          // independent reads - each already tolerant of its own tab being
+          // missing via `readOrEmpty` above - is the only way to recover the
+          // PRESENT ranges' real data without guessing: a range whose tab
+          // exists must not come back empty just because a sibling range's
+          // tab doesn't. This fallback only runs on the failure path, so a
+          // healthy workbook (the common case) still costs exactly one round
+          // trip, same as before.
+          return Promise.all(ranges.map((range) => readOrEmpty(range)));
+        }
+        throw err;
+      }
     },
 
     async appendRows(sheetName, rows) {
@@ -206,6 +315,13 @@ export function createGoogleSheetsTransport(options: CreateSheetsTransportOption
       } catch (err) {
         if (err instanceof SheetsHttpError && looksLikeMissingSheet(err.status, err.body ?? "")) {
           await ensureSheetExists(spreadsheetId, sheetName, auth, fetchImpl);
+          // Without this, a tab implicitly created by an append lands its
+          // data rows at physical row 1 with no header at all - invariant 6
+          // requires a header row on every sheet, and every reader in
+          // workbook-store.ts assumes data starts at row 2. Write it before
+          // retrying the append that triggered the creation in the first
+          // place.
+          await writeHeader(sheetName);
           response = await appendOnce(sheetName, rows);
         } else {
           throw err;
@@ -220,15 +336,23 @@ export function createGoogleSheetsTransport(options: CreateSheetsTransportOption
     },
 
     async updateRange(range, rows) {
-      await requestWithRetry(
-        (accessToken) =>
-          new Request(`${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeRange(range)}?valueInputOption=RAW`, {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ values: rows }),
-          }),
-        retryOptions,
-      );
+      try {
+        await updateOnce(range, rows);
+      } catch (err) {
+        if (err instanceof SheetsHttpError && looksLikeMissingSheet(err.status, err.body ?? "")) {
+          // `bootstrapWorkbook`/`ensureHeader` (workbook-store.ts) both write
+          // a sheet's header via `updateRange` - including onto a tab that
+          // may not exist yet on a stale workbook (`ensureHeader` reads
+          // first, via `readRange` above, which now tolerates a missing tab
+          // and reports it as merely empty rather than throwing). Give
+          // `updateRange` the same self-heal `appendRows` already has, or
+          // every one of those header writes would still hard-fail here.
+          await ensureSheetExists(spreadsheetId, sheetNameOfRange(range), auth, fetchImpl);
+          await updateOnce(range, rows);
+        } else {
+          throw err;
+        }
+      }
     },
   };
 }

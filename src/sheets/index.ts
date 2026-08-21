@@ -14,6 +14,11 @@ export {
 export * from "./codecs/index.ts";
 export { ReAuthRequiredError, SheetsHttpError } from "./errors.ts";
 export {
+  ensureWorkbookSchema,
+  type EnsureWorkbookSchemaOptions,
+  type EnsureWorkbookSchemaResult,
+} from "./migrate.ts";
+export {
   createGooglePickerLauncher,
   pickWorkbook,
   type PickedWorkbook,
@@ -27,6 +32,8 @@ export {
 export { createSpreadsheet, createWorkbook, type CreateSpreadsheetOptions } from "./spreadsheet.ts";
 export {
   createGoogleSheetsTransport,
+  ensureSheetExists,
+  listSheetTitles,
   type CreateSheetsTransportOptions,
   type SheetsAuthAdapter,
 } from "./transport.ts";

@@ -13,15 +13,25 @@
  * reproduce - this file only adds the HTTP shape (auth header, status
  * codes, Retry-After, JSON envelopes) on top.
  *
- * Every sheet tab is treated as already existing, matching production: the
- * workbook-creation flow (spreadsheet.ts) creates every WorkbookSheetName
- * tabs up front, so by the time any read/append/update happens the tab is
- * already there. transport.test.ts covers the "tab genuinely missing"
- * fallback (values.append 400 -> batchUpdate addSheet -> retry) separately,
- * with its own bespoke one-off handlers.
+ * By default every `WorkbookSheetName` tab is treated as already existing,
+ * matching production immediately after workbook creation (spreadsheet.ts
+ * creates all twelve tabs up front) - and matching every caller of this
+ * double that predates the fix-missing-tabs work. Pass `existingSheets` to
+ * model a workbook created before the current schema instead: a read
+ * against, append to, or header-write onto a tab NOT in that list gets the
+ * exact "Unable to parse range" 400 shape the real API returns for a tab
+ * that doesn't exist yet, and only an `addSheet` batchUpdate request (real
+ * transport's `ensureSheetExists`, or `migrate.ts`'s `ensureWorkbookSchema`)
+ * admits a name to the set from then on - this is what makes it possible to
+ * write a test at all for "read of a missing tab", "batchRead with one
+ * missing range among present ones", "opening a stale workbook migrates
+ * it", and "two clients race to create the same missing tab": before this,
+ * "all tabs are pre-created in this double" meant no test anywhere could
+ * represent the bug this whole fix closes.
  */
 import { http, HttpResponse, type HttpHandler } from "msw";
 import { createFakeSheetsTransport } from "../../domain/fakes/index.ts";
+import { WORKBOOK_SHEET_NAMES } from "../bootstrap.ts";
 import type { WorkbookSheetName } from "../../domain/types.ts";
 
 const SHEETS_API_BASE = "https://sheets.googleapis.com/v4/spreadsheets";
@@ -37,6 +47,24 @@ export interface MockSheetsSpreadsheetOptions {
   readonly accessToken: string;
   /** Consumed in order, one per request that would otherwise succeed - lets tests script "429 then 200" etc. */
   readonly failures?: readonly SimulatedFailure[];
+  /**
+   * Which `WorkbookSheetName` tabs already exist on this simulated
+   * spreadsheet. Omitted (the default) means all twelve - see this module's
+   * header comment. Pass a narrower list (even `[]`, a workbook with none of
+   * the current schema's tabs) to model a stale workbook.
+   */
+  readonly existingSheets?: readonly WorkbookSheetName[];
+}
+
+/** Sheets' own error shape for "this range names a tab that doesn't exist" - matches `looksLikeMissingSheet` in transport.ts. */
+function missingSheetError(range: string) {
+  return HttpResponse.json({ error: { code: 400, message: `Unable to parse range: ${range}` } }, { status: 400 });
+}
+
+/** The part of an A1 range (or a bare sheet name, as `values.append`'s URL uses) before the first `!`, if any. */
+function sheetNameOfRange(range: string): string {
+  const bang = range.indexOf("!");
+  return bang === -1 ? range : range.slice(0, bang);
 }
 
 function unauthorized() {
@@ -62,6 +90,10 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
   const remainingFailures = [...(options.failures ?? [])];
   const base = `${SHEETS_API_BASE}/${options.spreadsheetId}`;
   const basePathname = new URL(base).pathname;
+  // Mutated by the batchUpdate/addSheet handler below as tabs get created -
+  // see this module's header comment for what an omitted `existingSheets`
+  // (every tab present, unrestricted) versus an explicit list means.
+  const sheets = new Set<string>(options.existingSheets ?? WORKBOOK_SHEET_NAMES);
 
   function checkRequest(request: Request) {
     if (request.headers.get("authorization") !== `Bearer ${options.accessToken}`) {
@@ -86,6 +118,20 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
   }
 
   return [
+    // Exact-match (no trailing path segment) - `spreadsheets.get`, restricted
+    // via `fields=` to just the tab list. This is `listSheetTitles`'s
+    // (transport.ts) only request, used by the open-an-existing-workbook
+    // migration path (`migrate.ts`) to find out what's missing before
+    // writing anything.
+    http.get(base, async ({ request }) => {
+      const failure = checkRequest(request);
+      if (failure) return failure;
+      return HttpResponse.json({
+        spreadsheetId: options.spreadsheetId,
+        sheets: [...sheets].map((title) => ({ properties: { title } })),
+      });
+    }),
+
     http.get(`${base}/*`, async ({ request }) => {
       const failure = checkRequest(request);
       if (failure) return failure;
@@ -93,6 +139,12 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
 
       if (suffix === "/values:batchGet") {
         const ranges = new URL(request.url).searchParams.getAll("ranges");
+        // Real batchGet fails the WHOLE request the moment any one range
+        // names a tab that isn't there, naming only that first offending
+        // range - see transport.ts's batchRead fallback, the behaviour this
+        // exists to let a test exercise.
+        const missingRange = ranges.find((range) => !sheets.has(sheetNameOfRange(range)));
+        if (missingRange) return missingSheetError(missingRange);
         const grids = await fake.batchRead(ranges);
         return HttpResponse.json({
           spreadsheetId: options.spreadsheetId,
@@ -101,6 +153,7 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
       }
       if (suffix.startsWith("/values/")) {
         const range = decodeURIComponent(suffix.slice("/values/".length));
+        if (!sheets.has(sheetNameOfRange(range))) return missingSheetError(range);
         const values = await fake.readRange(range);
         return HttpResponse.json({ range, majorDimension: "ROWS", values: values.length > 0 ? values : undefined });
       }
@@ -117,10 +170,29 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
     http.post(new RegExp(`^${escapeRegExp(base)}:batchUpdate$`), async ({ request }) => {
       const failure = checkRequest(request);
       if (failure) return failure;
-      // All tabs are pre-created in this double; addSheet is a no-op success.
-      // (Deliberately not a hardcoded count — it was "nine" until M6-A added
-      // Products/ProductPhotos/PriceObservations, and went stale silently.)
-      return HttpResponse.json({ spreadsheetId: options.spreadsheetId, replies: [{}] });
+      const body = (await request.json()) as {
+        requests?: readonly { addSheet?: { properties?: { title?: string } } }[];
+      };
+      const titles = (body.requests ?? []).flatMap((r) => (r.addSheet?.properties?.title ? [r.addSheet.properties.title] : []));
+      // Mirrors the real API's addSheet rejection for a duplicate title -
+      // ensureSheetExists (transport.ts) treats this specific shape as
+      // success (a concurrent creator, or a retry of our own previous
+      // attempt, already added it), which is exactly what the
+      // concurrent-creation scenario exercises.
+      const alreadyExists = titles.find((title) => sheets.has(title));
+      if (alreadyExists) {
+        return HttpResponse.json(
+          {
+            error: {
+              code: 400,
+              message: `A sheet with the name "${alreadyExists}" already exists. Please enter another name.`,
+            },
+          },
+          { status: 400 },
+        );
+      }
+      for (const title of titles) sheets.add(title);
+      return HttpResponse.json({ spreadsheetId: options.spreadsheetId, replies: titles.map(() => ({})) });
     }),
 
     http.post(`${base}/*`, async ({ request }) => {
@@ -135,6 +207,7 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
         const sheetName = decodeURIComponent(
           suffix.slice("/values/".length, -":append".length),
         ) as WorkbookSheetName;
+        if (!sheets.has(sheetName)) return missingSheetError(sheetName);
         const body = (await request.json()) as { values?: unknown };
         const rows = Array.isArray(body.values) ? body.values : [];
         const result = await fake.appendRows(sheetName, rows);
@@ -153,6 +226,7 @@ export function createSheetsApiHandlers(options: MockSheetsSpreadsheetOptions): 
 
       if (suffix.startsWith("/values/")) {
         const range = decodeURIComponent(suffix.slice("/values/".length));
+        if (!sheets.has(sheetNameOfRange(range))) return missingSheetError(range);
         const body = (await request.json()) as { values?: unknown };
         const rows = Array.isArray(body.values) ? body.values : [];
         await fake.updateRange(range, rows);
