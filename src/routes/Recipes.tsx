@@ -3,8 +3,10 @@ import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
 import { EmptyState, ErrorState, RouteTabs, Skeleton } from "../ui/components";
+import { PhotoMedia } from "../ui/photo/index.ts";
 import { BookOpen, MagnifyingGlass, Plus } from "../ui/icons";
 import type { MealTag, Recipe } from "../domain/index.ts";
+import { getPhotoDataUrl } from "../photos/index.ts";
 import { RECIPE_SECTION_TABS } from "./recipe-tabs.ts";
 import styles from "./recipes.module.css";
 
@@ -201,18 +203,31 @@ export function Recipes() {
               <div className={styles.grid}>
                 {filtered.map((recipe) => (
                   <Link key={recipe.id} to={`/recipes/${recipe.id}`} className={styles.card}>
-                    <p className={styles.cardTitle}>{recipe.name}</p>
-                    <div className={styles.cardMeta}>
-                      <span>{recipe.prepMinutes} prep</span>
-                      <span>{recipe.cookMinutes} cook</span>
-                      <span>serves {recipe.baseServings}</span>
-                    </div>
-                    <div className={styles.tagRow}>
-                      {tagPills(recipe).map((tag) => (
-                        <span key={tag} className={styles.tagPill}>
-                          {tag}
-                        </span>
-                      ))}
+                    {/* Leading thumbnail, not a banner — a square crop
+                        tolerates any food photo, and it stops the image
+                        competing with the tag row for height
+                        (mock-responsive.html's own "Recipes" note). */}
+                    <PhotoMedia
+                      kind="recipe"
+                      hasPhoto={recipe.hasPhoto}
+                      size="grid"
+                      fetchPhoto={() => getPhotoDataUrl(store, "recipe", recipe.id)}
+                      alt={recipe.name}
+                    />
+                    <div className={styles.cardBody}>
+                      <p className={styles.cardTitle}>{recipe.name}</p>
+                      <div className={styles.cardMeta}>
+                        <span>{recipe.prepMinutes} prep</span>
+                        <span>{recipe.cookMinutes} cook</span>
+                        <span>serves {recipe.baseServings}</span>
+                      </div>
+                      <div className={styles.tagRow}>
+                        {tagPills(recipe).map((tag) => (
+                          <span key={tag} className={styles.tagPill}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </Link>
                 ))}

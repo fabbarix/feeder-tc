@@ -146,6 +146,22 @@
   border-top: 1px solid var(--line-soft);
 }
 
+/* Leading-thumbnail rows (WP-PHOTO UI — mock-responsive.html's `.rowimg`):
+   thumbnail + name/sub grouped together so `.row`'s own `space-between`
+   still resolves against exactly two groups (this block, and the trailing
+   badge/button) — same idiom as `.plotrow` below. */
+.rowMain {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rowText {
+  min-width: 0;
+}
+
 .rowName {
   display: block;
   font-size: 14.5px;
@@ -222,15 +238,24 @@
   cursor: not-allowed;
 }
 
-/* "Use these first" rail rows — matches the mock's `.plot`: name + expiry
-   badge on top, a FreshnessMeter underneath. */
-.plot {
+/* "Use these first" rail rows — matches the mock's `.plotrow`/`.plot`:
+   thumbnail beside the block, name + expiry badge on top of it, a
+   FreshnessMeter underneath. */
+.plotRow {
+  display: flex;
+  align-items: center;
+  gap: 11px;
   padding: 11px 9px;
   border-radius: 8px;
 }
 
-.plot + .plot {
+.plotRow + .plotRow {
   border-top: 1px solid var(--line-soft);
+}
+
+.plot {
+  flex: 1;
+  min-width: 0;
 }
 
 .plotTop {

@@ -11,9 +11,11 @@ import {
   Skeleton,
   ToggleChips,
 } from "../ui/components";
+import { PhotoMedia } from "../ui/photo/index.ts";
 import { CaretRight, Package, Plus, Snowflake } from "../ui/icons";
 import { daysBetween, formatQuantity } from "../domain/index.ts";
 import type { StorageLocation } from "../domain/index.ts";
+import { getPhotoDataUrl } from "../photos/index.ts";
 import { usePantryInventory } from "./pantry/usePantryInventory.ts";
 import { AddLotForm, UseSomeForm } from "./pantry/PantryForms.tsx";
 import { aggregateByIngredient, type PantryAggregate } from "./pantry/pantry-aggregate.ts";
@@ -71,7 +73,7 @@ function aggregateSubtitle(aggregate: PantryAggregate): string {
  * urgency first").
  */
 export function Pantry() {
-  const { clock } = useWorkbookContext();
+  const { store, clock } = useWorkbookContext();
   const pantry = usePantryInventory();
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
   const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
@@ -145,7 +147,15 @@ export function Pantry() {
     return (
       <Link key={ingredient.id} to={`/pantry/${ingredient.id}`} className={styles.aggregateLink}>
         <ListRow
-          leading={frozen ? <Snowflake size={20} aria-hidden="true" /> : undefined}
+          leading={
+            <PhotoMedia
+              kind="ingredient"
+              hasPhoto={ingredient.hasPhoto}
+              size="list"
+              fetchPhoto={() => getPhotoDataUrl(store, "ingredient", ingredient.id)}
+              alt={ingredient.name}
+            />
+          }
           primary={ingredient.name}
           secondary={
             <div className={styles.lotDetail}>

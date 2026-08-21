@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
 import { EmptyState, ErrorState, FreshnessMeter, Skeleton } from "../ui/components";
+import { PhotoMedia, type PhotoMediaProps } from "../ui/photo/index.ts";
 import { CalendarBlank, CookingPot, Package } from "../ui/icons";
 import {
   addDays,
@@ -14,6 +15,7 @@ import {
   type RecipeIngredient,
   type Settings,
 } from "../domain/index.ts";
+import { getPhotoDataUrl } from "../photos/index.ts";
 import { usePantryInventory } from "./pantry/usePantryInventory.ts";
 import { EXPIRING_SOON_DAYS } from "./pantry/pantry-options.ts";
 import { formatLongDate, weekdayLabel } from "./date-format.ts";
@@ -205,6 +207,35 @@ export function Home() {
     return "";
   }
 
+  /**
+   * Photo props for a plan slot's leading thumbnail (Tonight / Rest of the
+   * week) — a recipe slot photographs the recipe, a leftover slot
+   * photographs the ingredient it's made from (same resolution
+   * `tonightName`/`weekRowContent` already do). Returns `undefined` for an
+   * empty filling (never rendered — callers only reach this for a slot
+   * already known to have one), or for a leftover whose lot has vanished.
+   */
+  function slotPhotoProps(slot: PlanSlot): Pick<PhotoMediaProps, "kind" | "hasPhoto" | "fetchPhoto"> | undefined {
+    if (slot.filling.kind === "recipe") {
+      const recipeId = slot.filling.recipeId;
+      const recipe = recipesById.get(recipeId);
+      return { kind: "recipe", hasPhoto: recipe?.hasPhoto, fetchPhoto: () => getPhotoDataUrl(store, "recipe", recipeId) };
+    }
+    if (slot.filling.kind === "leftover") {
+      const lotId = slot.filling.lotId;
+      const lot = pantry.lots.find((l) => l.id === lotId);
+      if (!lot) return undefined;
+      const ingredientId = lot.ingredientId;
+      const ingredient = pantry.ingredientsById.get(ingredientId);
+      return {
+        kind: "ingredient",
+        hasPhoto: ingredient?.hasPhoto,
+        fetchPhoto: () => getPhotoDataUrl(store, "ingredient", ingredientId),
+      };
+    }
+    return undefined;
+  }
+
   async function handleMarkTonightCooked(): Promise<void> {
     if (!tonightSlot) return;
     setMarkingSlotId(tonightSlot.id);
@@ -295,30 +326,41 @@ export function Home() {
                         </Link>
                       }
                     />
-                  ) : tonightSlot.state === "cooked" ? (
-                    <div className={styles.row}>
-                      <span>
-                        <span className={styles.rowName}>{tonightName(tonightSlot)}</span>
-                        <span className={styles.rowSub}>{tonightSecondary(tonightSlot)}</span>
-                      </span>
-                      <span className={`${styles.badge} ${styles.badgeOk}`}>Cooked</span>
-                    </div>
-                  ) : (
-                    <div className={styles.row}>
-                      <span>
-                        <span className={styles.rowName}>{tonightName(tonightSlot)}</span>
-                        <span className={styles.rowSub}>{tonightSecondary(tonightSlot)}</span>
-                      </span>
-                      <button
-                        type="button"
-                        className={styles.markCookedButton}
-                        onClick={() => void handleMarkTonightCooked()}
-                        disabled={markingSlotId === tonightSlot.id}
-                      >
-                        {markingSlotId === tonightSlot.id ? "Marking…" : "Mark cooked"}
-                      </button>
-                    </div>
-                  )}
+                  ) : (() => {
+                      const photo = slotPhotoProps(tonightSlot);
+                      const rowMain = (
+                        <span className={styles.rowMain}>
+                          {/* Tonight is the single most prominent thing on
+                              the page — the only row that earns the larger
+                              64px thumbnail (mock-responsive.html's own
+                              note: "prominence is position and weight",
+                              never past what recognition needs). */}
+                          {photo ? <PhotoMedia size="listLg" alt={tonightName(tonightSlot)} {...photo} /> : null}
+                          <span className={styles.rowText}>
+                            <span className={styles.rowName}>{tonightName(tonightSlot)}</span>
+                            <span className={styles.rowSub}>{tonightSecondary(tonightSlot)}</span>
+                          </span>
+                        </span>
+                      );
+                      return tonightSlot.state === "cooked" ? (
+                        <div className={styles.row}>
+                          {rowMain}
+                          <span className={`${styles.badge} ${styles.badgeOk}`}>Cooked</span>
+                        </div>
+                      ) : (
+                        <div className={styles.row}>
+                          {rowMain}
+                          <button
+                            type="button"
+                            className={styles.markCookedButton}
+                            onClick={() => void handleMarkTonightCooked()}
+                            disabled={markingSlotId === tonightSlot.id}
+                          >
+                            {markingSlotId === tonightSlot.id ? "Marking…" : "Mark cooked"}
+                          </button>
+                        </div>
+                      );
+                    })()}
                 </div>
               </div>
 
@@ -337,17 +379,25 @@ export function Home() {
                       }
                     />
                   ) : (
-                    restOfWeekRows.map(({ slot, content }) => (
-                      <div className={styles.row} key={slot.id}>
-                        <span>
-                          <span className={styles.rowName}>{content.name}</span>
-                          <span className={styles.rowSub}>{content.secondary}</span>
-                        </span>
-                        <span className={`${styles.badge} ${content.badge === "Leftover" ? styles.badgeAccent : styles.badgeOk}`}>
-                          {content.badge}
-                        </span>
-                      </div>
-                    ))
+                    restOfWeekRows.map(({ slot, content }) => {
+                      const photo = slotPhotoProps(slot);
+                      return (
+                        <div className={styles.row} key={slot.id}>
+                          <span className={styles.rowMain}>
+                            {photo ? <PhotoMedia size="list" alt={content.name} {...photo} /> : null}
+                            <span className={styles.rowText}>
+                              <span className={styles.rowName}>{content.name}</span>
+                              <span className={styles.rowSub}>{content.secondary}</span>
+                            </span>
+                          </span>
+                          <span
+                            className={`${styles.badge} ${content.badge === "Leftover" ? styles.badgeAccent : styles.badgeOk}`}
+                          >
+                            {content.badge}
+                          </span>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -381,17 +431,30 @@ export function Home() {
                       const fraction = daysLeft / totalDays;
                       const tone = daysLeft < 0 ? styles.badgeCrit : daysLeft <= EXPIRING_SOON_DAYS ? styles.badgeWarn : styles.badgeOk;
                       return (
-                        <div className={styles.plot} key={lot.id}>
-                          <div className={styles.plotTop}>
-                            <span className={styles.rowName}>{ingredient?.name ?? lot.ingredientId}</span>
-                            <span className={`${styles.badge} ${tone}`}>
-                              {daysLeft < 0 ? "Expired" : daysLeft === 0 ? "Today" : `${daysLeft} days`}
-                            </span>
-                          </div>
-                          <FreshnessMeter
-                            fractionRemaining={fraction}
-                            label={daysLeft >= 0 ? `${daysLeft} of ${totalDays} days remaining` : "Expired"}
+                        <div className={styles.plotRow} key={lot.id}>
+                          {/* The thumbnail sits beside the meter, never
+                              behind or instead of it — colour is still the
+                              only alarm on this page (mock-responsive.html's
+                              own "Home" note). */}
+                          <PhotoMedia
+                            kind="ingredient"
+                            hasPhoto={ingredient?.hasPhoto}
+                            size="list"
+                            fetchPhoto={() => getPhotoDataUrl(store, "ingredient", lot.ingredientId)}
+                            alt={ingredient?.name ?? ""}
                           />
+                          <div className={styles.plot}>
+                            <div className={styles.plotTop}>
+                              <span className={styles.rowName}>{ingredient?.name ?? lot.ingredientId}</span>
+                              <span className={`${styles.badge} ${tone}`}>
+                                {daysLeft < 0 ? "Expired" : daysLeft === 0 ? "Today" : `${daysLeft} days`}
+                              </span>
+                            </div>
+                            <FreshnessMeter
+                              fractionRemaining={fraction}
+                              label={daysLeft >= 0 ? `${daysLeft} of ${totalDays} days remaining` : "Expired"}
+                            />
+                          </div>
                         </div>
                       );
                     })

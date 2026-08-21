@@ -25,8 +25,15 @@ const PLACEHOLDER_ICON: Record<PhotoOwnerKind, typeof CookingPot> = {
 export interface PhotoMediaProps {
   /** Selects the placeholder glyph — matches `PhotoOwnerKind` (types.ts), not imported as a stronger type here since `src/ui/**` may not depend on `contracts.ts`, and this prop is purely cosmetic anyway. */
   readonly kind: PhotoOwnerKind;
-  /** Denormalised hint (`Recipe.hasPhoto`/`RecipeStep.hasPhoto`/`Ingredient.hasPhoto`) — `!== true` skips fetching entirely, which is the whole point: no `Photos.get()` round trip for the 104 seeded ingredients with no photo. */
-  readonly hasPhoto?: boolean;
+  /**
+   * Denormalised hint (`Recipe.hasPhoto`/`RecipeStep.hasPhoto`/
+   * `Ingredient.hasPhoto`) — `!== true` skips fetching entirely, which is
+   * the whole point: no `Photos.get()` round trip for the 104 seeded
+   * ingredients with no photo. Typed `boolean | undefined` (not a bare
+   * optional) so a caller can pass an entity's own possibly-`undefined`
+   * field straight through under this project's `exactOptionalPropertyTypes`.
+   */
+  readonly hasPhoto?: boolean | undefined;
   readonly size: PhotoSize;
   /**
    * Fetches this one photo's data URL, or `undefined` if none exists.

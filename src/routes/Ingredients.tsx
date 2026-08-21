@@ -10,8 +10,10 @@ import {
   RouteTabs,
   Skeleton,
 } from "../ui/components";
+import { PhotoMedia } from "../ui/photo/index.ts";
 import { Carrot, Plus } from "../ui/icons";
 import type { Ingredient } from "../domain/index.ts";
+import { getPhotoDataUrl } from "../photos/index.ts";
 import { RECIPE_SECTION_TABS } from "./recipe-tabs.ts";
 import styles from "./forms.module.css";
 
@@ -149,7 +151,15 @@ export function Ingredients() {
             {filtered.map((ingredient) => (
               <ListRow
                 key={ingredient.id}
-                leading={<Carrot size={20} aria-hidden="true" />}
+                leading={
+                  <PhotoMedia
+                    kind="ingredient"
+                    hasPhoto={ingredient.hasPhoto}
+                    size="list"
+                    fetchPhoto={() => getPhotoDataUrl(store, "ingredient", ingredient.id)}
+                    alt={ingredient.name}
+                  />
+                }
                 primary={
                   <Link to={`/recipes/ingredients/${ingredient.id}`} className={styles.itemLink}>
                     {ingredient.name}
