@@ -25,6 +25,7 @@ import {
   type RecipeKind,
   type RecipeStatus,
   type RecipeStep,
+  type Rng,
   type StepId,
 } from "../domain/index.ts";
 import { TextField } from "./fields.tsx";
@@ -50,11 +51,30 @@ interface LineDraft {
  * (`newStepId(rng)`), or kept as-is for a step loaded from an existing
  * recipe. `key` is a separate, purely-local React list key (same pattern as
  * `LineDraft.key` above); `id` is the identity that actually gets saved.
+ *
+ * `detail`/`durationMinutes`/`hasPhoto` mirror `RecipeStep`'s own optional
+ * fields (types.ts), represented here with draft-friendly defaults ("" / null
+ * / false) instead of `undefined` — same "" -> undefined convention `name`
+ * already uses elsewhere in this file. Carrying all three all the way
+ * through load -> state -> save is the fix for the round-trip data-loss bug
+ * this file used to have: the old `StepDraft` only ever held `description`,
+ * so re-saving a step through this editor silently dropped anything else a
+ * step had ever been given (WP-PHOTO's own worry in DESIGN_PHOTOS.md §3
+ * about a widened `RecipeStep` becoming real data loss the moment a UI could
+ * populate it).
  */
 interface StepDraft {
   readonly key: string;
   readonly id: StepId;
   readonly description: string;
+  readonly detail: string;
+  readonly durationMinutes: number | null;
+  readonly hasPhoto: boolean;
+}
+
+/** A brand-new step draft, minting a fresh `StepId` immediately (see `StepDraft`'s own doc comment for why). */
+function emptyStepDraft(key: string, rng: Rng): StepDraft {
+  return { key, id: newStepId(rng), description: "", detail: "", durationMinutes: null, hasPhoto: false };
 }
 
 /** Create/edit a recipe — cooked or bought (WP-20). Bought recipes force prepMinutes to 0 and link a single "piece" catalog ingredient for the product itself (DESIGN.md §2 "Recipes"). */
@@ -87,9 +107,7 @@ export function RecipeEditor() {
   // react-hooks' "refs are for effects/handlers, not render" rule. This
   // runs exactly once regardless, so a hardcoded key is no less unique than
   // one drawn from the counter would have been.
-  const [steps, setSteps] = useState<readonly StepDraft[]>(() => [
-    { key: "initial-step", id: newStepId(rng), description: "" },
-  ]);
+  const [steps, setSteps] = useState<readonly StepDraft[]>(() => [emptyStepDraft("initial-step", rng)]);
 
   useEffect(() => {
     // `loading`/`error` are only ever set from the promise's own
@@ -145,8 +163,15 @@ export function RecipeEditor() {
                   key: `existing-${(stepKeyCounter.current += 1)}`,
                   id: s.id,
                   description: s.description,
+                  // WP-PHOTO round-trip fix: these three used to be dropped
+                  // on the floor here — only `description` was ever read
+                  // out of a loaded step — so re-saving with no edit at all
+                  // silently erased them. See `StepDraft`'s doc comment.
+                  detail: s.detail ?? "",
+                  durationMinutes: s.durationMinutes ?? null,
+                  hasPhoto: s.hasPhoto ?? false,
                 }))
-              : [{ key: `new-${(stepKeyCounter.current += 1)}`, id: newStepId(rng), description: "" }],
+              : [emptyStepDraft(`new-${(stepKeyCounter.current += 1)}`, rng)],
           );
         }
 
@@ -209,10 +234,7 @@ export function RecipeEditor() {
 
   function addStep(): void {
     stepKeyCounter.current += 1;
-    setSteps((current) => [
-      ...current,
-      { key: `new-${stepKeyCounter.current}`, id: newStepId(rng), description: "" },
-    ]);
+    setSteps((current) => [...current, emptyStepDraft(`new-${stepKeyCounter.current}`, rng)]);
   }
 
   function updateStep(index: number, description: string): void {
@@ -293,10 +315,24 @@ export function RecipeEditor() {
           });
       }
 
+      // WP-PHOTO round-trip fix: `detail`/`durationMinutes`/`hasPhoto` are
+      // carried through from `StepDraft` here instead of being dropped —
+      // this is the actual fix for the bug this file used to have (see
+      // `StepDraft`'s doc comment above). `detail`/`durationMinutes` fold
+      // back to `undefined` when blank/null, same "absent, not empty" shape
+      // `RecipeStep`'s own optional fields expect.
       const recipeSteps: readonly RecipeStep[] = steps
-        .map((s) => ({ ...s, description: s.description.trim() }))
+        .map((s) => ({ ...s, description: s.description.trim(), detail: s.detail.trim() }))
         .filter((s) => s.description !== "")
-        .map((s, index) => ({ recipeId: id, id: s.id, stepNumber: index + 1, description: s.description }));
+        .map((s, index) => ({
+          recipeId: id,
+          id: s.id,
+          stepNumber: index + 1,
+          description: s.description,
+          ...(s.detail !== "" ? { detail: s.detail } : {}),
+          ...(s.durationMinutes !== null ? { durationMinutes: s.durationMinutes } : {}),
+          ...(s.hasPhoto ? { hasPhoto: true } : {}),
+        }));
 
       await store.recipes.upsert(recipe);
       await store.recipeIngredients.replaceForRecipe(id, recipeLines);
