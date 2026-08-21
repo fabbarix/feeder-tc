@@ -58,7 +58,7 @@ describe("createSpreadsheet", () => {
       "InventoryEvents",
       "ShoppingItems",
       "Products",
-      "ProductPhotos",
+      "Photos",
       "PriceObservations",
     ]);
   });

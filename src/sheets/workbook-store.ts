@@ -40,15 +40,16 @@ import type {
   WorkbookStore,
 } from "../domain/contracts.ts";
 import type {
-  Barcode,
   Ingredient,
   IngredientId,
   InventoryEvent,
   Meta,
+  Photo,
+  PhotoOwnerId,
+  PhotoOwnerKind,
   PlanSlot,
   PriceObservation,
   Product,
-  ProductPhoto,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -64,10 +65,10 @@ import {
   decodeIngredient,
   decodeInventoryEvent,
   decodeMeta,
+  decodePhoto,
   decodePlanSlot,
   decodePriceObservation,
   decodeProduct,
-  decodeProductPhoto,
   decodeRecipe,
   decodeRecipeIngredient,
   decodeRecipeStep,
@@ -77,10 +78,10 @@ import {
   encodeIngredient,
   encodeInventoryEvent,
   encodeMeta,
+  encodePhoto,
   encodePlanSlot,
   encodePriceObservation,
   encodeProduct,
-  encodeProductPhoto,
   encodeRecipe,
   encodeRecipeIngredient,
   encodeRecipeStep,
@@ -90,9 +91,9 @@ import {
   INVENTORY_EVENTS_HEADER,
   isBlankRow,
   META_HEADER,
+  PHOTOS_HEADER,
   PLAN_SLOTS_HEADER,
   PRICE_OBSERVATIONS_HEADER,
-  PRODUCT_PHOTOS_HEADER,
   PRODUCTS_HEADER,
   RECIPE_INGREDIENTS_HEADER,
   RECIPE_STEPS_HEADER,
@@ -228,18 +229,19 @@ async function readIngredients(transport: SheetsTransport): Promise<DecodeResult
 }
 
 /**
- * Locates the physical row (1-based, header always row 1) whose first
- * column equals `key`, reading ONLY that one column — never the rest of the
- * row. This is what lets `productPhotos.read`/`upsert` (below) find "which
- * row is this barcode" without pulling every other photo's `data_url` bytes
- * down the wire just to search for one row (DESIGN_PRODUCTS.md §2/§5: the
- * entire reason `ProductPhotos` is split into its own sheet with no
- * `readAll`). Returns -1 if no row matches.
+ * Locates the physical row (1-based, header always row 1) whose first two
+ * columns equal `(ownerKind, ownerId)`, reading ONLY those two columns —
+ * never `data_url`/`updated_at`. This is what lets `photos.get`/`upsert`/
+ * `remove` (below) find "which row is this owner" without pulling every
+ * other photo's bytes down the wire just to search for one row
+ * (DESIGN_PHOTOS.md §2/§6: the entire reason `Photos` is split into its own
+ * sheet with no `readAll`). Returns -1 if no row matches.
  */
-async function findRowByFirstColumn(transport: SheetsTransport, sheet: WorkbookSheetName, key: string): Promise<number> {
-  const column = await transport.readRange(`${sheet}!A2:A`);
-  for (let i = 0; i < column.length; i += 1) {
-    if (column[i]?.[0] === key) return i + 2;
+async function findPhotoRow(transport: SheetsTransport, ownerKind: PhotoOwnerKind, ownerId: PhotoOwnerId): Promise<number> {
+  const columns = await transport.readRange(`Photos!A2:B`);
+  for (let i = 0; i < columns.length; i += 1) {
+    const row = columns[i];
+    if (row?.[0] === ownerKind && row[1] === ownerId) return i + 2;
   }
   return -1;
 }
@@ -400,30 +402,40 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
       },
     },
 
-    productPhotos: {
-      async read(barcode: Barcode): Promise<ProductPhoto | undefined> {
-        const row = await findRowByFirstColumn(transport, "ProductPhotos", barcode);
+    photos: {
+      async get(ownerKind: PhotoOwnerKind, ownerId: PhotoOwnerId): Promise<Photo | undefined> {
+        const row = await findPhotoRow(transport, ownerKind, ownerId);
         if (row < 0) return undefined;
-        const lastCol = columnLetter(PRODUCT_PHOTOS_HEADER.length);
-        const range = await transport.readRange(`ProductPhotos!A${row}:${lastCol}${row}`);
+        const lastCol = columnLetter(PHOTOS_HEADER.length);
+        const range = await transport.readRange(`Photos!A${row}:${lastCol}${row}`);
         const data = range[0];
         if (!data || isBlankRow(data)) return undefined;
-        return decodeProductPhoto(data);
+        return decodePhoto(data);
       },
-      async upsert(photo: ProductPhoto): Promise<void> {
+      async upsert(photo: Photo): Promise<void> {
         // Encode (and therefore the 50,000-character cell-limit check —
-        // see product-photos.ts) happens before any I/O: an oversized
-        // photo must fail loudly without first spending a round trip
-        // searching for a row to (not) write it to.
-        const encoded = encodeProductPhoto(photo);
-        const lastCol = columnLetter(PRODUCT_PHOTOS_HEADER.length);
-        const row = await findRowByFirstColumn(transport, "ProductPhotos", photo.barcode);
+        // see codecs/photos.ts) happens before any I/O: an oversized photo
+        // must fail loudly without first spending a round trip searching
+        // for a row to (not) write it to.
+        const encoded = encodePhoto(photo);
+        const lastCol = columnLetter(PHOTOS_HEADER.length);
+        const row = await findPhotoRow(transport, photo.ownerKind, photo.ownerId);
         if (row >= 0) {
-          await transport.updateRange(`ProductPhotos!A${row}:${lastCol}${row}`, [encoded]);
+          await transport.updateRange(`Photos!A${row}:${lastCol}${row}`, [encoded]);
         } else {
-          await ensureHeader(transport, "ProductPhotos", PRODUCT_PHOTOS_HEADER);
-          await transport.appendRows("ProductPhotos", [encoded]);
+          await ensureHeader(transport, "Photos", PHOTOS_HEADER);
+          await transport.appendRows("Photos", [encoded]);
         }
+      },
+      async remove(ownerKind: PhotoOwnerKind, ownerId: PhotoOwnerId): Promise<void> {
+        // No delete-row operation on SheetsTransport (see this file's own
+        // header doc comment) — overwrite the row with blanks instead, same
+        // "structural filler, skipped silently on read" treatment as a
+        // shrinking replaceForRecipe block (isBlankRow/decodeRows above).
+        const row = await findPhotoRow(transport, ownerKind, ownerId);
+        if (row < 0) return;
+        const lastCol = columnLetter(PHOTOS_HEADER.length);
+        await transport.updateRange(`Photos!A${row}:${lastCol}${row}`, [blankRow(PHOTOS_HEADER.length)]);
       },
     },
 

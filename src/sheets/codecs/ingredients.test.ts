@@ -30,6 +30,7 @@ describe("Ingredients codec — category column (WP-VC3)", () => {
       "opened_shelf_life_days",
       "default_location",
       "category",
+      "has_photo",
     ]);
   });
 
@@ -75,6 +76,24 @@ describe("Ingredients codec — category column (WP-VC3)", () => {
     ] as const;
     for (const category of categories) {
       const ingredient: Ingredient = { ...BASE, category };
+      expect(decodeIngredient(encodeIngredient(ingredient))).toEqual(ingredient);
+    }
+  });
+});
+
+describe("Ingredients codec — has_photo column (WP-PHOTO)", () => {
+  it("a legacy row with no has_photo cell decodes hasPhoto to undefined, not a thrown error", () => {
+    // Pre-WP-PHOTO shape: seven cells (through category), nothing in the
+    // eighth position because the column didn't exist yet.
+    const legacyRow = ["tomato", "Tomato", "piece", 7, 2, "pantry", "produce"];
+    const decoded = decodeIngredient(legacyRow);
+    expect(decoded.hasPhoto).toBeUndefined();
+    expect(decoded).toEqual({ ...BASE, category: "produce" });
+  });
+
+  it("hasPhoto round-trips true and false", () => {
+    for (const hasPhoto of [true, false]) {
+      const ingredient: Ingredient = { ...BASE, hasPhoto };
       expect(decodeIngredient(encodeIngredient(ingredient))).toEqual(ingredient);
     }
   });

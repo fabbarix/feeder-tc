@@ -16,6 +16,7 @@ import {
   makeQuantity,
   makeRecipeId,
   newRecipeId,
+  newStepId,
   type Ingredient,
   type IngredientId,
   type MealTag,
@@ -24,6 +25,7 @@ import {
   type RecipeKind,
   type RecipeStatus,
   type RecipeStep,
+  type StepId,
 } from "../domain/index.ts";
 import { TextField } from "./fields.tsx";
 import { KIND_OPTIONS, MEAL_TAG_OPTIONS, STATUS_OPTIONS } from "./recipe-options.ts";
@@ -41,6 +43,20 @@ interface LineDraft {
   readonly amount: number | null;
 }
 
+/**
+ * A step's `StepId` is required on `RecipeStep` (WP-PHOTO — DESIGN_PHOTOS.md
+ * §3: a step without identity is the bug that widening closes), so a draft
+ * carries one from the moment it exists — minted immediately for a new step
+ * (`newStepId(rng)`), or kept as-is for a step loaded from an existing
+ * recipe. `key` is a separate, purely-local React list key (same pattern as
+ * `LineDraft.key` above); `id` is the identity that actually gets saved.
+ */
+interface StepDraft {
+  readonly key: string;
+  readonly id: StepId;
+  readonly description: string;
+}
+
 /** Create/edit a recipe — cooked or bought (WP-20). Bought recipes force prepMinutes to 0 and link a single "piece" catalog ingredient for the product itself (DESIGN.md §2 "Recipes"). */
 export function RecipeEditor() {
   const { recipeId } = useParams();
@@ -49,6 +65,7 @@ export function RecipeEditor() {
   const { showToast } = useToast();
   const isNew = recipeId === undefined;
   const lineKeyCounter = useRef(0);
+  const stepKeyCounter = useRef(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -65,7 +82,14 @@ export function RecipeEditor() {
   const [cookMinutes, setCookMinutes] = useState<number | null>(30);
   const [mealTags, setMealTags] = useState<readonly MealTag[]>([]);
   const [lines, setLines] = useState<readonly LineDraft[]>([]);
-  const [steps, setSteps] = useState<readonly string[]>([""]);
+  // Fixed literal key, not the ref-backed counter below: reading a ref
+  // during render (even just to seed useState's lazy initializer) trips
+  // react-hooks' "refs are for effects/handlers, not render" rule. This
+  // runs exactly once regardless, so a hardcoded key is no less unique than
+  // one drawn from the counter would have been.
+  const [steps, setSteps] = useState<readonly StepDraft[]>(() => [
+    { key: "initial-step", id: newStepId(rng), description: "" },
+  ]);
 
   useEffect(() => {
     // `loading`/`error` are only ever set from the promise's own
@@ -115,7 +139,15 @@ export function RecipeEditor() {
           const ownSteps = [...stepsResult.rows]
             .filter((s) => s.recipeId === recipeId)
             .sort((a, b) => a.stepNumber - b.stepNumber);
-          setSteps(ownSteps.length > 0 ? ownSteps.map((s) => s.text) : [""]);
+          setSteps(
+            ownSteps.length > 0
+              ? ownSteps.map((s) => ({
+                  key: `existing-${(stepKeyCounter.current += 1)}`,
+                  id: s.id,
+                  description: s.description,
+                }))
+              : [{ key: `new-${(stepKeyCounter.current += 1)}`, id: newStepId(rng), description: "" }],
+          );
         }
 
         const warningCount =
@@ -140,7 +172,7 @@ export function RecipeEditor() {
     return () => {
       cancelled = true;
     };
-  }, [store, recipeId, isNew, showToast]);
+  }, [store, recipeId, isNew, showToast, rng]);
 
   // Store-bought recipes have no prep step (DESIGN.md §2 "Recipes") — shown
   // and locked (QuantityInput's `disabled`) at 0 the moment "Kind" is
@@ -176,11 +208,15 @@ export function RecipeEditor() {
   }
 
   function addStep(): void {
-    setSteps((current) => [...current, ""]);
+    stepKeyCounter.current += 1;
+    setSteps((current) => [
+      ...current,
+      { key: `new-${stepKeyCounter.current}`, id: newStepId(rng), description: "" },
+    ]);
   }
 
-  function updateStep(index: number, text: string): void {
-    setSteps((current) => current.map((s, i) => (i === index ? text : s)));
+  function updateStep(index: number, description: string): void {
+    setSteps((current) => current.map((s, i) => (i === index ? { ...s, description } : s)));
   }
 
   function removeStep(index: number): void {
@@ -258,9 +294,9 @@ export function RecipeEditor() {
       }
 
       const recipeSteps: readonly RecipeStep[] = steps
-        .map((text) => text.trim())
-        .filter((text) => text !== "")
-        .map((text, index) => ({ recipeId: id, stepNumber: index + 1, text }));
+        .map((s) => ({ ...s, description: s.description.trim() }))
+        .filter((s) => s.description !== "")
+        .map((s, index) => ({ recipeId: id, id: s.id, stepNumber: index + 1, description: s.description }));
 
       await store.recipes.upsert(recipe);
       await store.recipeIngredients.replaceForRecipe(id, recipeLines);
@@ -416,10 +452,10 @@ export function RecipeEditor() {
                 <div className={styles.sectionCardHead}>Steps</div>
                 <div className={styles.sectionCardBody}>
                   {steps.map((step, index) => (
-                    <div className={styles.line} key={index}>
+                    <div className={styles.line} key={step.key}>
                       <TextField
                         label={`Step ${index + 1}`}
-                        value={step}
+                        value={step.description}
                         onChange={(text) => updateStep(index, text)}
                         placeholder="e.g. 375 degrees, 30 min covered"
                       />

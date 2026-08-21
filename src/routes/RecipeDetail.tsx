@@ -293,7 +293,7 @@ export function RecipeDetail() {
                   ) : (
                     <ol className={styles.steps}>
                       {steps.map((step) => (
-                        <li key={step.stepNumber}>{step.text}</li>
+                        <li key={step.id}>{step.description}</li>
                       ))}
                     </ol>
                   )}
