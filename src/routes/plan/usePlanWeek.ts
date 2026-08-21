@@ -7,10 +7,16 @@
  * `.settings.write`) — last-write-wins, no outbox, same as
  * `RecipeEditor.tsx`'s `store.recipes.upsert`. Only `InventoryEvent`s
  * (usage + the leftover-lot purchase) go through the outbox, matching
- * `usePantryInventory.ts`'s pattern exactly (own local outbox + connectivity
- * + flush controller, keyed by workbookId — multiple instances over the
- * same localStorage-backed outbox are equivalent, since the queue itself is
- * the persisted state, not any one instance's memory).
+ * `usePantryInventory.ts`'s pattern exactly: the shared, app-wide Outbox +
+ * OutboxSyncController for this workbook, acquired via
+ * `acquireSharedOutboxSync` (src/sync/outbox-registry.ts) — NOT a private
+ * pair built here. (An earlier version of this comment claimed a private
+ * controller per hook was fine because "multiple instances over the same
+ * localStorage-backed outbox are equivalent" — true for the `Outbox` object
+ * itself, which really is a stateless wrapper, but false for the
+ * controller: multiple *live* controllers each independently wake on the
+ * same reconnect and flush the same pending event, which is exactly how the
+ * same `InventoryEvent` got appended twice in production.)
  *
  * Cross-week staple rotation state (`StaplePlanState`, WP-13's
  * `generateWeek` — an explicit value the caller must persist and pass back)
@@ -37,6 +43,7 @@ import {
   setSlotPinned,
 } from "../../domain/index.ts";
 import type {
+  ApplyNewEvents,
   Ingredient,
   IngredientId,
   InventoryEvent,
@@ -44,6 +51,7 @@ import type {
   Lot,
   MealTag,
   Meta,
+  Outbox,
   PlanSlot,
   PlanSlotId,
   Recipe,
@@ -55,14 +63,13 @@ import type {
 } from "../../domain/index.ts";
 import type { StaplePlanState } from "../../domain/planner/generator.ts";
 import {
-  createBrowserConnectivityMonitor,
-  createLocalStorageOutbox,
+  acquireSharedOutboxSync,
   createLocalStoragePlannerStateStore,
   createLocalStorageSnapshotStore,
-  createOutboxSyncController,
   previewSnapshotWithPending,
   syncSnapshot,
 } from "../../sync/index.ts";
+import type { OutboxSyncController } from "../../sync/index.ts";
 import { LEFTOVER_FREEZER_SHELF_LIFE_DAYS, LEFTOVER_FRIDGE_SHELF_LIFE_DAYS } from "../../data/index.ts";
 import { pickableRecipesForTag } from "./plan-options.ts";
 import { resolveLeftoverIngredient } from "./leftover-ingredient.ts";
@@ -119,9 +126,9 @@ export interface ConfirmMarkCookedInput {
 }
 
 interface Engine {
-  readonly outbox: ReturnType<typeof createLocalStorageOutbox>;
-  readonly applyNewEvents: ReturnType<typeof createApplyNewEvents>;
-  readonly controller: ReturnType<typeof createOutboxSyncController>;
+  readonly outbox: Outbox;
+  readonly applyNewEvents: ApplyNewEvents;
+  readonly controller: OutboxSyncController;
 }
 
 const EMPTY_LOTS: readonly Lot[] = [];
@@ -180,7 +187,7 @@ export function usePlanWeek(): UsePlanWeekResult {
 
   useEffect(() => {
     let cancelled = false;
-    let stopController: (() => void) | undefined;
+    let releaseSharedSync: (() => void) | undefined;
 
     async function boot(): Promise<void> {
       const plannerStateStore = createLocalStoragePlannerStateStore();
@@ -216,14 +223,15 @@ export function usePlanWeek(): UsePlanWeekResult {
       const catalog = new Map(ingredientsResult.rows.map((ingredient) => [ingredient.id, ingredient] as const));
       const applyNewEvents = createApplyNewEvents(catalog);
       const snapshotStore = createLocalStorageSnapshotStore();
-      const outbox = createLocalStorageOutbox(workbookId);
-      const connectivity = createBrowserConnectivityMonitor();
-      const controller = createOutboxSyncController({
-        outbox,
+      // The shared, app-wide Outbox + OutboxSyncController for this workbook
+      // (src/sync/outbox-registry.ts) — see the module doc comment above.
+      const sharedSync = acquireSharedOutboxSync({
+        workbookId,
         workbookStore: store,
-        connectivity,
         onResult: () => void refreshInventory(),
       });
+      const { outbox } = sharedSync;
+      releaseSharedSync = sharedSync.release;
 
       const [nextConfirmed, nextMeta, nextPending] = await Promise.all([
         syncSnapshot({ workbookStore: store, snapshotStore, applyNewEvents }, workbookId),
@@ -235,9 +243,8 @@ export function usePlanWeek(): UsePlanWeekResult {
       setConfirmed(nextConfirmed);
       setMeta(nextMeta);
       setPending(nextPending);
-      setEngine({ outbox, applyNewEvents, controller });
+      setEngine({ outbox, applyNewEvents, controller: sharedSync.controller });
       setLoading(false);
-      stopController = controller.start();
 
       // refreshInventory is defined below and closes over `store`/`workbookId`
       // only — declared with `function` so this reference (used in
@@ -265,7 +272,7 @@ export function usePlanWeek(): UsePlanWeekResult {
 
     return () => {
       cancelled = true;
-      stopController?.();
+      releaseSharedSync?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- boot() reruns whole-hog on reloadToken; showToast is stable from context.
   }, [store, workbookId, reloadToken]);

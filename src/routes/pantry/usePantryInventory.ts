@@ -1,10 +1,20 @@
 /**
  * Owns WP-17's full inventory sync stack for the pantry route: the
- * localStorage `SnapshotStore`, a per-workbook `Outbox`, connectivity-driven
- * flushing, and WP-12's `applyNewEvents`/fold. Every pantry write goes
- * "build event -> Outbox.enqueue -> flush" (HANDOVER.md invariant 9) —
- * never a direct `WorkbookStore.inventoryEvents.append` call from a
- * component.
+ * localStorage `SnapshotStore`, WP-12's `applyNewEvents`/fold, and the
+ * shared, app-wide `Outbox` + `OutboxSyncController` for the active
+ * workbook (`acquireSharedOutboxSync`, src/sync/outbox-registry.ts) — NOT a
+ * private pair built by this hook. Every pantry write goes "build event ->
+ * Outbox.enqueue -> flush" (HANDOVER.md invariant 9) — never a direct
+ * `WorkbookStore.inventoryEvents.append` call from a component. Each route
+ * hook that touches inventory (this one, `useScanFlow`, `usePlanWeek`,
+ * `useShoppingList`) used to build its OWN `Outbox` + connectivity monitor +
+ * `OutboxSyncController` for the same workbook `App.tsx` was already
+ * driving one for — with App's controller always live, that meant two
+ * controllers permanently, both waking on the same reconnect and flushing
+ * the same pending event, which is how the same `InventoryEvent` ended up
+ * appended twice in production. `SnapshotStore` stays a per-route instance
+ * (it is genuinely stateless/re-derivable); the outbox and controller do
+ * not.
  *
  * `lots` is the OPTIMISTIC read model: the last confirmed snapshot with any
  * still-pending outbox events folded on top (`previewSnapshotWithPending`),
@@ -45,10 +55,8 @@ import type {
   StorageLocation,
 } from "../../domain/index.ts";
 import {
-  createBrowserConnectivityMonitor,
-  createLocalStorageOutbox,
+  acquireSharedOutboxSync,
   createLocalStorageSnapshotStore,
-  createOutboxSyncController,
   previewSnapshotWithPending,
   syncSnapshot,
 } from "../../sync/index.ts";
@@ -192,7 +200,7 @@ export function usePantryInventory(): PantryInventory {
     // after its first await on every run (including a retry via
     // `reloadToken`).
     let cancelled = false;
-    let stopController: (() => void) | undefined;
+    let releaseSharedSync: (() => void) | undefined;
 
     async function boot(): Promise<void> {
       const ingredientsResult = await store.ingredients.readAll();
@@ -213,14 +221,20 @@ export function usePantryInventory(): PantryInventory {
       const catalog = new Map(ingredientsResult.rows.map((ingredient) => [ingredient.id, ingredient] as const));
       const applyNewEvents = createApplyNewEvents(catalog);
       const snapshotStore = createLocalStorageSnapshotStore();
-      const outbox = createLocalStorageOutbox(workbookId);
-      const connectivity = createBrowserConnectivityMonitor();
-      const controller = createOutboxSyncController({
-        outbox,
+      // The shared, app-wide Outbox + OutboxSyncController for this workbook
+      // (src/sync/outbox-registry.ts) — NOT a private one built here. Every
+      // route hook and App.tsx acquire the SAME instance for a given
+      // workbookId; building a private one per hook is exactly what let the
+      // same InventoryEvent be appended twice after an offline→online
+      // transition (two independently "live" controllers, each waking on
+      // the same reconnect and flushing the same pending event).
+      const sharedSync = acquireSharedOutboxSync({
+        workbookId,
         workbookStore: store,
-        connectivity,
         onResult: (result) => handleFlushResultRef.current(result),
       });
+      const { outbox } = sharedSync;
+      releaseSharedSync = sharedSync.release;
 
       const [nextConfirmed, nextMeta, nextPending] = await Promise.all([
         syncSnapshot({ workbookStore: store, snapshotStore, applyNewEvents }, workbookId),
@@ -232,9 +246,8 @@ export function usePantryInventory(): PantryInventory {
       setConfirmed(nextConfirmed);
       setMeta(nextMeta);
       setPending(nextPending);
-      setEngine({ outbox, applyNewEvents, controller });
+      setEngine({ outbox, applyNewEvents, controller: sharedSync.controller });
       setLoading(false);
-      stopController = controller.start();
     }
 
     boot().catch((err: unknown) => {
@@ -246,7 +259,7 @@ export function usePantryInventory(): PantryInventory {
 
     return () => {
       cancelled = true;
-      stopController?.();
+      releaseSharedSync?.();
     };
   }, [store, workbookId, reloadToken, showToast]);
 
