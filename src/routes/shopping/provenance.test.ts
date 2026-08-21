@@ -5,13 +5,14 @@ import {
   makePlanSlotId,
   makeQuantity,
   makeRecipeId,
+  type Ingredient,
   type PlanSlot,
   type Recipe,
   type RecipeIngredient,
   type Settings,
 } from "../../domain/index.ts";
 import type { ShoppingListLine } from "../../domain/index.ts";
-import { buildProvenanceText, buildWhyExplanation, sourceAmount } from "./provenance.ts";
+import { buildProvenanceText, buildRoundingExplanation, buildWhyExplanation, sourceAmount } from "./provenance.ts";
 
 const TOMATO = makeIngredientId("tomato");
 const MONDAY_DINNER_RECIPE = makeRecipeId("monday-dinner-recipe");
@@ -114,5 +115,108 @@ describe("buildWhyExplanation", () => {
     expect(buildWhyExplanation(LINE, CTX)).toBe(
       "Monday dinner needs 2, Thursday lunch needs 3, and no viable lot expires on or after those dates.",
     );
+  });
+});
+
+// WP-PURCHASING (DESIGN_PURCHASING.md §6) — the extra "Why?" sentence.
+describe("buildRoundingExplanation", () => {
+  it("returns undefined once the line has been explicitly overridden — an explicit choice doesn't need defending (§6)", () => {
+    const mayo: Ingredient = {
+      id: makeIngredientId("mayo"),
+      name: "Mayonnaise",
+      unit: "g",
+      shelfLifeDays: 90,
+      openedShelfLifeDays: 30,
+      defaultLocation: "fridge",
+      purchaseMode: "whole",
+      packSize: makeQuantity(250, "g"),
+    };
+    const overriddenLine: ShoppingListLine = {
+      ...LINE,
+      ingredientId: mayo.id,
+      neededQuantity: makeQuantity(200, "g"),
+      purchaseOverride: makeQuantity(500, "g"),
+    };
+    expect(buildRoundingExplanation(overriddenLine, mayo, CTX)).toBeUndefined();
+  });
+
+  it("explains a whole-pack rounding — the mock's mayonnaise sentence", () => {
+    const mayo: Ingredient = {
+      id: makeIngredientId("mayo"),
+      name: "Mayonnaise",
+      unit: "g",
+      shelfLifeDays: 90,
+      openedShelfLifeDays: 30,
+      defaultLocation: "fridge",
+      purchaseMode: "whole",
+      packSize: makeQuantity(250, "g"),
+    };
+    const mayoLine: ShoppingListLine = { ...LINE, ingredientId: mayo.id, neededQuantity: makeQuantity(130, "g") };
+    const explanation = buildRoundingExplanation(mayoLine, mayo, CTX);
+    expect(explanation).toContain("130 g");
+    expect(explanation).toContain("250 g");
+    expect(explanation).toContain("surplus");
+  });
+
+  it("returns undefined when the buy amount already equals the need (nothing to explain)", () => {
+    const mince: Ingredient = {
+      id: makeIngredientId("mince"),
+      name: "Mince",
+      unit: "g",
+      shelfLifeDays: 3,
+      openedShelfLifeDays: 2,
+      defaultLocation: "fridge",
+    };
+    const minceLine: ShoppingListLine = { ...LINE, ingredientId: mince.id, neededQuantity: makeQuantity(450, "g") };
+    expect(buildRoundingExplanation(minceLine, mince, CTX)).toBeUndefined();
+  });
+
+  it("explains an indivisible recipe's servings/leftover forecast (§4/§6 — the lasagna sentence) instead of pack rounding", () => {
+    const lasagnaRecipe: Recipe = {
+      id: makeRecipeId("store-lasagna"),
+      name: "Store lasagna",
+      kind: "bought",
+      baseServings: 4,
+      prepMinutes: 0,
+      cookMinutes: 40,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+    };
+    const lasagnaIngredient: Ingredient = {
+      id: makeIngredientId("store-lasagna-product"),
+      name: "Store lasagna",
+      unit: "piece",
+      shelfLifeDays: 5,
+      openedShelfLifeDays: 2,
+      defaultLocation: "freezer",
+    };
+    const fridaySlot = makePlanSlotId("fri-dinner");
+    const fridayDate = makeIsoDate("2026-08-21");
+    const ctx = {
+      planSlots: [
+        {
+          id: fridaySlot,
+          date: fridayDate,
+          slotType: "dinner" as const,
+          slotIndex: 0,
+          filling: { kind: "recipe" as const, recipeId: lasagnaRecipe.id },
+          state: "planned" as const,
+          pinned: false,
+        },
+      ],
+      recipes: [lasagnaRecipe],
+      recipeIngredients: [{ recipeId: lasagnaRecipe.id, ingredientId: lasagnaIngredient.id, quantity: makeQuantity(1, "piece") }],
+      settings: { householdSize: 2, slotLayout: [], repeatExclusionWeeks: 3 },
+    };
+    const lasagnaLine: ShoppingListLine = {
+      ingredientId: lasagnaIngredient.id,
+      rangeStart: fridayDate,
+      rangeEnd: fridayDate,
+      neededQuantity: makeQuantity(1, "piece"),
+      sources: [{ planSlotId: fridaySlot, date: fridayDate, slotType: "dinner", slotIndex: 0, recipeId: lasagnaRecipe.id }],
+    };
+    const explanation = buildRoundingExplanation(lasagnaLine, lasagnaIngredient, ctx);
+    expect(explanation).toContain("can't be split");
+    expect(explanation).toContain("leftover");
   });
 });

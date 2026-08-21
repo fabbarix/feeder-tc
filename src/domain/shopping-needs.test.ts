@@ -170,6 +170,103 @@ describe("computeNeeds", () => {
     expect(needs.reduce((sum, n) => sum + n.quantity.amount, 0)).toBe(5);
   });
 
+  it("scenario 1 (§5): a bought meal (indivisible by default) serving 4, household 2, scales to 1 whole unit — never 0.5", () => {
+    const lasagna: Recipe = {
+      id: makeRecipeId("store-lasagna"),
+      name: "Store lasagna",
+      kind: "bought",
+      baseServings: 4,
+      prepMinutes: 0,
+      cookMinutes: 40,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+    };
+    const lasagnaId = makeIngredientId("store-lasagna-product");
+    const lines: readonly RecipeIngredient[] = [
+      { recipeId: lasagna.id, ingredientId: lasagnaId, quantity: makeQuantity(1, "piece") },
+    ];
+    const slots: readonly PlanSlot[] = [
+      slot({ id: makePlanSlotId("fri-dinner"), date: makeIsoDate("2026-08-28"), filling: { kind: "recipe", recipeId: lasagna.id } }),
+    ];
+
+    const needs = computeNeeds(range, slots, [lasagna], lines, settings(2));
+
+    expect(needs).toHaveLength(1);
+    // NOT 0.5 — the live defect this whole package fixes.
+    expect(needs[0]?.quantity).toEqual(makeQuantity(1, "piece"));
+  });
+
+  it("scenario 2 (§5): a bought meal serving 2, household 5, scales to 3 whole units", () => {
+    const lasagna: Recipe = {
+      id: makeRecipeId("store-lasagna-2"),
+      name: "Store lasagna",
+      kind: "bought",
+      baseServings: 2,
+      prepMinutes: 0,
+      cookMinutes: 40,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+    };
+    const lasagnaId = makeIngredientId("store-lasagna-product-2");
+    const lines: readonly RecipeIngredient[] = [
+      { recipeId: lasagna.id, ingredientId: lasagnaId, quantity: makeQuantity(1, "piece") },
+    ];
+    const slots: readonly PlanSlot[] = [
+      slot({ id: makePlanSlotId("fri-dinner"), date: makeIsoDate("2026-08-28"), filling: { kind: "recipe", recipeId: lasagna.id } }),
+    ];
+
+    const needs = computeNeeds(range, slots, [lasagna], lines, settings(5));
+
+    expect(needs[0]?.quantity).toEqual(makeQuantity(3, "piece"));
+  });
+
+  it("a cooked recipe (not indivisible) still scales fractionally — the fix is scoped to indivisible recipes only", () => {
+    const soup: Recipe = {
+      id: makeRecipeId("soup"),
+      name: "Soup",
+      kind: "cooked",
+      baseServings: 4,
+      prepMinutes: 10,
+      cookMinutes: 20,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+    };
+    const lines: readonly RecipeIngredient[] = [
+      { recipeId: soup.id, ingredientId: tomato, quantity: makeQuantity(2, "piece") },
+    ];
+    const slots: readonly PlanSlot[] = [
+      slot({ id: makePlanSlotId("s1"), date: makeIsoDate("2026-08-24"), filling: { kind: "recipe", recipeId: soup.id } }),
+    ];
+
+    const needs = computeNeeds(range, slots, [soup], lines, settings(2));
+
+    expect(needs[0]?.quantity).toEqual(makeQuantity(1, "piece")); // 2 * (2/4) = 1, fractional scaling untouched
+  });
+
+  it("a cooked recipe explicitly flagged indivisible: true also scales in whole units (§4/§8: the flag, not just kind, decides)", () => {
+    const quiche: Recipe = {
+      id: makeRecipeId("quiche"),
+      name: "Quiche",
+      kind: "cooked",
+      baseServings: 4,
+      prepMinutes: 20,
+      cookMinutes: 40,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+      indivisible: true,
+    };
+    const lines: readonly RecipeIngredient[] = [
+      { recipeId: quiche.id, ingredientId: tomato, quantity: makeQuantity(1, "piece") },
+    ];
+    const slots: readonly PlanSlot[] = [
+      slot({ id: makePlanSlotId("s1"), date: makeIsoDate("2026-08-24"), filling: { kind: "recipe", recipeId: quiche.id } }),
+    ];
+
+    const needs = computeNeeds(range, slots, [quiche], lines, settings(2));
+
+    expect(needs[0]?.quantity).toEqual(makeQuantity(1, "piece")); // ceil(2/4) = 1 whole quiche, not 0.5
+  });
+
   it("throws when a slot references an unknown recipe", () => {
     const slots: readonly PlanSlot[] = [
       slot({
