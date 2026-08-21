@@ -54,6 +54,17 @@ for (const route of ROUTES) {
     // goto() can catch an empty <div id="root">. Wait for the shell to be
     // painted first.
     await expect(page.getByRole("main")).toBeVisible();
+    // WP-VC3: most routes are now their own `React.lazy` chunk (App.tsx),
+    // so `<main>` becoming visible can momentarily mean "the Suspense
+    // fallback (App.tsx's RouteFallback) is showing", not "the real route
+    // mounted" — the fallback is a bare Skeleton stack with no heading at
+    // all, which fails axe's page-has-heading-one rule if the scan lands
+    // during that gap. Every real route renders its own <h1> unconditionally
+    // (even while ITS OWN data is still loading — e.g. Plan.tsx's <h1>Plan</h1>
+    // sits outside its `loading` conditional), so waiting for one more
+    // precisely targets "past the Suspense boundary" without hard-coding
+    // per-route heading text.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations, JSON.stringify(results.violations, null, 2)).toEqual([]);
   });

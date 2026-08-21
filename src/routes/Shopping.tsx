@@ -4,6 +4,7 @@ import { useToast } from "../ui/components/Toast/useToast.ts";
 import { EmptyState, ErrorState, ListSection, Skeleton } from "../ui/components";
 import { Barcode, ShoppingCart } from "../ui/icons";
 import { formatQuantity, type DateRange, type Ingredient, type ShoppingListLine } from "../domain/index.ts";
+import { groupByCategory } from "./shopping/categories.ts";
 import { RangeChips } from "./shopping/RangeChips.tsx";
 import { ShoppingRow } from "./shopping/ShoppingRow.tsx";
 import { useShoppingList } from "./shopping/useShoppingList.ts";
@@ -71,6 +72,19 @@ export function Shopping() {
     [linesWithIngredient, shopping.checkedByIngredient],
   );
 
+  // WP-VC3 (approved contract change — Ingredient.category): the mock
+  // groups "To buy" under category subheadings ("Produce", "Dry goods", …)
+  // rather than one flat list — design/mock-screens.html #shopping's
+  // `.rowgroup`s. Sections stay in category order; anything with no
+  // category (a hand-added ingredient, or a legacy workbook row from before
+  // this column existed) lands in a trailing "Other" section — never
+  // omitted, and a category with zero matching lines produces no section at
+  // all (never an empty group).
+  const groupedSections = useMemo(
+    () => groupByCategory(linesWithIngredient, (entry) => entry.ingredient.category),
+    [linesWithIngredient],
+  );
+
   // "Left"/"still to buy" counts what's actually still to buy — a checked,
   // fully-covered line stays visible this session (see useShoppingList.ts's
   // "stickyLines" doc comment) but shouldn't inflate this count.
@@ -133,21 +147,23 @@ export function Shopping() {
                 />
               )
             ) : (
-              <ListSection heading="To buy">
-                {linesWithIngredient.map(({ line, ingredient }) => (
-                  <ShoppingRow
-                    key={ingredient.id}
-                    line={line}
-                    ingredient={ingredient}
-                    checkedItem={shopping.checkedByIngredient.get(ingredient.id)}
-                    today={today}
-                    failed={shopping.failedCheckoff?.ingredientId === ingredient.id}
-                    onRetryFailed={shopping.retryFlush}
-                    onCheckOff={(input) => void shopping.checkOff(line, input)}
-                    onUncheck={() => void shopping.uncheck(line)}
-                  />
-                ))}
-              </ListSection>
+              groupedSections.map((section) => (
+                <ListSection key={section.heading} heading={section.heading}>
+                  {section.entries.map(({ line, ingredient }) => (
+                    <ShoppingRow
+                      key={ingredient.id}
+                      line={line}
+                      ingredient={ingredient}
+                      checkedItem={shopping.checkedByIngredient.get(ingredient.id)}
+                      today={today}
+                      failed={shopping.failedCheckoff?.ingredientId === ingredient.id}
+                      onRetryFailed={shopping.retryFlush}
+                      onCheckOff={(input) => void shopping.checkOff(line, input)}
+                      onUncheck={() => void shopping.uncheck(line)}
+                    />
+                  ))}
+                </ListSection>
+              ))
             )}
           </div>
 

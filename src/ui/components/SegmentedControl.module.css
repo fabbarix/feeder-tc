@@ -1,10 +1,19 @@
+/*
+ * design/mock-reference.css's `.seg` is a 999px pill (`border-radius:999px`
+ * on both the trough and the selected segment), not the app's `--radius-md`
+ * (10px) — pre-existing since WP-20, deferred twice because this component
+ * is shared by every StorageLocation/RecipeStatus/RecipeKind/ThemeMode
+ * consumer. Literal 999px, matching the codebase's own convention for pill
+ * shapes elsewhere (AppShell.module.css, ToggleChips, DateChips, etc. all
+ * use the literal rather than a token — there is no `--radius-full` token).
+ */
 .group {
   display: inline-flex;
   gap: 2px;
   padding: 2px;
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
 }
 
 .segment {
@@ -15,7 +24,7 @@
   gap: var(--space-1);
   min-height: calc(var(--touch-target) - 8px);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   color: var(--text-muted);
   font-size: 0.9rem;
   cursor: pointer;

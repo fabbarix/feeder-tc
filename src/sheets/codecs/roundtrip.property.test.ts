@@ -23,6 +23,7 @@ import {
   makeRecipeId,
   type EntryUnit,
   type Ingredient,
+  type IngredientCategory,
   type IsoDate,
   type IsoTimestamp,
   type MealTag,
@@ -68,6 +69,7 @@ import {
   encodeSettings,
   encodeShoppingItem,
   ENTRY_UNITS,
+  INGREDIENT_CATEGORIES,
   MAX_PHOTO_DATA_URL_LENGTH,
   MEAL_TAGS,
   STORAGE_LOCATIONS,
@@ -95,14 +97,22 @@ const isoDateArb = fc.integer({ min: 0, max: 3650 }).map(isoDateAt);
 
 // --- Ingredients --------------------------------------------------------------
 
-const ingredientArb: fc.Arbitrary<Ingredient> = fc.record({
-  id: idArb.map(makeIngredientId),
-  name: fc.string({ minLength: 1, maxLength: 40 }),
-  unit: UNIT_ARB,
-  shelfLifeDays: fc.integer({ min: 0, max: 5000 }),
-  openedShelfLifeDays: fc.integer({ min: 0, max: 5000 }),
-  defaultLocation: LOCATION_ARB,
-});
+const CATEGORY_ARB = fc.constantFrom<IngredientCategory>(...INGREDIENT_CATEGORIES);
+
+const ingredientArb: fc.Arbitrary<Ingredient> = fc
+  .record({
+    id: idArb.map(makeIngredientId),
+    name: fc.string({ minLength: 1, maxLength: 40 }),
+    unit: UNIT_ARB,
+    shelfLifeDays: fc.integer({ min: 0, max: 5000 }),
+    openedShelfLifeDays: fc.integer({ min: 0, max: 5000 }),
+    defaultLocation: LOCATION_ARB,
+    // WP-VC3 — optional, like Settings.currency; unlike currency, a blank
+    // cell decodes back to undefined (no default substituted), so
+    // round-trip identity holds whether or not this is present.
+    category: fc.option(CATEGORY_ARB, { nil: undefined }),
+  })
+  .map(({ category, ...rest }) => ({ ...rest, ...(category !== undefined ? { category } : {}) }));
 
 describe("Ingredient codec", () => {
   it("encode -> decode is identity", () => {
