@@ -50,23 +50,38 @@ async function setBrowserOnline(page: Page, online: boolean): Promise<void> {
 // wp-24-offline-banner.spec.ts) — see that helper's own comment for why
 // `setOffline()` itself isn't used here too.
 //
-// KNOWN BUG, reported to the coordinator rather than worked around here
-// (2026-08-21): this scenario currently reproduces a DUPLICATE append, not
-// a stranded one — the same Rice/Milk purchase event lands in
-// InventoryEvents TWICE (confirmed by tracing byte-identical `:append`
-// request bodies firing back to back), not zero times. Best evidence so
-// far: opening "Add to pantry" for the first time in a session triggers a
-// second, independent run of usePantryInventory.ts's `boot()` effect (each
-// run constructs its OWN `createOutboxSyncController` and calls
-// `controller.start()`) — if the first run's effect cleanup doesn't
-// actually stop that first controller's online-event subscription before
-// the second one starts, both stay alive and both flush the same pending
-// events on reconnect. Fixing this is `usePantryInventory.ts` (and likely
-// `useScanFlow.ts`, which builds its outbox/controller the identical way)
-// effect/lifecycle work well past this package's remit — `test.fail()`
-// below keeps this scenario asserting the CORRECT behaviour (exactly 2
-// events, matching what PR #34's fix promises) rather than silently
-// weakening the assertion to match the bug, while not blocking the suite.
+// KNOWN BUG, reported to and confirmed by the coordinator rather than
+// worked around here (2026-08-21): this scenario currently reproduces a
+// DUPLICATE append, not a stranded one — the same Rice/Milk purchase event
+// lands in InventoryEvents TWICE (confirmed by tracing byte-identical
+// `:append` request bodies firing back to back), not zero times.
+//
+// Root cause (confirmed, not speculative): FIVE separate places each
+// construct their OWN `createLocalStorageOutbox(workbookId)` +
+// `createOutboxSyncController` over the SAME localStorage queue —
+// `App.tsx` (~line 384), `usePantryInventory.ts` (~line 218),
+// `useScanFlow.ts` (~line 211), `usePlanWeek.ts` (~line 221), and
+// `useShoppingList.ts` (~line 262). App.tsx's is always live for the whole
+// session, so ANY route hook that also starts one (Pantry, here) leaves
+// TWO independent controllers subscribed to the same connectivity monitor.
+// Both see the same pending events and both flush on the same reconnect —
+// this is not a cleanup/lifecycle race (the `cancelled` guard in
+// usePantryInventory.ts's boot effect IS correct: there is no `await`
+// between `if (cancelled) return;` and `controller.start()`). And
+// `flush.ts`'s "exactly-once dedupe" is checked only on the RETRY path
+// (before retrying a failed append) — two controllers each succeeding on
+// their FIRST attempt never trips it, so outbox-sync-controller.ts's own
+// doc comment ("exactly-once dedupe keeps that guarantee regardless of how
+// many passes run") overclaims: it holds within one controller, not across
+// two. Fixing this means the outbox/controller pair becoming a single
+// shared instance (or an equivalent dedupe across instances) — a
+// structural change to `App.tsx`/`src/sync/**`/four route hooks, well past
+// this package's remit and file ownership. A separate package is fixing it
+// (do NOT un-fail this test to match — this scenario should start passing
+// only once that lands); `test.fail()` below keeps it asserting the
+// CORRECT behaviour (exactly 2 events, matching what PR #34's fix
+// promises) rather than silently weakening the assertion to match the bug,
+// while not blocking this suite.
 
 test("two events enqueued while offline are not stranded — both land once reconnected", async ({ browser }) => {
   test.fail(
