@@ -366,12 +366,24 @@ work at all:
   recipes): Tinned tomatoes, Tinned chickpeas, Tinned black beans, Tinned
   tuna, Tinned corn, Tomato passata, Pasta sauce, Peanut butter, Jam, Honey,
   Olives, Pickles.
-- **→ `g`, `loose`** (produce genuinely bought by weight): Tomato, Onion,
-  Bell pepper.
-- **Stay `piece`** (genuinely counted, and sold as items): Eggs, Bread,
-  Lettuce, Cucumber, Lemon, Avocado, Banana, Apple, Garlic, Frozen pizza,
-  Tea bags. Garlic especially — recipes say "2 cloves", and grams there would
-  be worse, not better.
+- **→ `g`, `loose`** (produce genuinely bought and cooked by weight):
+  **Tomato only.** This is the owner's original example ("200 gr of Tomatoes")
+  and the one case where recipes really do say "400 g".
+- **Stay `piece`** (genuinely counted, and sold as items): **Onion**,
+  **Bell pepper**, Eggs, Bread, Lettuce, Cucumber, Lemon, Avocado, Banana,
+  Apple, Garlic, Frozen pizza, Tea bags. Garlic especially — recipes say
+  "2 cloves", and grams there would be worse, not better.
+
+> **Corrected 2026-08-21, after the design agent caught the contradiction
+> while mocking it.** An earlier version of this list moved Onion and Bell
+> pepper to grams too, which directly contradicted §5's own scenarios — rows 3
+> and 4 use "½ onion → buy 1 Onion" as *the* worked example of whole-unit
+> rounding, and that example evaporates if an onion is 75 g of a loose weight.
+> The test is not "does a shop ever weigh this" but **"does a recipe author
+> write it as a count"**, and for onions and peppers they plainly do. Only
+> tomato passes that test. Worth recording because the mistake was mine and
+> the general rule is easy to over-apply: re-uniting a countable item silently
+> turns off its whole-unit rounding, which is the entire feature.
 
 Re-uniting a genuinely countable item silently turns off its whole-unit
 rounding, which is why the third list is deliberately the longest. Revisable
