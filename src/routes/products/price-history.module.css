@@ -1,0 +1,155 @@
+/* Price-history routes (M6 — DESIGN_PRODUCTS.md §1.4). Not part of the
+   src/ui kit (UI_DESIGN.md §7: feature-specific layout). Font sizes below
+   are literal px, matching recipe-detail.module.css's own convention: the
+   app's root font-size is 18px (src/index.css), so a naive `rem` value
+   would render larger than intended — px keeps this route's type sized the
+   same regardless of that root. */
+
+.toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.badge {
+  font-weight: 600;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.count {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.secondaryLine {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subtext {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* "← Prices" / "← Rice" breadcrumb — same treatment as forms.module.css's
+   .backLink, kept local since this isn't the recipe/ingredient editor. */
+.backLink {
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--accent);
+}
+
+.headRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.headLatest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex: none;
+}
+
+.headPrice {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.headBasis {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.headTrend {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.dtSub {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+.cols {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: var(--space-5);
+  }
+}
+
+.main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sparklineWrap {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The observation history table's mobile fallback — the same rows
+   EntityTable renders at >=768px, as a ListRow stack below that breakpoint
+   (UI_DESIGN.md §6: a reflowed <table> loses ARIA table semantics, so the
+   two are two separate renders rather than one CSS-swapped markup). */
+.mobileHistory {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .mobileHistory {
+    display: none;
+  }
+}
+
+.obsDate {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.obsMeta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
