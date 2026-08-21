@@ -42,6 +42,8 @@ describeFeature(feature, ({ Scenario }) => {
         // the consent hint is absent and restore() makes no Google call.
         readConsentHint: () => false,
         writeConsentHint() {},
+        readStoredToken: () => undefined,
+        writeStoredToken() {},
       };
       auth = createGoogleAuth("test-client-id", deps);
       expect(auth.state()).toBe("signed-out");

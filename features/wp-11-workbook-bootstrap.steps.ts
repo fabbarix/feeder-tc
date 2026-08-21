@@ -48,6 +48,8 @@ describeFeature(feature, ({ Scenario }) => {
         now: () => 0,
         readConsentHint: () => false,
         writeConsentHint() {},
+        readStoredToken: () => undefined,
+        writeStoredToken() {},
       };
       auth = createGoogleAuth("test-client-id", deps);
       await auth.signIn();

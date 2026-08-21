@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createGoogleAuth, DRIVE_FILE_SCOPE, type GoogleAuthDeps } from "./auth.ts";
+import { createGoogleAuth, DRIVE_FILE_SCOPE, parseStoredToken, type GoogleAuthDeps } from "./auth.ts";
 import { ReAuthRequiredError } from "./errors.ts";
 import type { GoogleTokenClient, GoogleTokenResponse } from "./google-globals.ts";
 
@@ -13,9 +13,16 @@ interface FakeGis {
   respondWith(response: GoogleTokenResponse): void;
   setNow(ms: number): void;
   consentHint(): boolean;
+  storedToken(): StoredTokenState | undefined;
 }
 
-function createFakeGis(initialNow = 0, initialConsentHint = false): FakeGis {
+type StoredTokenState = { accessToken: string; expiresAt: number };
+
+function createFakeGis(
+  initialNow = 0,
+  initialConsentHint = false,
+  initialStoredToken: StoredTokenState | undefined = undefined,
+): FakeGis {
   let callback: ((r: GoogleTokenResponse) => void) | undefined;
   let nextResponse: GoogleTokenResponse = { access_token: "tok-1", expires_in: 3600 };
   let now = initialNow;
@@ -23,6 +30,7 @@ function createFakeGis(initialNow = 0, initialConsentHint = false): FakeGis {
   const requestCalls: Array<{ prompt?: string } | undefined> = [];
   const revokedTokens: string[] = [];
   let consentHint = initialConsentHint;
+  let storedToken: StoredTokenState | undefined = initialStoredToken;
 
   const client: GoogleTokenClient = {
     requestAccessToken(options) {
@@ -46,6 +54,10 @@ function createFakeGis(initialNow = 0, initialConsentHint = false): FakeGis {
     writeConsentHint(consented) {
       consentHint = consented;
     },
+    readStoredToken: () => storedToken,
+    writeStoredToken(next) {
+      storedToken = next;
+    },
   };
 
   return {
@@ -60,8 +72,38 @@ function createFakeGis(initialNow = 0, initialConsentHint = false): FakeGis {
       now = ms;
     },
     consentHint: () => consentHint,
+    storedToken: () => storedToken,
   };
 }
+
+// localStorage is attacker-writable, so the cached-token cell is parsed, never
+// trusted. These pin the degrade-to-undefined behaviour — a non-string
+// accessToken reaching an Authorization header is the failure that matters.
+describe("parseStoredToken", () => {
+  it("round-trips a well-formed token", () => {
+    expect(parseStoredToken(JSON.stringify({ accessToken: "tok", expiresAt: 123 }))).toEqual({
+      accessToken: "tok",
+      expiresAt: 123,
+    });
+  });
+
+  it.each([
+    ["absent", null],
+    ["empty", ""],
+    ["not JSON", "{not json"],
+    ["JSON null", "null"],
+    ["a bare string", '"tok"'],
+    ["an array", "[]"],
+    ["a number token", JSON.stringify({ accessToken: 42, expiresAt: 1 })],
+    ["an object token", JSON.stringify({ accessToken: { a: 1 }, expiresAt: 1 })],
+    ["an empty token", JSON.stringify({ accessToken: "", expiresAt: 1 })],
+    ["a missing expiry", JSON.stringify({ accessToken: "tok" })],
+    ["a string expiry", JSON.stringify({ accessToken: "tok", expiresAt: "soon" })],
+    ["a NaN expiry", '{"accessToken":"tok","expiresAt":null}'],
+  ])("degrades to undefined for %s", (_label, raw) => {
+    expect(parseStoredToken(raw)).toBeUndefined();
+  });
+});
 
 describe("createGoogleAuth", () => {
   // The real GoogleAuthDeps factory (createRealGoogleAuthDeps, exercised only
@@ -233,6 +275,68 @@ describe("createGoogleAuth", () => {
       const auth2 = createGoogleAuth(CLIENT_ID, reloaded.deps);
       expect(await auth2.restore()).toBe(false);
       expect(reloaded.createTokenClientCallCount()).toBe(0);
+    });
+
+    // Token caching (owner-approved 2026-08-21). The silent path above did
+    // not work in the owner's installed PWA, so the token is now persisted
+    // deliberately — see auth.ts's module doc for the trade-off. These tests
+    // pin the behaviour AND the things that bound the damage.
+    it("adopts a cached unexpired token with ZERO Google calls — the actual fix", async () => {
+      const fake = createFakeGis(0, true, { accessToken: "cached-tok", expiresAt: 3_600_000 });
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+
+      expect(await auth.restore()).toBe(true);
+      expect(auth.state()).toBe("signed-in");
+      expect(await auth.getAccessToken()).toBe("cached-tok");
+      // The whole point: a reload costs no Google round trip at all, which is
+      // what works where the silent prompt:"" path does not.
+      expect(fake.createTokenClientCallCount()).toBe(0);
+      expect(fake.requestCalls).toEqual([]);
+    });
+
+    it("persists the token on sign-in so the next load can adopt it", async () => {
+      const fake = createFakeGis(0);
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+      await auth.signIn();
+      expect(fake.storedToken()).toEqual({ accessToken: "tok-1", expiresAt: 3_600_000 - 60_000 });
+    });
+
+    it("discards an expired cached token instead of presenting it", async () => {
+      const fake = createFakeGis(0, false, { accessToken: "stale", expiresAt: -1 });
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+
+      // No consent hint either, so this must not fall through to a Google call.
+      expect(await auth.restore()).toBe(false);
+      expect(auth.state()).toBe("signed-out");
+      // And the dead token must not be left to be re-read next load.
+      expect(fake.storedToken()).toBeUndefined();
+    });
+
+    it("clears the stored token on signOut — no live bearer token left at rest", async () => {
+      const fake = createFakeGis(0);
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+      await auth.signIn();
+      expect(fake.storedToken()).toBeDefined();
+
+      await auth.signOut();
+      expect(fake.storedToken()).toBeUndefined();
+      expect(fake.consentHint()).toBe(false);
+    });
+
+    it("clears the stored token on invalidate so a 401'd token is never resurrected", async () => {
+      const fake = createFakeGis(0);
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+      await auth.signIn();
+
+      // The transport calls invalidate() after an unexpected 401.
+      auth.invalidate();
+      expect(fake.storedToken()).toBeUndefined();
+
+      // A reload now must not sign in off the rejected token.
+      const reloaded = createFakeGis(0, true, fake.storedToken());
+      reloaded.respondWith({ error: "interaction_required" });
+      const auth2 = createGoogleAuth(CLIENT_ID, reloaded.deps);
+      expect(await auth2.restore()).toBe(false);
     });
 
     it("is a no-op when a live token is already held", async () => {

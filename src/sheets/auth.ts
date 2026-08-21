@@ -3,10 +3,34 @@
  *
  * Design constraints (IMPLEMENTATION_PLAN.md WP-10 / HANDOVER.md invariant 8):
  *  - Request exactly the `drive.file` scope, nothing broader.
- *  - Never persist the access token to localStorage/sessionStorage/IndexedDB
- *    - it lives only in the closure below, for the life of the tab.
  *  - Never call any *interactive* Google UI before a user gesture (signIn()
  *    is that gesture; nothing here runs at import/module-init time).
+ *
+ * TOKEN PERSISTENCE — a deliberate, owner-approved security trade-off
+ * (2026-08-21). Do not "fix" this back without asking the owner.
+ *
+ * WP-10's original rule was "never persist the access token to
+ * localStorage/sessionStorage/IndexedDB". **That rule is now broken on
+ * purpose.** The consent-hint + silent-`prompt:""` approach below was shipped
+ * first precisely because it kept the rule, and it did not work in the
+ * owner's environment (installed PWA on mobile). The owner chose persistence
+ * with the cost stated explicitly: "ugly - but makes for a better user
+ * experience".
+ *
+ * What this costs: the access token now sits in localStorage, where any XSS
+ * on this origin can read it. What bounds the damage:
+ *   - the token only ever carries `drive.file` (invariant 8), so it can touch
+ *     only files this app itself created - not the user's wider Drive;
+ *   - it is short-lived (~1 hour) and is cleared on signOut() and on
+ *     invalidate() (the 401 path), so a rejected token is never re-read;
+ *   - what is read back is validated, never trusted, since localStorage is
+ *     attacker-writable.
+ *
+ * What it does NOT solve: a browser-only app has no refresh token - that
+ * needs a client secret and a backend, and invariant 7 forbids one. So this
+ * makes reloads seamless for up to ~1 hour per sign-in, after which the
+ * silent path is tried and, where that path is what already failed, the user
+ * signs in again. That ceiling is inherent, not a bug to chase.
  *
  * Session restore (owner-approved 2026-08-21, narrowing invariant 8's "no
  * Google call before a user gesture" to "no *interactive* Google UI before a
@@ -72,10 +96,24 @@ export interface GoogleAuthDeps {
   readConsentHint(): boolean;
   /** Persists (or clears) the consent hint. */
   writeConsentHint(consented: boolean): void;
+  /**
+   * Reads the cached access token, or `undefined` if absent/unreadable/malformed.
+   * See the module doc comment for why this exists and what it costs.
+   */
+  readStoredToken(): TokenState | undefined;
+  /** Persists the access token, or clears it when passed `undefined`. */
+  writeStoredToken(token: TokenState | undefined): void;
 }
 
 /** localStorage key for the consent hint. Holds `"1"` or nothing — never a token. */
 export const CONSENT_HINT_KEY = "feeder.auth.consented";
+
+/**
+ * localStorage key for the cached access token. **This one DOES hold a bearer
+ * token** — see the module doc comment for the owner's decision and the
+ * reasoning. Anything clearing session state must clear this too.
+ */
+export const STORED_TOKEN_KEY = "feeder.auth.token";
 
 export interface GoogleAuth {
   signIn(): Promise<void>;
@@ -107,6 +145,31 @@ export interface GoogleAuth {
   invalidate(): void;
   state(): AuthState;
   subscribe(listener: (state: AuthState) => void): () => void;
+}
+
+/**
+ * Parses the cached-token cell. Exported so the validation is unit-testable:
+ * `createRealGoogleAuthDeps` is only exercised via verify-google.html, never
+ * in CI, and this is the one security-relevant branch in it.
+ *
+ * localStorage is attacker-writable, so nothing here trusts the shape it
+ * finds. Anything malformed degrades to `undefined` ("no cached token"), and
+ * in particular a non-string `accessToken` must never reach an
+ * `Authorization` header.
+ */
+export function parseStoredToken(raw: string | null): TokenState | undefined {
+  if (!raw) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== "object" || parsed === null) return undefined;
+  const { accessToken, expiresAt } = parsed as Record<string, unknown>;
+  if (typeof accessToken !== "string" || accessToken === "") return undefined;
+  if (typeof expiresAt !== "number" || !Number.isFinite(expiresAt)) return undefined;
+  return { accessToken, expiresAt };
 }
 
 function createRealGoogleAuthDeps(clientId: string): GoogleAuthDeps {
@@ -148,6 +211,25 @@ function createRealGoogleAuthDeps(clientId: string): GoogleAuthDeps {
       } catch {
         // Best-effort: failing to persist the hint costs one extra sign-in,
         // which is strictly better than failing to sign in at all.
+      }
+    },
+    readStoredToken() {
+      try {
+        return parseStoredToken(window.localStorage.getItem(STORED_TOKEN_KEY));
+      } catch {
+        return undefined;
+      }
+    },
+    writeStoredToken(tokenState) {
+      try {
+        if (tokenState) {
+          window.localStorage.setItem(STORED_TOKEN_KEY, JSON.stringify(tokenState));
+        } else {
+          window.localStorage.removeItem(STORED_TOKEN_KEY);
+        }
+      } catch {
+        // Storage full or blocked: the in-memory token still works for this
+        // tab, so a write failure degrades to the old behaviour, not an error.
       }
     },
   };
@@ -210,15 +292,30 @@ export function createGoogleAuth(clientId: string, deps: GoogleAuthDeps = create
       const client = await ensureTokenClient();
       token = await requestToken(client);
       deps.writeConsentHint(true);
+      deps.writeStoredToken(token);
       notify();
     },
 
     async restore(): Promise<boolean> {
       // Already signed in (e.g. restore() raced a signIn()) — nothing to do.
       if (token && token.expiresAt > deps.now()) return true;
-      // No prior consent from this browser: make NO Google call. This is the
-      // part of invariant 8 that still holds absolutely — a first-time
-      // visitor triggers zero Google traffic before a gesture.
+
+      // The cached token: the whole point of the persistence trade-off. A
+      // reload adopts it with ZERO Google calls, which is what makes the
+      // installed PWA usable where the silent path below does not work.
+      const stored = deps.readStoredToken();
+      if (stored && stored.expiresAt > deps.now()) {
+        token = stored;
+        notify();
+        return true;
+      }
+      // Expired or absent: it is dead weight now, and leaving it would keep
+      // handing a rejected token to the next load.
+      if (stored) deps.writeStoredToken(undefined);
+
+      // No prior consent from this browser: make NO Google call. A
+      // first-time visitor still triggers zero Google traffic before a
+      // gesture — that part of the original rule is intact.
       if (!deps.readConsentHint()) return false;
       try {
         const client = await ensureTokenClient();
@@ -227,6 +324,7 @@ export function createGoogleAuth(clientId: string, deps: GoogleAuthDeps = create
         // to "consent"/"select_account" here — that would put an interactive
         // dialog on page load, which is exactly what invariant 8 forbids.
         token = await requestToken(client, { prompt: "" });
+        deps.writeStoredToken(token);
       } catch {
         // Session gone, consent withdrawn, third-party cookies blocked, or
         // an iOS PWA with its own cookie jar. All of these mean the same
@@ -248,9 +346,11 @@ export function createGoogleAuth(clientId: string, deps: GoogleAuthDeps = create
       // session behind the user's back afterwards - only a fresh signIn()
       // (a new user gesture) may create a new token client.
       tokenClient = undefined;
-      // Clear the consent hint too: an explicit "log me out" must not be
-      // silently undone by restore() on the very next page load.
+      // Clear the consent hint AND the cached token: an explicit "log me
+      // out" must not be silently undone by restore() on the next page load,
+      // and must not leave a live bearer token sitting in storage.
       deps.writeConsentHint(false);
+      deps.writeStoredToken(undefined);
       notify();
       if (current) {
         await deps.revoke(current.accessToken);
@@ -280,6 +380,10 @@ export function createGoogleAuth(clientId: string, deps: GoogleAuthDeps = create
     },
 
     invalidate(): void {
+      // Always clear storage, even when nothing is held in memory: the
+      // transport calls this after a 401, and the whole point is that the
+      // *next* load must not resurrect the token Google just rejected.
+      deps.writeStoredToken(undefined);
       if (token) {
         token = undefined;
         notify();
