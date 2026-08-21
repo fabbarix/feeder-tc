@@ -64,10 +64,8 @@ import type {
   StorageLocation,
 } from "../../domain/index.ts";
 import {
-  createBrowserConnectivityMonitor,
-  createLocalStorageOutbox,
+  acquireSharedOutboxSync,
   createLocalStorageSnapshotStore,
-  createOutboxSyncController,
   previewSnapshotWithPending,
   syncSnapshot,
 } from "../../sync/index.ts";
@@ -164,7 +162,7 @@ export function useScanFlow(): ScanFlow {
     // (react-hooks set-state-in-effect rule), same discipline as
     // usePantryInventory.ts/useShoppingList.ts.
     let cancelled = false;
-    let stopController: (() => void) | undefined;
+    let releaseSharedSync: (() => void) | undefined;
 
     async function boot(): Promise<void> {
       const [ingredientsResult, productsResult, recipesResult, recipeIngredientsResult, planSlotsResult, settingsResult] =
@@ -206,12 +204,14 @@ export function useScanFlow(): ScanFlow {
       const catalog = new Map(ingredientsResult.rows.map((ingredient) => [ingredient.id, ingredient] as const));
       const applyNewEvents = createApplyNewEvents(catalog);
       const snapshotStore = createLocalStorageSnapshotStore();
-      const outbox = createLocalStorageOutbox(workbookId);
-      const connectivity = createBrowserConnectivityMonitor();
-      const controller = createOutboxSyncController({
-        outbox,
+      // The shared, app-wide Outbox + OutboxSyncController for this workbook
+      // (src/sync/outbox-registry.ts) — see usePantryInventory.ts's boot()
+      // for the full rationale; this hook used to build its own private
+      // controller, which is exactly what let the same InventoryEvent be
+      // appended twice after an offline→online transition.
+      const sharedSync = acquireSharedOutboxSync({
+        workbookId,
         workbookStore: store,
-        connectivity,
         onResult: (result) => {
           if (result.failure) {
             showToast({
@@ -223,6 +223,8 @@ export function useScanFlow(): ScanFlow {
           void refreshRef.current();
         },
       });
+      const { outbox } = sharedSync;
+      releaseSharedSync = sharedSync.release;
 
       const [nextConfirmed, nextMeta, nextPending] = await Promise.all([
         syncSnapshot({ workbookStore: store, snapshotStore, applyNewEvents }, workbookId),
@@ -234,9 +236,8 @@ export function useScanFlow(): ScanFlow {
       setConfirmed(nextConfirmed);
       setMeta(nextMeta);
       setPending(nextPending);
-      setEngine({ outbox, applyNewEvents, controller });
+      setEngine({ outbox, applyNewEvents, controller: sharedSync.controller });
       setLoading(false);
-      stopController = controller.start();
     }
 
     boot().catch((err: unknown) => {
@@ -248,7 +249,7 @@ export function useScanFlow(): ScanFlow {
 
     return () => {
       cancelled = true;
-      stopController?.();
+      releaseSharedSync?.();
     };
   }, [store, workbookId, reloadToken, showToast]);
 

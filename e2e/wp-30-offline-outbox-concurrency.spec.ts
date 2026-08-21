@@ -73,21 +73,23 @@ async function setBrowserOnline(page: Page, online: boolean): Promise<void> {
 // their FIRST attempt never trips it, so outbox-sync-controller.ts's own
 // doc comment ("exactly-once dedupe keeps that guarantee regardless of how
 // many passes run") overclaims: it holds within one controller, not across
-// two. Fixing this means the outbox/controller pair becoming a single
-// shared instance (or an equivalent dedupe across instances) — a
-// structural change to `App.tsx`/`src/sync/**`/four route hooks, well past
-// this package's remit and file ownership. A separate package is fixing it
-// (do NOT un-fail this test to match — this scenario should start passing
-// only once that lands); `test.fail()` below keeps it asserting the
-// CORRECT behaviour (exactly 2 events, matching what PR #34's fix
-// promises) rather than silently weakening the assertion to match the bug,
-// while not blocking this suite.
+// two.
+//
+// FIXED (PR #38). `src/sync/outbox-registry.ts` now hands every call site
+// the SAME ref-counted outbox + controller per workbook, so the five
+// constructions above can no longer produce two live flushers; and
+// `flush.ts`'s exactly-once check now runs before EVERY append attempt,
+// not only before a retry, as defence in depth. `outbox-sync-controller
+// .ts`'s overclaiming doc comment was corrected at the same time.
+//
+// This scenario was committed deliberately as `test.fail()` while the bug
+// was live — asserting the CORRECT behaviour rather than being weakened to
+// match the bug — and the marker was removed once the fix landed and
+// Playwright reported "Expected to fail, but passed". Kept as a permanent
+// regression guard: it is the only test that exercises the whole
+// offline -> enqueue -> reconnect -> flush path across a real browser.
 
 test("two events enqueued while offline are not stranded — both land once reconnected", async ({ browser }) => {
-  test.fail(
-    true,
-    "Reproduces a DUPLICATE append instead (see this file's header comment) — a separate, more severe bug than the one this scenario was written to guard, found while writing it and reported rather than worked around.",
-  );
   const backend = createSharedWorkbookBackend({ spreadsheetId: "wp30-offline-outbox" });
   try {
     const ctx = await browser.newContext();

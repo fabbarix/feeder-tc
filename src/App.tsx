@@ -9,7 +9,7 @@ import { Home } from "./routes/Home";
 import { Shopping } from "./routes/Shopping";
 import { env, missingEnvVars } from "./env.ts";
 import { ConfigMissingScreen } from "./ui/ConfigMissingScreen.tsx";
-import { systemClock, createSeededRng, type Outbox } from "./domain/index.ts";
+import { systemClock, createSeededRng } from "./domain/index.ts";
 import {
   createGoogleAuth,
   createGooglePickerLauncher,
@@ -29,9 +29,9 @@ import type { PickerLauncher } from "./sheets/picker.ts";
 import { deriveShellState } from "./shell-state.ts";
 import { WorkbookContext, type WorkbookContextValue } from "./workbook-context.ts";
 import {
-  createLocalStorageOutbox,
   createBrowserConnectivityMonitor,
-  createOutboxSyncController,
+  acquireSharedOutboxSync,
+  type SharedOutboxSync,
 } from "./sync/index.ts";
 import { createPwaUpdateWatcher } from "./pwa/update.ts";
 import { warmBarcodeDecoderIfNeeded } from "./scan/warm-wasm-decoder.ts";
@@ -147,59 +147,76 @@ function ShellContainer() {
 
   const [pendingCount, setPendingCount] = useState(0);
 
-  // One Outbox per active workbook (invariant 9 — offline writes are events
-  // appended via the outbox, never in-place edits), rebuilt whenever the
-  // active workbook changes. `refreshPendingCount` re-reads it rather than
-  // trusting a locally-tracked delta, so this container's count can never
-  // drift from what is actually durably queued (same "always re-read"
-  // discipline `createLocalStorageOutbox` itself follows — see its header
-  // comment).
-  const outbox = useMemo<Outbox | undefined>(() => {
+  // The active workbook's WorkbookStore — hoisted to its own memo (it used
+  // to be built inline inside `workbookContextValue` below) purely so the
+  // effect right after it can hand the SAME store to
+  // `acquireSharedOutboxSync` without a circular "value needs the store,
+  // store-acquisition needs to happen before the value" dependency.
+  const store = useMemo(() => {
     if (!activeWorkbook) return undefined;
-    return createLocalStorageOutbox(activeWorkbook.id);
-  }, [activeWorkbook]);
+    const transport = createGoogleSheetsTransport({ spreadsheetId: activeWorkbook.id, auth });
+    return createSheetsWorkbookStore(transport);
+  }, [activeWorkbook, auth]);
 
-  // `pendingCount`/`loading`-style state is only ever set from a promise's
-  // own resolution, never synchronously in the effect body itself (matches
-  // Recipes.tsx's fetch pattern, and react-hooks' set-state-in-effect rule)
-  // — the `useState(0)` above already covers "nothing queued yet".
-  const refreshPendingCount = useCallback(() => {
-    void (outbox ? outbox.pending() : Promise.resolve([])).then((pending) => setPendingCount(pending.length));
-  }, [outbox]);
-
+  // The active workbook's shared Outbox + OutboxSyncController (invariant 9
+  // — offline writes are events appended via the outbox, never in-place
+  // edits) — ONE instance app-wide per workbook, acquired here and by every
+  // route hook that needs it (`usePantryInventory`, `useScanFlow`,
+  // `usePlanWeek`, `useShoppingList`) via the same `acquireSharedOutboxSync`
+  // (src/sync/outbox-registry.ts). This used to construct its own private
+  // `Outbox` + `OutboxSyncController` — always live, for the app's entire
+  // lifetime — while every one of those four route hooks ALSO built its own
+  // pair for the same workbook. Two independently "live" controllers over
+  // one shared localStorage-backed outbox is what let the same
+  // `InventoryEvent` be appended twice after an offline→online transition
+  // (both controllers wake on the same reconnect, both see the same
+  // pending event, both succeed): see outbox-registry.ts's header for the
+  // full fix. Acquired/released in an effect, never a `useMemo` — a
+  // `useMemo` factory has no matching cleanup, so under React's dev-mode
+  // double-render it would leak a ref-count the registry could never claw
+  // back.
+  //
+  // `onResult` drives `pendingCount` directly from the shared controller's
+  // own report of what's left in the queue after every flush it runs, for
+  // ANY caller's trigger — not only a flush this component itself started
+  // — which is actually a fix in its own right: previously a route's own
+  // controller acknowledging an event never touched this banner's count at
+  // all (nothing in any route hook wrote through the old `countedOutbox`
+  // wrapper), so the badge could only ever move on THIS component's own
+  // flush passes.
+  const [sharedSync, setSharedSync] = useState<SharedOutboxSync | undefined>(undefined);
   useEffect(() => {
+    // No explicit "reset to undefined" branch here when there's no active
+    // workbook: `workbookContextValue` below already gates on `activeWorkbook`
+    // itself, so a `sharedSync` left over from a just-closed workbook is
+    // harmless (never read without that same `activeWorkbook` check) — and
+    // `activeWorkbook`/`store` going from set to unset never happens without
+    // this effect's own cleanup already having released that stale handle.
+    if (!activeWorkbook || !store) return;
+    const handle = acquireSharedOutboxSync({
+      workbookId: activeWorkbook.id,
+      workbookStore: store,
+      connectivity,
+      onResult: (result) => setPendingCount(result.remaining),
+    });
+    // `sharedSync`/`pendingCount` are only ever set from a promise's own
+    // resolution, never synchronously in the effect body itself (same
+    // set-state-in-effect discipline as the rest of this component) — this
+    // also seeds the badge from whatever is ALREADY queued (e.g. left over
+    // from a previous session): a flush may not run again for a while
+    // (already fully synced, or offline), so `onResult` alone could leave a
+    // stale count on screen.
     let cancelled = false;
-    void (outbox ? outbox.pending() : Promise.resolve([])).then((pending) => {
-      if (!cancelled) setPendingCount(pending.length);
+    void handle.outbox.pending().then((pending) => {
+      if (cancelled) return;
+      setPendingCount(pending.length);
+      setSharedSync(handle);
     });
     return () => {
       cancelled = true;
+      handle.release();
     };
-  }, [outbox]);
-
-  // A route (WP-23's shopping list, once it exists) enqueues through THIS
-  // wrapper, via `useWorkbookContext().outbox` — never the raw Outbox —
-  // purely so every enqueue/acknowledge/clear also refreshes the banner's
-  // count. The controller below is given the same wrapper as its outbox, so
-  // a flush's `acknowledge` calls refresh it too.
-  const countedOutbox = useMemo<Outbox | undefined>(() => {
-    if (!outbox) return undefined;
-    return {
-      async enqueue(event) {
-        await outbox.enqueue(event);
-        refreshPendingCount();
-      },
-      pending: () => outbox.pending(),
-      async acknowledge(eventId) {
-        await outbox.acknowledge(eventId);
-        refreshPendingCount();
-      },
-      async clear() {
-        await outbox.clear();
-        refreshPendingCount();
-      },
-    };
-  }, [outbox, refreshPendingCount]);
+  }, [activeWorkbook, store, connectivity]);
 
   // WP-24 update prompt (`src/pwa/update.ts`): constructed once, lazily —
   // `createPwaUpdateWatcher`'s default parameter reads `navigator.serviceWorker`
@@ -327,20 +344,21 @@ function ShellContainer() {
   }, [shellState.kind]);
 
   const workbookContextValue = useMemo<WorkbookContextValue | undefined>(() => {
-    if (!activeWorkbook || !countedOutbox) return undefined;
-    const transport = createGoogleSheetsTransport({ spreadsheetId: activeWorkbook.id, auth });
+    if (!activeWorkbook || !store || !sharedSync) return undefined;
     // Both WP-21's workbookId (per-workbook SnapshotStore/Outbox keying) and
     // WP-24-UI's outbox (routes enqueue writes through it) — additive, not
-    // competing.
+    // competing. `sharedSync.outbox` is the one shared instance for this
+    // workbook (outbox-registry.ts) — every route hook gets this exact same
+    // object back from its own `acquireSharedOutboxSync` call.
     return {
-      store: createSheetsWorkbookStore(transport),
+      store,
       clock: systemClock,
       rng,
       ...(user ? { user } : {}),
       workbookId: activeWorkbook.id,
-      outbox: countedOutbox,
+      outbox: sharedSync.outbox,
     };
-  }, [activeWorkbook, auth, rng, countedOutbox, user]);
+  }, [activeWorkbook, store, rng, sharedSync, user]);
 
   // Bring a workbook that predates the current schema up to date whenever it
   // is OPENED, not only when it is created — a spreadsheet the Picker points
@@ -374,20 +392,26 @@ function ShellContainer() {
     };
   }, [activeWorkbook, auth]);
 
-  // Flush automatically on reconnect (and once immediately, if already
-  // online) whenever there is both a workbook to flush into and an outbox to
-  // flush from — restarted whenever either changes (e.g. switching
-  // workbooks). `countedOutbox` (not the raw `outbox`) so a flush's own
-  // `acknowledge` calls refresh the banner's pending count too.
-  useEffect(() => {
-    if (!workbookContextValue || !countedOutbox) return;
-    const controller = createOutboxSyncController({
-      outbox: countedOutbox,
-      workbookStore: workbookContextValue.store,
-      connectivity,
-    });
-    return controller.start();
-  }, [workbookContextValue, countedOutbox, connectivity]);
+  // `shellState.kind === "ready"` (derived from authState/user/activeWorkbook
+  // alone, deriveShellState.ts) can be true for one render before
+  // `workbookContextValue` catches up: acquiring the shared outbox/
+  // controller (the effect above) only ever sets `sharedSync` from that
+  // effect's own resolution, never synchronously within it (react-hooks'
+  // set-state-in-effect rule — same discipline as every other async state
+  // in this component), so there is deliberately one render where
+  // `activeWorkbook` is already set but `sharedSync`/`workbookContextValue`
+  // are not yet. `AppShell`'s "ready" gate (renderGate, ui/AppShell.tsx)
+  // knows nothing about that and would mount `<Outlet />` — and every ready
+  // route calls `useWorkbookContext()` unconditionally — immediately, which
+  // used to crash with "useWorkbookContext() called outside a
+  // workbook-ready route" for exactly that one render (caught by this PR's
+  // own e2e run, not any pre-existing test). Rendering the same lazy-route
+  // skeleton every OTHER loading state in this app already uses, for that
+  // one extra tick, closes the gap without touching `deriveShellState` (kept
+  // pure/testable) or `AppShell` (outside this fix's file ownership).
+  if (shellState.kind === "ready" && !workbookContextValue) {
+    return <RouteFallback />;
+  }
 
   return (
     <WorkbookContext.Provider value={workbookContextValue}>

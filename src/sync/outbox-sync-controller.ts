@@ -29,9 +29,26 @@
  * one is already running schedules exactly one more pass, guaranteed to
  * start only after the current pass returns, so nothing enqueued during
  * the current pass — no matter how many separate calls asked for it — is
- * ever left behind. This never edits or duplicates an `InventoryEvents`
- * row (invariant 1); `flushOutbox`'s own exactly-once dedupe keeps that
- * guarantee regardless of how many passes run.
+ * ever left behind.
+ *
+ * On duplicate rows (invariant 1): this coalescing guarantees that WITHIN
+ * one controller instance, `flushOutbox` never runs two passes
+ * concurrently -- a coalesced rerun only starts once the pass ahead of it
+ * has fully returned -- so a single controller can never race itself into
+ * appending the same event twice. That is a narrower claim than this
+ * comment used to make: it does NOT extend across two controller
+ * instances. Two controllers (e.g. one built by App.tsx, another by a
+ * route hook -- the actual shape of a since-fixed production bug: see
+ * outbox-registry.ts) each have their own independent `flushing` flag
+ * here, so this mutex does nothing to stop them from both calling
+ * `flushOutbox` at the same time over the same shared outbox. Exactly-once
+ * across multiple controllers/tabs is `flush.ts`'s job now (its dedupe
+ * check runs before every append attempt, not only before a retry) -- see
+ * that module's header for what it does and does not guarantee. The
+ * architectural fix that keeps two controllers from existing for one
+ * workbook in the first place is `outbox-registry.ts`; this module has no
+ * way to enforce that on its own -- a caller is always free to construct a
+ * second instance of it.
  */
 import type { Outbox, WorkbookStore } from "../domain/contracts.ts";
 import type { ConnectivityMonitor } from "./connectivity.ts";

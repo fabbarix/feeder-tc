@@ -25,6 +25,12 @@ export {
   type OutboxSyncControllerDeps,
 } from "./outbox-sync-controller.ts";
 export {
+  acquireSharedOutboxSync,
+  __resetSharedOutboxSyncRegistryForTests,
+  type SharedOutboxSync,
+  type AcquireSharedOutboxSyncParams,
+} from "./outbox-registry.ts";
+export {
   refreshBeforeEdit,
   RefreshBeforeEditNotFoundError,
   type RefreshBeforeEditDeps,

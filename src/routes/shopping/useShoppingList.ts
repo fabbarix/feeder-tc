@@ -2,10 +2,16 @@
  * Owns the Shopping route's data: the range-scoped generated list
  * (WP-14's `computeShoppingList`/`computeNeeds`), live-recomputed as the
  * plan or pantry changes, plus check-off. Mirrors WP-21's
- * `usePantryInventory` container pattern (same boot/refresh/submit shape,
- * same per-route `Outbox`/`SnapshotStore`/connectivity/controller
- * instance) — see that file's header comment for why each route rolls its
- * own sync engine rather than sharing one.
+ * `usePantryInventory` container pattern (same boot/refresh/submit shape),
+ * but the `Outbox`/`OutboxSyncController` here are the shared, app-wide
+ * instance for this workbook (`acquireSharedOutboxSync`,
+ * src/sync/outbox-registry.ts) — NOT a private pair built by this hook.
+ * Each route used to build its own; that is what let the same
+ * `InventoryEvent` be appended twice after an offline→online transition
+ * (two independently "live" controllers, both waking on the same reconnect
+ * and flushing the same pending event). Only `SnapshotStore` stays
+ * per-route-instance (it really is stateless/re-derivable, unlike the
+ * controller's connectivity subscription).
  *
  * Two kinds of write, per HANDOVER.md invariant 9 / UI_DESIGN.md §7:
  *
@@ -75,10 +81,8 @@ import type {
 } from "../../domain/index.ts";
 
 import {
-  createBrowserConnectivityMonitor,
-  createLocalStorageOutbox,
+  acquireSharedOutboxSync,
   createLocalStorageSnapshotStore,
-  createOutboxSyncController,
   previewSnapshotWithPending,
   syncSnapshot,
 } from "../../sync/index.ts";
@@ -220,7 +224,7 @@ export function useShoppingList(range: DateRange): ShoppingListState {
     // (react-hooks set-state-in-effect rule) — same discipline as
     // usePantryInventory.
     let cancelled = false;
-    let stopController: (() => void) | undefined;
+    let releaseSharedSync: (() => void) | undefined;
 
     async function boot(): Promise<void> {
       const [ingredientsResult, recipesResult, recipeIngredientsResult, planSlotsResult, settingsResult, shoppingItemsResult] =
@@ -257,14 +261,15 @@ export function useShoppingList(range: DateRange): ShoppingListState {
       const catalog = new Map(ingredientsResult.rows.map((ingredient) => [ingredient.id, ingredient] as const));
       const applyNewEvents = createApplyNewEvents(catalog);
       const snapshotStore = createLocalStorageSnapshotStore();
-      const outbox = createLocalStorageOutbox(workbookId);
-      const connectivity = createBrowserConnectivityMonitor();
-      const controller = createOutboxSyncController({
-        outbox,
+      // The shared, app-wide Outbox + OutboxSyncController for this workbook
+      // (src/sync/outbox-registry.ts) — see the module doc comment above.
+      const sharedSync = acquireSharedOutboxSync({
+        workbookId,
         workbookStore: store,
-        connectivity,
         onResult: (result) => handleFlushResultRef.current(result),
       });
+      const { outbox } = sharedSync;
+      releaseSharedSync = sharedSync.release;
 
       const [nextConfirmed, nextMeta, nextPending] = await Promise.all([
         syncSnapshot({ workbookStore: store, snapshotStore, applyNewEvents }, workbookId),
@@ -276,9 +281,8 @@ export function useShoppingList(range: DateRange): ShoppingListState {
       setConfirmed(nextConfirmed);
       setMeta(nextMeta);
       setPending(nextPending);
-      setEngine({ outbox, applyNewEvents, controller });
+      setEngine({ outbox, applyNewEvents, controller: sharedSync.controller });
       setLoading(false);
-      stopController = controller.start();
     }
 
     boot().catch((err: unknown) => {
@@ -290,7 +294,7 @@ export function useShoppingList(range: DateRange): ShoppingListState {
 
     return () => {
       cancelled = true;
-      stopController?.();
+      releaseSharedSync?.();
     };
   }, [store, workbookId, reloadToken, showToast]);
 
