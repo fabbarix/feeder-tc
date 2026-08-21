@@ -219,15 +219,25 @@ export function Scan() {
       ) : null}
 
       {!flow.loading && !flow.error && phase.kind === "known" && activeIngredient ? (
-        <KnownProductFlow
-          product={phase.product}
-          ingredient={activeIngredient}
-          need={flow.shoppingNeedByIngredient.get(phase.product.ingredientId)}
-          today={flow.today}
-          currencySymbol={flow.currencySymbol}
-          onConfirm={(input) => void handleConfirmKnown(phase.product, input)}
-          onCancel={backToScanning}
-        />
+        <>
+          {/* M6 (DESIGN_PRODUCTS.md §1.4) — the price-history view is a
+              separate, reads-only route (src/routes/products/**); this is
+              its one entry point from the scan flow itself. */}
+          <p>
+            <Link to={`/products/prices/product/${phase.product.barcode}`} className={styles.backLink}>
+              View price history for this product
+            </Link>
+          </p>
+          <KnownProductFlow
+            product={phase.product}
+            ingredient={activeIngredient}
+            need={flow.shoppingNeedByIngredient.get(phase.product.ingredientId)}
+            today={flow.today}
+            currencySymbol={flow.currencySymbol}
+            onConfirm={(input) => void handleConfirmKnown(phase.product, input)}
+            onCancel={backToScanning}
+          />
+        </>
       ) : null}
 
       {!flow.loading && !flow.error && phase.kind === "known" && !activeIngredient ? (

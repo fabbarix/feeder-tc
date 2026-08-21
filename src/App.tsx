@@ -82,6 +82,20 @@ const Settings = lazy(() => import("./routes/Settings.tsx").then((m) => ({ defau
 // of code-splitting that guarantees that (see wasm-decoder.ts's own header
 // for the second).
 const Scan = lazy(() => import("./routes/scan/Scan.tsx").then((m) => ({ default: m.Scan })));
+// M6 (DESIGN_PRODUCTS.md §1.4): the price-history view — the last piece of
+// M6, deliberately out of #32 (STATUS.md "M6 remainder: Price-history view").
+// Reads only, records nothing, so it carries none of Scan's camera/decoder
+// weight; lazy for the same "not the hot path" reasoning as every route
+// above.
+const PriceHistory = lazy(() =>
+  import("./routes/products/PriceHistory.tsx").then((m) => ({ default: m.PriceHistory })),
+);
+const PriceHistoryIngredient = lazy(() =>
+  import("./routes/products/PriceHistoryIngredient.tsx").then((m) => ({ default: m.PriceHistoryIngredient })),
+);
+const PriceHistoryProduct = lazy(() =>
+  import("./routes/products/PriceHistoryProduct.tsx").then((m) => ({ default: m.PriceHistoryProduct })),
+);
 
 /** Suspense fallback for a lazily-loaded route — matches the multi-`Skeleton` loading shape every route's own data-loading state already uses (e.g. Shopping.tsx, Plan.tsx). */
 function RouteFallback() {
@@ -470,6 +484,9 @@ const router = createBrowserRouter(
         { path: "plan", element: lazyRoute(<Plan />) },
         { path: "settings", element: lazyRoute(<Settings />) },
         { path: "scan", element: lazyRoute(<Scan />) },
+        { path: "products/prices", element: lazyRoute(<PriceHistory />) },
+        { path: "products/prices/ingredient/:ingredientId", element: lazyRoute(<PriceHistoryIngredient />) },
+        { path: "products/prices/product/:barcode", element: lazyRoute(<PriceHistoryProduct />) },
       ],
     },
   ],
