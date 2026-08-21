@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarBlank } from "../ui/icons.ts";
-import { EmptyState, ErrorState, Skeleton, WeekNav } from "../ui/components";
+import { ConfirmDialog, EmptyState, ErrorState, Skeleton, WeekNav } from "../ui/components";
 import type { MealTag, PlanSlotId } from "../domain/index.ts";
 import { usePlanWeek } from "./plan/usePlanWeek.ts";
 import { PlanSlotRow } from "./plan/PlanSlotRow.tsx";
@@ -168,6 +168,20 @@ export function Plan() {
           onCancel={plan.cancelMarkCooked}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={plan.staleWeekConflict}
+        title="This week changed elsewhere"
+        description="Someone else changed this week's plan since you opened it. Generating now overwrites those changes with a freshly generated week."
+        confirmLabel="Generate anyway"
+        cancelLabel="Keep this week"
+        destructive
+        onConfirm={() => {
+          plan.cancelStaleWeekConflict();
+          void plan.generateWeek(true);
+        }}
+        onCancel={plan.cancelStaleWeekConflict}
+      />
     </section>
   );
 }

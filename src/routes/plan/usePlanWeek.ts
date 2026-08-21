@@ -88,6 +88,44 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/**
+ * WP-stale-save: structural equality of the fields a re-generate could
+ * clobber — used only to detect "this week's slots changed since this route
+ * loaded them", never persisted. `PlanSlotFilling` is a small closed union
+ * (types.ts), so this compares it by hand rather than `JSON.stringify`
+ * (RecipeEditor.tsx's own `recipeContentEquals` doc comment explains why a
+ * hand-rolled compare beats stringify: independently-built object literals
+ * can differ in key order without differing in any value).
+ */
+function planSlotFillingEquals(a: PlanSlot["filling"], b: PlanSlot["filling"]): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "recipe" && b.kind === "recipe") return a.recipeId === b.recipeId && a.scaleServings === b.scaleServings;
+  if (a.kind === "leftover" && b.kind === "leftover") return a.lotId === b.lotId;
+  return true; // both "empty"
+}
+
+/** See `planSlotFillingEquals` — the same "detect a concurrent change, don't persist this" purpose, for one whole `PlanSlot` row. */
+function planSlotEquals(a: PlanSlot, b: PlanSlot): boolean {
+  return (
+    a.date === b.date &&
+    a.slotType === b.slotType &&
+    a.slotIndex === b.slotIndex &&
+    a.state === b.state &&
+    a.pinned === b.pinned &&
+    planSlotFillingEquals(a.filling, b.filling)
+  );
+}
+
+/** Same rows, in any order, each unchanged — used by `generateWeek`'s own stale-save check (see its doc comment). */
+function planSlotSetEquals(a: readonly PlanSlot[], b: readonly PlanSlot[]): boolean {
+  if (a.length !== b.length) return false;
+  const bySlotId = new Map(b.map((s) => [s.id, s] as const));
+  return a.every((s) => {
+    const other = bySlotId.get(s.id);
+    return other !== undefined && planSlotEquals(s, other);
+  });
+}
+
 function buildIngredientIndex(lines: readonly RecipeIngredient[]): Map<RecipeId, Set<IngredientId>> {
   const map = new Map<RecipeId, Set<IngredientId>>();
   for (const line of lines) {
@@ -145,10 +183,18 @@ export interface UsePlanWeekResult {
   readonly generating: boolean;
   readonly busySlotIds: ReadonlySet<PlanSlotId>;
   readonly markCookedDraft: MarkCookedDraft | undefined;
+  /**
+   * Set when `generateWeek` finds this week's `PlanSlot` rows changed since
+   * this route last loaded them — see `generateWeek`'s own doc comment.
+   * Non-`undefined` means "confirm before regenerating"; the route renders
+   * a `ConfirmDialog` gated on this.
+   */
+  readonly staleWeekConflict: boolean;
   readonly retry: () => void;
   readonly goToPreviousWeek: () => void;
   readonly goToNextWeek: () => void;
-  readonly generateWeek: () => Promise<void>;
+  readonly generateWeek: (force?: boolean) => Promise<void>;
+  readonly cancelStaleWeekConflict: () => void;
   readonly reroll: (slotId: PlanSlotId) => Promise<void>;
   readonly togglePin: (slotId: PlanSlotId) => Promise<void>;
   readonly pickRecipe: (slotId: PlanSlotId, recipeId: RecipeId) => Promise<void>;
@@ -184,6 +230,7 @@ export function usePlanWeek(): UsePlanWeekResult {
   const [generating, setGenerating] = useState(false);
   const [busySlotIds, setBusySlotIds] = useState<ReadonlySet<PlanSlotId>>(new Set());
   const [markCookedDraft, setMarkCookedDraft] = useState<MarkCookedDraft | undefined>(undefined);
+  const [staleWeekConflict, setStaleWeekConflict] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -326,8 +373,41 @@ export function usePlanWeek(): UsePlanWeekResult {
   // generated).
   const findSlot = useCallback((slotId: PlanSlotId) => weekSlots.find((s) => s.id === slotId), [weekSlots]);
 
+  /**
+   * WP-stale-save: every per-slot action below (reroll/pin/pick/clear/scale/
+   * mark-cooked) used to build its next `PlanSlot` by spreading the LOCAL
+   * `slot` this render already had — a full-row blind write, same shape as
+   * the recipe/ingredient forms this workstream also fixes, just triggered
+   * by a one-tap toggle instead of a form Save. Per HANDOVER's decision
+   * register a toggle's own field is correctly last-write-wins (DESIGN
+   * intent: "the last tick should win"), but that write must not ALSO reset
+   * whatever OTHER field a concurrent household member just changed on this
+   * exact slot (e.g. B pins a slot while A's already-in-flight reroll
+   * overwrites it back to unpinned). This is exactly `src/sync/
+   * refresh-before-edit.ts`'s "protects a partial-field edit, doesn't
+   * resolve or warn about a conflict" shape, inlined here rather than
+   * imported: `PlanSlot` has no `find`-by-nothing-else id ambiguity to add
+   * ceremony around, and a placeholder slot (never persisted — see
+   * `mergeWeekSlots`) has no row for that generic helper to find at all.
+   *
+   * `edit` runs against the FRESHEST row when one exists; `buildFallback`
+   * (lazy — never called if `edit` runs, so a `rng`-consuming transform like
+   * `rerollSlot` only ever executes once) supplies the full next row for a
+   * placeholder with nothing on the sheet yet — nothing has gone stale
+   * there, so no merge is needed. `edit` returning `undefined` aborts the
+   * write entirely (no upsert, no local state change) — used by `reroll`
+   * when the freshest row turns out to already be pinned.
+   */
   const persistSlot = useCallback(
-    async (next: PlanSlot): Promise<void> => {
+    async (
+      id: PlanSlotId,
+      buildFallback: () => PlanSlot,
+      edit: (latest: PlanSlot) => PlanSlot | undefined,
+    ): Promise<void> => {
+      const latestRows = (await store.planSlots.readAll()).rows;
+      const latest = latestRows.find((s) => s.id === id);
+      const next = latest ? edit(latest) : buildFallback();
+      if (next === undefined) return;
       await store.planSlots.upsert(next);
       setAllSlots((current) => {
         const exists = current.some((s) => s.id === next.id);
@@ -354,37 +434,73 @@ export function usePlanWeek(): UsePlanWeekResult {
   const goToPreviousWeek = useCallback(() => setWeekStart((w) => addDays(w, -7)), []);
   const goToNextWeek = useCallback(() => setWeekStart((w) => addDays(w, 7)), []);
 
-  const generateWeek = useCallback(async (): Promise<void> => {
-    if (!settings) return;
-    setGenerating(true);
-    try {
-      const result = generateWeekEngine({
-        settings,
-        weekStart,
-        recipes,
-        recipeIngredients,
-        pastPlanSlots: historicalSlots,
-        expiringIngredientIds,
-        staplePlanState,
-        existingSlots: weekSlots,
-        rng,
-      });
-      await Promise.all(result.slots.map((slot) => store.planSlots.upsert(slot)));
-      setAllSlots((current) => {
-        const byId = new Map(current.map((s) => [s.id, s] as const));
-        for (const slot of result.slots) byId.set(slot.id, slot);
-        return [...byId.values()];
-      });
-      setStaplePlanState(result.staplePlanState);
-      const plannerStateStore = createLocalStoragePlannerStateStore();
-      await plannerStateStore.save(workbookId, result.staplePlanState);
-      showToast({ variant: "success", title: "Week generated.", durationMs: 3000 });
-    } catch (err) {
-      showToast({ variant: "error", title: "Couldn't generate the week", description: messageOf(err) });
-    } finally {
-      setGenerating(false);
-    }
-  }, [settings, weekStart, recipes, recipeIngredients, historicalSlots, expiringIngredientIds, staplePlanState, weekSlots, rng, store, workbookId, showToast]);
+  const generateWeek = useCallback(
+    async (force = false): Promise<void> => {
+      if (!settings) return;
+      setGenerating(true);
+      try {
+        // WP-stale-save: "Generate week" bulk-writes every slot in the
+        // range in one go — a whole-range write, same class as
+        // RecipeEditor.tsx's own form Save, not a per-slot toggle (that's
+        // `persistSlot`'s job above). So this gets THAT pattern: re-read,
+        // compare against what this route loaded, ConfirmDialog on
+        // mismatch, `force` on the confirmed retry — rather than a merge,
+        // because there is no sensible per-field merge for "recompute the
+        // whole week's assignments".
+        if (!force) {
+          const latestRows = (await store.planSlots.readAll()).rows.filter((s) => dateSet.has(s.date));
+          if (!planSlotSetEquals(latestRows, weekSlotRows)) {
+            setGenerating(false);
+            setStaleWeekConflict(true);
+            return;
+          }
+        }
+        const result = generateWeekEngine({
+          settings,
+          weekStart,
+          recipes,
+          recipeIngredients,
+          pastPlanSlots: historicalSlots,
+          expiringIngredientIds,
+          staplePlanState,
+          existingSlots: weekSlots,
+          rng,
+        });
+        await Promise.all(result.slots.map((slot) => store.planSlots.upsert(slot)));
+        setAllSlots((current) => {
+          const byId = new Map(current.map((s) => [s.id, s] as const));
+          for (const slot of result.slots) byId.set(slot.id, slot);
+          return [...byId.values()];
+        });
+        setStaplePlanState(result.staplePlanState);
+        const plannerStateStore = createLocalStoragePlannerStateStore();
+        await plannerStateStore.save(workbookId, result.staplePlanState);
+        showToast({ variant: "success", title: "Week generated.", durationMs: 3000 });
+      } catch (err) {
+        showToast({ variant: "error", title: "Couldn't generate the week", description: messageOf(err) });
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [
+      settings,
+      weekStart,
+      recipes,
+      recipeIngredients,
+      historicalSlots,
+      expiringIngredientIds,
+      staplePlanState,
+      weekSlots,
+      weekSlotRows,
+      dateSet,
+      rng,
+      store,
+      workbookId,
+      showToast,
+    ],
+  );
+
+  const cancelStaleWeekConflict = useCallback(() => setStaleWeekConflict(false), []);
 
   const reroll = useCallback(
     async (slotId: PlanSlotId): Promise<void> => {
@@ -399,19 +515,41 @@ export function usePlanWeek(): UsePlanWeekResult {
           for (const id of ingredientIndex.get(other.filling.recipeId) ?? []) weekIngredientIds.add(id);
         }
         try {
-          const next = rerollSlot({
-            slot,
-            settings,
-            weekStart,
-            recipes,
-            recipeIngredients,
-            pastPlanSlots: historicalSlots,
-            weekPlacedRecipeIds,
-            weekIngredientIds,
-            expiringIngredientIds,
-            rng,
-          });
-          await persistSlot(next);
+          await persistSlot(
+            slotId,
+            () =>
+              rerollSlot({
+                slot,
+                settings,
+                weekStart,
+                recipes,
+                recipeIngredients,
+                pastPlanSlots: historicalSlots,
+                weekPlacedRecipeIds,
+                weekIngredientIds,
+                expiringIngredientIds,
+                rng,
+              }),
+            (latest) =>
+              // The freshest row may since have been pinned by another
+              // household member — honour that rather than rerolling over
+              // it (setSlotPinned/togglePin's own merge below is the
+              // analogous case for the opposite direction).
+              latest.pinned
+                ? undefined
+                : rerollSlot({
+                    slot: latest,
+                    settings,
+                    weekStart,
+                    recipes,
+                    recipeIngredients,
+                    pastPlanSlots: historicalSlots,
+                    weekPlacedRecipeIds,
+                    weekIngredientIds,
+                    expiringIngredientIds,
+                    rng,
+                  }),
+          );
         } catch (err) {
           showToast({ variant: "error", title: "Couldn't reroll that slot", description: messageOf(err) });
         }
@@ -424,8 +562,18 @@ export function usePlanWeek(): UsePlanWeekResult {
     async (slotId: PlanSlotId): Promise<void> => {
       const slot = findSlot(slotId);
       if (!slot) return;
+      // The direction (pin vs. unpin) follows what THIS click saw and
+      // intended, applied on top of whichever row (fresh or fallback) ends
+      // up written — not re-derived from a possibly different fresh
+      // `pinned` value, which could flip the opposite way from what the
+      // person actually tapped.
+      const pinned = !slot.pinned;
       await withBusy(slotId, async () => {
-        await persistSlot(setSlotPinned(slot, !slot.pinned));
+        await persistSlot(
+          slotId,
+          () => setSlotPinned(slot, pinned),
+          (latest) => setSlotPinned(latest, pinned),
+        );
       });
     },
     [findSlot, persistSlot, withBusy],
@@ -436,7 +584,11 @@ export function usePlanWeek(): UsePlanWeekResult {
       const slot = findSlot(slotId);
       if (!slot) return;
       await withBusy(slotId, async () => {
-        await persistSlot({ ...slot, filling: { kind: "recipe", recipeId } });
+        await persistSlot(
+          slotId,
+          () => ({ ...slot, filling: { kind: "recipe", recipeId } }),
+          (latest) => ({ ...latest, filling: { kind: "recipe", recipeId } }),
+        );
       });
     },
     [findSlot, persistSlot, withBusy],
@@ -447,7 +599,11 @@ export function usePlanWeek(): UsePlanWeekResult {
       const slot = findSlot(slotId);
       if (!slot) return;
       await withBusy(slotId, async () => {
-        await persistSlot({ ...slot, filling: { kind: "empty" }, pinned: false });
+        await persistSlot(
+          slotId,
+          () => ({ ...slot, filling: { kind: "empty" }, pinned: false }),
+          (latest) => ({ ...latest, filling: { kind: "empty" }, pinned: false }),
+        );
       });
     },
     [findSlot, persistSlot, withBusy],
@@ -459,10 +615,28 @@ export function usePlanWeek(): UsePlanWeekResult {
       if (!slot || slot.filling.kind !== "recipe") return;
       const recipeId = slot.filling.recipeId;
       await withBusy(slotId, async () => {
-        await persistSlot({
-          ...slot,
-          filling: servings !== undefined ? { kind: "recipe", recipeId, scaleServings: servings } : { kind: "recipe", recipeId },
-        });
+        await persistSlot(
+          slotId,
+          () => ({
+            ...slot,
+            filling: servings !== undefined ? { kind: "recipe", recipeId, scaleServings: servings } : { kind: "recipe", recipeId },
+          }),
+          (latest) => {
+            // Someone else may have picked a different recipe (or cleared
+            // this slot) into it since this route loaded — a scale-servings
+            // override only makes sense against whichever recipe is
+            // ACTUALLY in the slot now.
+            if (latest.filling.kind !== "recipe") return latest;
+            const latestRecipeId = latest.filling.recipeId;
+            return {
+              ...latest,
+              filling:
+                servings !== undefined
+                  ? { kind: "recipe", recipeId: latestRecipeId, scaleServings: servings }
+                  : { kind: "recipe", recipeId: latestRecipeId },
+            };
+          },
+        );
       });
     },
     [findSlot, persistSlot, withBusy],
@@ -539,7 +713,11 @@ export function usePlanWeek(): UsePlanWeekResult {
           setPending((current) => [...current, ...events]);
           void engine.controller.flushNow();
 
-          await persistSlot({ ...slot, state: "cooked" });
+          await persistSlot(
+            slot.id,
+            () => ({ ...slot, state: "cooked" }),
+            (latest) => ({ ...latest, state: "cooked" }),
+          );
           setMarkCookedDraft(undefined);
           showToast({ variant: "success", title: `Marked "${recipe.name}" cooked.`, durationMs: 4000 });
         } catch (err) {
@@ -562,10 +740,12 @@ export function usePlanWeek(): UsePlanWeekResult {
     generating,
     busySlotIds,
     markCookedDraft,
+    staleWeekConflict,
     retry,
     goToPreviousWeek,
     goToNextWeek,
     generateWeek,
+    cancelStaleWeekConflict,
     reroll,
     togglePin,
     pickRecipe,
