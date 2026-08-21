@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { ToastProvider } from "../../ui/components/Toast/ToastProvider.tsx";
 import { WorkbookContext, type WorkbookContextValue } from "../../workbook-context.ts";
 import { createFakeOutbox, createFakeRng, createFakeWorkbookStore, createFixedClock } from "../../domain/fakes/index.ts";
@@ -70,7 +70,7 @@ async function seed(store: WorkbookStore): Promise<void> {
   for (const slot of PLAN_SLOTS) await store.planSlots.upsert(slot);
 }
 
-function wrapperFor(store: WorkbookStore): ({ children }: { readonly children: ReactNode }) => JSX.Element {
+function wrapperFor(store: WorkbookStore): ({ children }: { readonly children: ReactNode }) => ReactElement {
   const contextValue: WorkbookContextValue = {
     store,
     clock: createFixedClock(makeIsoTimestamp("2026-08-17T18:00:00.000Z"), MONDAY),
@@ -157,7 +157,8 @@ describe("useShoppingList — check-off protects other fields without a blocking
     // ShoppingItems hangs forever. If check-off's write path secretly
     // awaited one (the "blocking round trip" this workstream must not add
     // to this exact path), this test would time out.
-    (store as { shoppingItems: { readAll: () => Promise<never> } }).shoppingItems.readAll = () => new Promise(() => {});
+    (store as unknown as { shoppingItems: { readAll: () => Promise<never> } }).shoppingItems.readAll = () =>
+      new Promise(() => {});
 
     await result.current.checkOff(line!, { location: "pantry" });
     // Reaching here at all is the assertion — `checkOff`'s own promise

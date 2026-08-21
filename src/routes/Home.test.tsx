@@ -60,7 +60,7 @@ function renderHome(store: WorkbookStore) {
     rng: createFakeRng(1),
     workbookId: "wb-1",
     outbox: createFakeOutbox(),
-    user: { name: "Fabio" },
+    user: { name: "Fabio", email: "fabio@example.com" },
   };
   return render(
     <MemoryRouter>

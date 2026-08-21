@@ -439,6 +439,8 @@ export function useScanFlow(): ScanFlow {
             item.rangeStart === need.rangeStart &&
             item.rangeEnd === need.rangeEnd,
         );
+        const suggestedPurchase = need.suggestedPurchase ?? existingItem?.suggestedPurchase;
+        const purchaseOverride = existingItem?.purchaseOverride;
         await persistShoppingItem({
           ingredientId: need.ingredientId,
           rangeStart: need.rangeStart,
@@ -446,10 +448,8 @@ export function useScanFlow(): ScanFlow {
           neededQuantity: need.neededQuantity,
           checked: true,
           boughtQuantity: input.buyQuantity,
-          ...((need.suggestedPurchase ?? existingItem?.suggestedPurchase) !== undefined
-            ? { suggestedPurchase: need.suggestedPurchase ?? existingItem?.suggestedPurchase }
-            : {}),
-          ...(existingItem?.purchaseOverride !== undefined ? { purchaseOverride: existingItem.purchaseOverride } : {}),
+          ...(suggestedPurchase !== undefined ? { suggestedPurchase } : {}),
+          ...(purchaseOverride !== undefined ? { purchaseOverride } : {}),
         });
       }
     },
