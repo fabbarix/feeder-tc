@@ -10,11 +10,25 @@
  */
 import { createContext, useContext } from "react";
 import type { Clock, Outbox, Rng, WorkbookStore } from "./domain/index.ts";
+import type { ShellUser } from "./ui/AppShell.tsx";
 
 export interface WorkbookContextValue {
   readonly store: WorkbookStore;
   readonly clock: Clock;
   readonly rng: Rng;
+  /**
+   * The signed-in user (WP-VC2's Home dashboard needs a name for its
+   * greeting — "Good evening, Fabio"). Always defined in practice: `App.tsx`
+   * only provides this context once `ShellState` is "ready", which itself
+   * requires a user (`AppShell.tsx`'s `ShellState` union) — optional here
+   * only because this interface has no other way to express "always set by
+   * the time a route reads it" at the type level. Importing `ShellUser`
+   * from `./ui/AppShell.tsx` is fine even though this module sits outside
+   * `src/ui/**`: UI_DESIGN.md §7's component-boundary lint only restricts
+   * imports FROM `src/ui/**` files, not imports of a `src/ui` type INTO a
+   * route-level module like this one.
+   */
+  readonly user?: ShellUser;
   /**
    * The active workbook's spreadsheet id. `WorkbookStore` has no accessor
    * for it (it's an implementation detail of the transport it was built

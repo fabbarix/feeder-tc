@@ -1,9 +1,15 @@
 /** Shared option lists for the recipe list card and editor (WP-20) — the fixed, small enums `SegmentedControl`/`ToggleChips` render inline (UI_DESIGN.md §5). */
 import type { MealTag, RecipeKind, RecipeStatus } from "../domain/index.ts";
 
+// Labels match the approved mock exactly (design/mock-screens.html #recipe's
+// `.seg` control: "Staple" / "Rotation" / "Retired") — "Rotation", not "In
+// rotation": the mock's own three-button segmented control reads that way on
+// both phone and desktop. The underlying `RecipeStatus` value stays
+// "in-rotation" (frozen in src/domain/types.ts); only the display label
+// changed.
 export const STATUS_OPTIONS: readonly { value: RecipeStatus; label: string }[] = [
   { value: "staple", label: "Staple" },
-  { value: "in-rotation", label: "In rotation" },
+  { value: "in-rotation", label: "Rotation" },
   { value: "retired", label: "Retired" },
 ];
 

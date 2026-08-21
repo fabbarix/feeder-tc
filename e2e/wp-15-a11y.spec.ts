@@ -18,6 +18,7 @@ const ROUTES = [
   "recipes",
   "recipes/new",
   "recipes/12",
+  "recipes/12/edit",
   "recipes/ingredients",
   "recipes/ingredients/new",
   "pantry",

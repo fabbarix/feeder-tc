@@ -6,6 +6,7 @@ import { ToastProvider } from "./ui/components/Toast/ToastProvider";
 import { useToast } from "./ui/components/Toast/useToast.ts";
 import { Home } from "./routes/Home";
 import { Recipes } from "./routes/Recipes";
+import { RecipeDetail } from "./routes/RecipeDetail.tsx";
 import { RecipeEditor } from "./routes/RecipeEditor.tsx";
 import { Ingredients } from "./routes/Ingredients.tsx";
 import { IngredientEditor } from "./routes/IngredientEditor.tsx";
@@ -255,10 +256,11 @@ function ShellContainer() {
       store: createSheetsWorkbookStore(transport),
       clock: systemClock,
       rng,
+      ...(user ? { user } : {}),
       workbookId: activeWorkbook.id,
       outbox: countedOutbox,
     };
-  }, [activeWorkbook, auth, rng, countedOutbox]);
+  }, [activeWorkbook, auth, rng, countedOutbox, user]);
 
   // Flush automatically on reconnect (and once immediately, if already
   // online) whenever there is both a workbook to flush into and an outbox to
@@ -320,7 +322,8 @@ const router = createBrowserRouter(
         { path: "recipes/ingredients/new", element: <IngredientEditor /> },
         { path: "recipes/ingredients/:ingredientId", element: <IngredientEditor /> },
         { path: "recipes/new", element: <RecipeEditor /> },
-        { path: "recipes/:recipeId", element: <RecipeEditor /> },
+        { path: "recipes/:recipeId", element: <RecipeDetail /> },
+        { path: "recipes/:recipeId/edit", element: <RecipeEditor /> },
         { path: "pantry", element: <Pantry /> },
         { path: "plan", element: <Plan /> },
         { path: "shopping", element: <Shopping /> },
