@@ -107,22 +107,29 @@
 /* Literal px below, not `rem` (WP-VC4: root font-size is 18px —
    src/index.css — so a naive `rem` value renders ~15% oversized against
    the mock's own literal px declarations, same trap recipe-detail.module.css's
-   own doc comment already calls out). This is what fixes the meta line's
-   wrap-to-two-lines and the tag row's wrap-to-two-rows the owner reported:
-   the app's old `0.75rem` (13.5px) meta text plus `--space-2` (8px) gaps
-   didn't fit `168px` cards the way the mock's own `12px`/`9px` do. */
+   own doc comment already calls out).
+   230px minmax, not 168px — WP-PHOTO UI bumped this (mock-responsive.html's
+   own "Recipes" note): a horizontal [thumbnail][info] card needs real width
+   for text beside an 80px thumb, not just above it. The TAG row now wraps
+   instead of clipping to one line/`+N` — the photo freed the vertical space
+   "keep it to one line" used to need there. The meta line (prep/cook/serves)
+   stays single-line regardless (still guarded by
+   e2e/wp-vc-visual-conformance.spec.ts's own "never two" regression test) —
+   only the tag row was ever the wrap candidate. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 11px;
 }
 
 .card {
-  display: block;
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 13px;
+  padding: 10px;
   text-align: left;
   text-decoration: none;
   color: inherit;
@@ -136,6 +143,11 @@
   border-color: var(--accent-border);
 }
 
+.cardBody {
+  flex: 1;
+  min-width: 0;
+}
+
 .cardTitle {
   font-weight: 500;
   font-size: 15.5px;
@@ -144,7 +156,6 @@
   margin: 0 0 5px;
 }
 
-/* One line — `15 prep  25 cook  serves 4` — never two (owner-reported). */
 .cardMeta {
   display: flex;
   gap: 9px;
@@ -157,8 +168,8 @@
 .tagRow {
   display: flex;
   gap: 5px;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  flex-wrap: wrap;
+  align-items: center;
   margin-top: 9px;
 }
 

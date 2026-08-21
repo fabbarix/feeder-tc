@@ -10,6 +10,7 @@ import {
   Skeleton,
   ToggleChips,
 } from "../ui/components";
+import { PhotoField, type PhotoDraft } from "../ui/photo/index.ts";
 import { Plus, Trash } from "../ui/icons";
 import {
   makeIngredientId,
@@ -25,13 +26,17 @@ import {
   type RecipeKind,
   type RecipeStatus,
   type RecipeStep,
+  type Rng,
   type StepId,
 } from "../domain/index.ts";
+import { getPhotoDataUrl } from "../photos/index.ts";
+import { applyPhotoDraft } from "./photo-save.ts";
 import { TextField } from "./fields.tsx";
 import { KIND_OPTIONS, MEAL_TAG_OPTIONS, STATUS_OPTIONS } from "./recipe-options.ts";
 import { uniqueSlug } from "./slug.ts";
 import styles from "./forms.module.css";
 import detailStyles from "./recipe-detail.module.css";
+import stepStyles from "./recipe-steps.module.css";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -50,18 +55,52 @@ interface LineDraft {
  * (`newStepId(rng)`), or kept as-is for a step loaded from an existing
  * recipe. `key` is a separate, purely-local React list key (same pattern as
  * `LineDraft.key` above); `id` is the identity that actually gets saved.
+ *
+ * `detail`/`durationMinutes` mirror `RecipeStep`'s own optional fields
+ * (types.ts), represented here with draft-friendly defaults ("" / null)
+ * instead of `undefined` — same "" -> undefined convention `name` already
+ * uses elsewhere in this file. Carrying both all the way through load ->
+ * state -> save is (part of) the fix for the round-trip data-loss bug this
+ * file used to have: the old `StepDraft` only ever held `description`, so
+ * re-saving a step through this editor silently dropped anything else a
+ * step had ever been given (WP-PHOTO's own worry in DESIGN_PHOTOS.md §3
+ * about a widened `RecipeStep` becoming real data loss the moment a UI could
+ * populate it).
+ *
+ * `initialHasPhoto`/`photoDraft` are the step's photo: `initialHasPhoto` is
+ * the hint this step loaded with (used to preview an existing photo and to
+ * resolve "unchanged" at save), `photoDraft` is the local, unsaved edit a
+ * `PhotoField` reports — same "nothing writes until Save" contract as every
+ * other field here (see `PhotoField`'s own doc comment).
  */
 interface StepDraft {
   readonly key: string;
   readonly id: StepId;
   readonly description: string;
+  readonly detail: string;
+  readonly durationMinutes: number | null;
+  readonly initialHasPhoto: boolean;
+  readonly photoDraft: PhotoDraft;
+}
+
+/** A brand-new step draft, minting a fresh `StepId` immediately (see `StepDraft`'s own doc comment for why). */
+function emptyStepDraft(key: string, rng: Rng): StepDraft {
+  return {
+    key,
+    id: newStepId(rng),
+    description: "",
+    detail: "",
+    durationMinutes: null,
+    initialHasPhoto: false,
+    photoDraft: { status: "unchanged" },
+  };
 }
 
 /** Create/edit a recipe — cooked or bought (WP-20). Bought recipes force prepMinutes to 0 and link a single "piece" catalog ingredient for the product itself (DESIGN.md §2 "Recipes"). */
 export function RecipeEditor() {
   const { recipeId } = useParams();
   const navigate = useNavigate();
-  const { store, rng } = useWorkbookContext();
+  const { store, rng, clock } = useWorkbookContext();
   const { showToast } = useToast();
   const isNew = recipeId === undefined;
   const lineKeyCounter = useRef(0);
@@ -81,15 +120,17 @@ export function RecipeEditor() {
   const [prepMinutes, setPrepMinutes] = useState<number | null>(15);
   const [cookMinutes, setCookMinutes] = useState<number | null>(30);
   const [mealTags, setMealTags] = useState<readonly MealTag[]>([]);
+  // The recipe's own photo — same "hint + local draft" shape as a step's
+  // (see `StepDraft`'s doc comment).
+  const [recipeInitialHasPhoto, setRecipeInitialHasPhoto] = useState(false);
+  const [recipePhotoDraft, setRecipePhotoDraft] = useState<PhotoDraft>({ status: "unchanged" });
   const [lines, setLines] = useState<readonly LineDraft[]>([]);
   // Fixed literal key, not the ref-backed counter below: reading a ref
   // during render (even just to seed useState's lazy initializer) trips
   // react-hooks' "refs are for effects/handlers, not render" rule. This
   // runs exactly once regardless, so a hardcoded key is no less unique than
   // one drawn from the counter would have been.
-  const [steps, setSteps] = useState<readonly StepDraft[]>(() => [
-    { key: "initial-step", id: newStepId(rng), description: "" },
-  ]);
+  const [steps, setSteps] = useState<readonly StepDraft[]>(() => [emptyStepDraft("initial-step", rng)]);
 
   useEffect(() => {
     // `loading`/`error` are only ever set from the promise's own
@@ -122,6 +163,7 @@ export function RecipeEditor() {
           setPrepMinutes(found.prepMinutes);
           setCookMinutes(found.cookMinutes);
           setMealTags(found.mealTags);
+          setRecipeInitialHasPhoto(found.hasPhoto ?? false);
 
           const ownLines = linesResult.rows.filter((l) => l.recipeId === recipeId);
           if (found.kind === "bought") {
@@ -145,8 +187,16 @@ export function RecipeEditor() {
                   key: `existing-${(stepKeyCounter.current += 1)}`,
                   id: s.id,
                   description: s.description,
+                  // WP-PHOTO round-trip fix: these three used to be dropped
+                  // on the floor here — only `description` was ever read
+                  // out of a loaded step — so re-saving with no edit at all
+                  // silently erased them. See `StepDraft`'s doc comment.
+                  detail: s.detail ?? "",
+                  durationMinutes: s.durationMinutes ?? null,
+                  initialHasPhoto: s.hasPhoto ?? false,
+                  photoDraft: { status: "unchanged" as const },
                 }))
-              : [{ key: `new-${(stepKeyCounter.current += 1)}`, id: newStepId(rng), description: "" }],
+              : [emptyStepDraft(`new-${(stepKeyCounter.current += 1)}`, rng)],
           );
         }
 
@@ -209,14 +259,23 @@ export function RecipeEditor() {
 
   function addStep(): void {
     stepKeyCounter.current += 1;
-    setSteps((current) => [
-      ...current,
-      { key: `new-${stepKeyCounter.current}`, id: newStepId(rng), description: "" },
-    ]);
+    setSteps((current) => [...current, emptyStepDraft(`new-${stepKeyCounter.current}`, rng)]);
   }
 
   function updateStep(index: number, description: string): void {
     setSteps((current) => current.map((s, i) => (i === index ? { ...s, description } : s)));
+  }
+
+  function updateStepDetail(index: number, detail: string): void {
+    setSteps((current) => current.map((s, i) => (i === index ? { ...s, detail } : s)));
+  }
+
+  function updateStepDuration(index: number, durationMinutes: number | null): void {
+    setSteps((current) => current.map((s, i) => (i === index ? { ...s, durationMinutes } : s)));
+  }
+
+  function updateStepPhoto(index: number, photoDraft: PhotoDraft): void {
+    setSteps((current) => current.map((s, i) => (i === index ? { ...s, photoDraft } : s)));
   }
 
   function removeStep(index: number): void {
@@ -245,6 +304,40 @@ export function RecipeEditor() {
     setSaving(true);
     try {
       const id = isNew ? newRecipeId(rng) : makeRecipeId(recipeId!);
+
+      // Steps with a blank instruction are dropped entirely below (existing
+      // behaviour, unchanged) — resolved here, BEFORE any photo write, so a
+      // dropped step's photo is cleaned up rather than orphaned in the
+      // `Photos` sheet under an id no `RecipeStep` row references any more.
+      const trimmedSteps = steps.map((s) => ({ ...s, description: s.description.trim(), detail: s.detail.trim() }));
+      const survivingSteps = trimmedSteps.filter((s) => s.description !== "");
+      const droppedSteps = trimmedSteps.filter((s) => s.description === "");
+
+      // Photo writes happen first, before the rows that CLAIM a photo
+      // exists (`hasPhoto: true`) — so a reader never sees the flag land
+      // ahead of the actual `Photos` row (WP-PHOTO UI). Nothing here writes
+      // until this Save, matching every other field on this form —
+      // `PhotoField`'s own doc comment.
+      const recipeHasPhotoFinal = await applyPhotoDraft(
+        store,
+        clock,
+        "recipe",
+        id,
+        recipeInitialHasPhoto,
+        recipePhotoDraft,
+      );
+      const stepHasPhotoById = new Map(
+        await Promise.all(
+          survivingSteps.map(
+            async (s) =>
+              [s.id, await applyPhotoDraft(store, clock, "recipe-step", s.id, s.initialHasPhoto, s.photoDraft)] as const,
+          ),
+        ),
+      );
+      await Promise.all(
+        droppedSteps.filter((s) => s.initialHasPhoto).map((s) => store.photos.remove("recipe-step", s.id)),
+      );
+
       const finalPrepMinutes = kind === "bought" ? 0 : (prepMinutes ?? 0);
       const recipe: Recipe = {
         id,
@@ -255,6 +348,7 @@ export function RecipeEditor() {
         cookMinutes,
         mealTags,
         status,
+        ...(recipeHasPhotoFinal ? { hasPhoto: true } : {}),
       };
 
       let recipeLines: readonly RecipeIngredient[];
@@ -293,10 +387,21 @@ export function RecipeEditor() {
           });
       }
 
-      const recipeSteps: readonly RecipeStep[] = steps
-        .map((s) => ({ ...s, description: s.description.trim() }))
-        .filter((s) => s.description !== "")
-        .map((s, index) => ({ recipeId: id, id: s.id, stepNumber: index + 1, description: s.description }));
+      // WP-PHOTO round-trip fix: `detail`/`durationMinutes`/`hasPhoto` are
+      // carried through from `StepDraft` here instead of being dropped —
+      // this is the actual fix for the bug this file used to have (see
+      // `StepDraft`'s doc comment above). `detail`/`durationMinutes` fold
+      // back to `undefined` when blank/null, same "absent, not empty" shape
+      // `RecipeStep`'s own optional fields expect.
+      const recipeSteps: readonly RecipeStep[] = survivingSteps.map((s, index) => ({
+        recipeId: id,
+        id: s.id,
+        stepNumber: index + 1,
+        description: s.description,
+        ...(s.detail !== "" ? { detail: s.detail } : {}),
+        ...(s.durationMinutes !== null ? { durationMinutes: s.durationMinutes } : {}),
+        ...(stepHasPhotoById.get(s.id) ? { hasPhoto: true } : {}),
+      }));
 
       await store.recipes.upsert(recipe);
       await store.recipeIngredients.replaceForRecipe(id, recipeLines);
@@ -385,6 +490,21 @@ export function RecipeEditor() {
                     required
                     placeholder="e.g. Weeknight chili"
                   />
+                  {/* Photo sits right after Name, before Meal tags — identity
+                      is what a recipe is called, what it looks like, and how
+                      it's tagged (mock-responsive.html's own "Editing a
+                      recipe" note). */}
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Photo</span>
+                    <PhotoField
+                      hasPhoto={recipeInitialHasPhoto}
+                      {...(!isNew
+                        ? { fetchPhoto: () => getPhotoDataUrl(store, "recipe", makeRecipeId(recipeId!)) }
+                        : {})}
+                      value={recipePhotoDraft}
+                      onChange={setRecipePhotoDraft}
+                    />
+                  </div>
                   <div className={styles.field}>
                     <span className={styles.fieldLabel}>Meal tags</span>
                     <ToggleChips<MealTag>
@@ -448,25 +568,69 @@ export function RecipeEditor() {
                 </p>
               )}
 
+              {/* One card per step — instruction, duration, photo and
+                  detail, never all required (mock-responsive.html's own
+                  "Editing a recipe" note). Reordering/adding/deleting steps
+                  preserves each step's own `id` (StepDraft.id), never
+                  recomputed from position — `stepNumber` is assigned fresh
+                  at Save from array order, but photos key on `id`
+                  (DESIGN_PHOTOS.md §3), so deleting step 2 of five must not
+                  reassign steps 3-5's photos onto the wrong instructions. */}
               <div className={styles.sectionCard}>
                 <div className={styles.sectionCardHead}>Steps</div>
                 <div className={styles.sectionCardBody}>
                   {steps.map((step, index) => (
-                    <div className={styles.line} key={step.key}>
+                    <div className={stepStyles.stepCard} key={step.key}>
+                      <div className={stepStyles.stepCardHead}>
+                        <span className={stepStyles.stepCardNum}>Step {index + 1}</span>
+                        <button
+                          type="button"
+                          className={styles.removeButton}
+                          onClick={() => removeStep(index)}
+                          aria-label={`Remove step ${index + 1}`}
+                        >
+                          <Trash size={18} aria-hidden="true" />
+                        </button>
+                      </div>
                       <TextField
-                        label={`Step ${index + 1}`}
+                        label="Instruction"
                         value={step.description}
                         onChange={(text) => updateStep(index, text)}
                         placeholder="e.g. 375 degrees, 30 min covered"
                       />
-                      <button
-                        type="button"
-                        className={styles.removeButton}
-                        onClick={() => removeStep(index)}
-                        aria-label={`Remove step ${index + 1}`}
-                      >
-                        <Trash size={18} aria-hidden="true" />
-                      </button>
+                      <div className={stepStyles.stepCardRow}>
+                        <QuantityInput<"min">
+                          label="Duration"
+                          unit="min"
+                          value={step.durationMinutes}
+                          onChange={(q) => updateStepDuration(index, q?.amount ?? null)}
+                          showSteppers
+                        />
+                        <div className={styles.field}>
+                          <span className={styles.fieldLabel}>Photo</span>
+                          <PhotoField
+                            hasPhoto={step.initialHasPhoto}
+                            fetchPhoto={() => getPhotoDataUrl(store, "recipe-step", step.id)}
+                            value={step.photoDraft}
+                            onChange={(draft) => updateStepPhoto(index, draft)}
+                            label="Add"
+                            aspectRatio="2.4 / 1"
+                          />
+                        </div>
+                      </div>
+                      <div className={styles.field}>
+                        <span className={styles.fieldLabel}>
+                          Detail <span className={stepStyles.optional}>(markdown, optional)</span>
+                        </span>
+                        <textarea
+                          className={stepStyles.detailTextarea}
+                          rows={2}
+                          value={step.detail}
+                          onChange={(event) => updateStepDetail(index, event.target.value)}
+                          placeholder="Extra tips, why it matters…"
+                          aria-label={`Step ${index + 1} detail (markdown, optional)`}
+                        />
+                      </div>
                     </div>
                   ))}
                   <button type="button" className={styles.addButton} onClick={addStep}>

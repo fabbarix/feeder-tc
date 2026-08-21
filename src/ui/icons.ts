@@ -71,4 +71,16 @@ export {
   FolderOpen,
   // The workbook chip (§12/§13 header) — the active spreadsheet, at a glance.
   Table,
+  // Photos (WP-PHOTO UI — DESIGN_PHOTOS.md): `Timer` labels a resting
+  // duration badge and the "Start timer" button; `Pause` is the running
+  // timer's pause control (`X` above already covers "cancel") — both on
+  // RecipeDetail.tsx's method timer.
+  //
+  // `Camera` is NOT re-exported here: it is already imported above for the
+  // M6 scan route, and this package's shared add/replace affordance
+  // (src/ui/photo/**) reuses that same one. Both packages added it
+  // independently on different lines, so git merged them without a conflict
+  // and TypeScript caught the duplicate instead — one icon, one export.
+  Timer,
+  Pause,
 } from "@phosphor-icons/react";

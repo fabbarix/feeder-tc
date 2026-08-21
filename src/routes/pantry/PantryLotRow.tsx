@@ -7,9 +7,12 @@ import {
   QuantityInput,
   SegmentedControl,
 } from "../../ui/components";
+import { PhotoMedia } from "../../ui/photo/index.ts";
 import { Snowflake, Trash } from "../../ui/icons";
 import { daysBetween, formatQuantity, makeQuantity } from "../../domain/index.ts";
 import type { Ingredient, IsoDate, Lot, Quantity, StorageLocation } from "../../domain/index.ts";
+import { getPhotoDataUrl } from "../../photos/index.ts";
+import { useWorkbookContext } from "../../workbook-context.ts";
 import { TextField } from "../fields.tsx";
 import { LOCATION_OPTIONS, expiryOverrideOptions, locationLabel } from "./pantry-options.ts";
 import styles from "./pantry.module.css";
@@ -53,6 +56,7 @@ export function PantryLotRow({
   onSpoil,
   onCorrect,
 }: PantryLotRowProps) {
+  const { store } = useWorkbookContext();
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [moveTarget, setMoveTarget] = useState<StorageLocation>(lot.location);
   const [spoilAmount, setSpoilAmount] = useState<number | null>(lot.quantity.amount);
@@ -92,7 +96,15 @@ export function PantryLotRow({
   return (
     <>
       <ListRow
-        leading={frozen ? <Snowflake size={20} aria-hidden="true" /> : undefined}
+        leading={
+          <PhotoMedia
+            kind="ingredient"
+            hasPhoto={ingredient.hasPhoto}
+            size="list"
+            fetchPhoto={() => getPhotoDataUrl(store, "ingredient", ingredient.id)}
+            alt={ingredient.name}
+          />
+        }
         primary={ingredient.name}
         secondary={
           <div className={styles.lotDetail}>

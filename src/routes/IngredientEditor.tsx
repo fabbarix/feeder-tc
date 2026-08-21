@@ -3,9 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
 import { ErrorState, SegmentedControl, Skeleton } from "../ui/components";
+import { PhotoField, type PhotoDraft } from "../ui/photo/index.ts";
 import { IntegerField, TextField } from "./fields.tsx";
 import { uniqueSlug } from "./slug.ts";
 import { makeIngredientId, type Ingredient, type StorageLocation, type Unit } from "../domain/index.ts";
+import { getPhotoDataUrl } from "../photos/index.ts";
+import { applyPhotoDraft } from "./photo-save.ts";
 import styles from "./forms.module.css";
 
 function messageOf(err: unknown): string {
@@ -31,7 +34,7 @@ const LOCATIONS: readonly { value: StorageLocation; label: string }[] = [
 export function IngredientEditor() {
   const { ingredientId } = useParams();
   const navigate = useNavigate();
-  const { store, rng } = useWorkbookContext();
+  const { store, rng, clock } = useWorkbookContext();
   const { showToast } = useToast();
   const isNew = ingredientId === undefined;
 
@@ -45,6 +48,10 @@ export function IngredientEditor() {
   const [location, setLocation] = useState<StorageLocation>("pantry");
   const [shelfLifeDays, setShelfLifeDays] = useState<number | null>(30);
   const [openedShelfLifeDays, setOpenedShelfLifeDays] = useState<number | null>(30);
+  // Same "hint + local draft" shape as RecipeEditor's own recipe/step photo
+  // fields — nothing writes to `Photos` until this form's own Save.
+  const [initialHasPhoto, setInitialHasPhoto] = useState(false);
+  const [photoDraft, setPhotoDraft] = useState<PhotoDraft>({ status: "unchanged" });
 
   useEffect(() => {
     // `loading`/`error` are only ever set from the promise's own
@@ -68,6 +75,7 @@ export function IngredientEditor() {
           setLocation(found.defaultLocation);
           setShelfLifeDays(found.shelfLifeDays);
           setOpenedShelfLifeDays(found.openedShelfLifeDays);
+          setInitialHasPhoto(found.hasPhoto ?? false);
         }
       })
       .catch((err: unknown) => {
@@ -89,6 +97,9 @@ export function IngredientEditor() {
     setSaving(true);
     try {
       const id = isNew ? makeIngredientId(uniqueSlug(name, existingIds, rng)) : makeIngredientId(ingredientId!);
+      // Photo write first — see RecipeEditor.tsx's identical note on why
+      // (never claim `hasPhoto: true` ahead of the row that backs it).
+      const hasPhotoFinal = await applyPhotoDraft(store, clock, "ingredient", id, initialHasPhoto, photoDraft);
       const ingredient: Ingredient = {
         id,
         name: name.trim(),
@@ -96,6 +107,7 @@ export function IngredientEditor() {
         shelfLifeDays,
         openedShelfLifeDays,
         defaultLocation: location,
+        ...(hasPhotoFinal ? { hasPhoto: true } : {}),
       };
       await store.ingredients.upsert(ingredient);
       showToast({ variant: "success", title: `Saved "${ingredient.name}"`, durationMs: 4000 });
@@ -127,6 +139,18 @@ export function IngredientEditor() {
           }}
         >
           <TextField label="Name" value={name} onChange={setName} required placeholder="e.g. Rolled oats" />
+
+          <div className={styles.field}>
+            <span className={styles.fieldLabel}>Photo</span>
+            <PhotoField
+              hasPhoto={initialHasPhoto}
+              {...(!isNew
+                ? { fetchPhoto: () => getPhotoDataUrl(store, "ingredient", makeIngredientId(ingredientId!)) }
+                : {})}
+              value={photoDraft}
+              onChange={setPhotoDraft}
+            />
+          </div>
 
           <div className={styles.field}>
             <span>Canonical unit</span>

@@ -1,0 +1,101 @@
+/* Add / replace / remove control (PhotoField.tsx) — mock-responsive.html's
+   `.photo-add`/`.photo-filled`/`.photo-actions`. px throughout (this app's
+   18px root font-size — see PhotoMedia.module.css's own note). */
+
+.field {
+  width: 100%;
+}
+
+.hiddenInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.addButton {
+  width: 100%;
+  max-width: 240px;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.addButton:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.addButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.addButton span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.filledWrap {
+  width: 100%;
+  max-width: 240px;
+}
+
+.filled {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.filled img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.actionButton {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.actionButton:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.actionButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.actionButtonDestructive {
+  color: var(--crit);
+}

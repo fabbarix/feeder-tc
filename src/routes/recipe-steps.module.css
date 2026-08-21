@@ -1,0 +1,67 @@
+/* Recipe editor's per-step card (RecipeEditor.tsx) — mock-responsive.html's
+   `.stepcard`/`.stepcard-head`/`.stepcard-row`. One card per step: the
+   always-required instruction line, plus duration/photo/detail, never all
+   required (that note's own point). px throughout — see
+   PhotoMedia.module.css's identical note on this app's 18px root font-size. */
+
+.stepCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stepCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stepCardNum {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stepCardRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 480px) {
+  .stepCardRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.optional {
+  text-transform: none;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.detailTextarea {
+  width: 100%;
+  min-height: 4.5em;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.detailTextarea:focus-visible {
+  border-color: var(--accent);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}

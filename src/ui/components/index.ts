@@ -54,3 +54,6 @@ export type { UpdatePromptProps } from "./UpdatePrompt.tsx";
 
 export { RouteTabs } from "./RouteTabs.tsx";
 export type { RouteTabItem, RouteTabsProps } from "./RouteTabs.tsx";
+
+export { Markdown } from "./Markdown.tsx";
+export type { MarkdownProps } from "./Markdown.tsx";
