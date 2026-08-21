@@ -1,29 +1,39 @@
 import { useId, useRef, useState, type ChangeEvent } from "react";
 import { useButton } from "react-aria";
-import { makeQuantity, type Quantity, type Unit } from "../../domain/types.ts";
+import type { Unit } from "../../domain/types.ts";
 import { Minus, Plus, type IconComponent } from "../icons.ts";
 import styles from "./QuantityInput.module.css";
 
-export interface QuantityInputProps {
+/**
+ * Generic over its unit label — defaults to the domain `Unit` union
+ * (invariant 3: an ingredient's canonical unit) but a caller may pass any
+ * fixed string label instead (WP-VC4: the recipe editor's Servings/Prep
+ * time/Cook time fields, none of which are a domain `Quantity` — "min" and
+ * "servings" are not in `Unit`). `{ amount, unit: U }` is returned rather
+ * than the domain `Quantity` type so this stays usable for both: when
+ * `U` is `Unit`, that shape IS `Quantity` structurally, so every existing
+ * Unit-typed caller is unaffected.
+ */
+export interface QuantityInputProps<U extends string = Unit> {
   readonly label: string;
   /**
-   * The ingredient's single canonical unit (invariant 3, HANDOVER §4). This
-   * is display-only — there is deliberately no unit `<select>` anywhere in
-   * this component. A caller that wants a different unit is asking for
-   * conversion, which does not exist in this app; render a second
-   * `QuantityInput` for a different ingredient instead.
+   * The fixed unit this field always holds (invariant 3, HANDOVER §4, for
+   * the `Unit` case). This is display-only — there is deliberately no unit
+   * `<select>` anywhere in this component. A caller that wants a different
+   * unit is asking for conversion, which does not exist in this app;
+   * render a second `QuantityInput` for a different ingredient instead.
    */
-  readonly unit: Unit;
+  readonly unit: U;
   /** Current amount, or `null` while empty/invalid. Controlled. */
   readonly value: number | null;
   /**
-   * Fires on every keystroke. Receives a full `Quantity` (amount + the fixed
-   * `unit`) only when the current input is valid; otherwise `null` — a
-   * caller can never receive an amount detached from its unit, and can
+   * Fires on every keystroke. Receives `{ amount, unit }` (amount + the
+   * fixed `unit`) only when the current input is valid; otherwise `null` —
+   * a caller can never receive an amount detached from its unit, and can
    * never receive a negative or non-finite amount unless `allowNegative` is
    * set.
    */
-  readonly onChange: (quantity: Quantity | null) => void;
+  readonly onChange: (quantity: { amount: number; unit: U } | null) => void;
   readonly id?: string;
   readonly placeholder?: string;
   /** Uncontrolled convenience: seeds the raw text once on mount, same as a native input's `defaultValue`. Ignored if `value` is non-null. */
@@ -47,11 +57,11 @@ export interface QuantityInputProps {
   readonly step?: number;
 }
 
-function validate(
+function validate<U extends string>(
   raw: string,
-  unit: Unit,
+  unit: U,
   { required, allowNegative }: { required: boolean; allowNegative: boolean },
-): { quantity: Quantity | null; error: string | null } {
+): { quantity: { amount: number; unit: U } | null; error: string | null } {
   const trimmed = raw.trim();
   if (trimmed === "") {
     return { quantity: null, error: required ? "Enter an amount." : null };
@@ -69,7 +79,10 @@ function validate(
   if (!allowNegative && amount < 0) {
     return { quantity: null, error: "Amount cannot be negative." };
   }
-  return { quantity: makeQuantity(amount, unit), error: null };
+  // Not `makeQuantity` (that constructor is fixed to the domain `Unit`
+  // union) — finiteness is already checked above, so a plain object of the
+  // same shape is equally valid, generic `U` included.
+  return { quantity: { amount, unit }, error: null };
 }
 
 /**
@@ -87,7 +100,7 @@ function validate(
  * negative entries unless `allowNegative` opts into signed-correction
  * semantics.
  */
-export function QuantityInput({
+export function QuantityInput<U extends string = Unit>({
   label,
   unit,
   value,
@@ -102,7 +115,7 @@ export function QuantityInput({
   suffixIcon: SuffixIcon,
   showSteppers = false,
   step = 1,
-}: QuantityInputProps) {
+}: QuantityInputProps<U>) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
@@ -146,7 +159,9 @@ export function QuantityInput({
             onPress={() => step_(-1)}
           />
         ) : null}
-        {PrefixIcon ? <PrefixIcon size={18} className={styles.prefixIcon} aria-hidden="true" /> : null}
+        {PrefixIcon ? (
+          <PrefixIcon size={18} className={styles.prefixIcon} aria-hidden="true" />
+        ) : null}
         <input
           id={inputId}
           className={styles.field}
@@ -160,12 +175,19 @@ export function QuantityInput({
           aria-describedby={error !== null ? errorId : undefined}
           onChange={handleChange}
         />
-        {SuffixIcon ? <SuffixIcon size={18} className={styles.suffixIcon} aria-hidden="true" /> : null}
+        {SuffixIcon ? (
+          <SuffixIcon size={18} className={styles.suffixIcon} aria-hidden="true" />
+        ) : null}
         <span className={styles.suffix} aria-hidden="true">
           {unit}
         </span>
         {showSteppers ? (
-          <Stepper icon={Plus} label={`Increase ${label}`} disabled={disabled} onPress={() => step_(1)} />
+          <Stepper
+            icon={Plus}
+            label={`Increase ${label}`}
+            disabled={disabled}
+            onPress={() => step_(1)}
+          />
         ) : null}
       </div>
       {error !== null ? (

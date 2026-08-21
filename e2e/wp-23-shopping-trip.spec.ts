@@ -120,9 +120,11 @@ test("Shopping trip: the full loop", async ({ page }) => {
   await expect(riceRow).toBeChecked();
   await expect(page.getByRole("main")).toContainText(/bought 1000 g/i);
 
-  // And the pantry gains a 1000 g rice lot
+  // And the pantry gains a 1000 g rice lot — as its own aggregated row
+  // (WP-VC4: one row per ingredient, a real link, not a per-ingredient
+  // heading over its lots).
   await page.getByRole("link", { name: "Pantry", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Rice" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Rice" })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("1000 g");
 
   // And regenerating the list shows no rice line — live recompute

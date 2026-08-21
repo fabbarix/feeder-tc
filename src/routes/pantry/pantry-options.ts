@@ -1,6 +1,6 @@
 /** Shared option lists/labels for the pantry route (WP-21) — the fixed, small enums `SegmentedControl`/`DateChips` render inline (UI_DESIGN.md §5). */
 import { addDays } from "../../domain/index.ts";
-import type { IsoDate, StorageLocation } from "../../domain/index.ts";
+import type { IsoDate, StorageLocation, Unit } from "../../domain/index.ts";
 import type { DateChipOption } from "../../ui/components";
 
 export const LOCATION_OPTIONS: readonly { value: StorageLocation; label: string }[] = [
@@ -32,3 +32,15 @@ export function expiryOverrideOptions(today: IsoDate): readonly DateChipOption[]
 
 /** Lots at/inside this many days of their expiry (inclusive of already-expired) surface under "Expiring soon" — UI_DESIGN.md §13 "group by urgency first". */
 export const EXPIRING_SOON_DAYS = 3;
+
+const UNIT_FULL_NAME: Record<Unit, string> = {
+  g: "gram",
+  ml: "millilitre",
+  piece: "piece",
+  portion: "portion",
+};
+
+/** "gram" / "millilitre" / "piece" / "portion" — the pantry-item detail page's subtitle (design/mock-screens.html #lot: "Canonical unit: gram · pantry default · shelf life 730 days"), spelled out rather than the bare `Unit` code. */
+export function unitFullName(unit: Unit): string {
+  return UNIT_FULL_NAME[unit];
+}

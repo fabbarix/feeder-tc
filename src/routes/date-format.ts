@@ -50,3 +50,10 @@ export function formatShortDate(date: IsoDate): string {
   const { day, month } = dayAndMonth(date);
   return `${day} ${month}`;
 }
+
+/** "Aug 2028" — abbreviated month + year, no day (matches the mock's pantry badges for a far-out expiry, e.g. "Expires Aug 2028"/"Expires May 2027"). */
+export function formatMonthYear(date: IsoDate): string {
+  const { month } = dayAndMonth(date);
+  const year = date.split("-")[0];
+  return `${month.slice(0, 3)} ${year}`;
+}

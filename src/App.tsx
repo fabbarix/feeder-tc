@@ -67,6 +67,7 @@ const IngredientEditor = lazy(() =>
   import("./routes/IngredientEditor.tsx").then((m) => ({ default: m.IngredientEditor })),
 );
 const Pantry = lazy(() => import("./routes/Pantry.tsx").then((m) => ({ default: m.Pantry })));
+const PantryItem = lazy(() => import("./routes/PantryItem.tsx").then((m) => ({ default: m.PantryItem })));
 const Plan = lazy(() => import("./routes/Plan.tsx").then((m) => ({ default: m.Plan })));
 const Settings = lazy(() => import("./routes/Settings.tsx").then((m) => ({ default: m.Settings })));
 
@@ -373,6 +374,7 @@ const router = createBrowserRouter(
         { path: "recipes/:recipeId", element: lazyRoute(<RecipeDetail />) },
         { path: "recipes/:recipeId/edit", element: lazyRoute(<RecipeEditor />) },
         { path: "pantry", element: lazyRoute(<Pantry />) },
+        { path: "pantry/:ingredientId", element: lazyRoute(<PantryItem />) },
         { path: "plan", element: lazyRoute(<Plan />) },
         { path: "settings", element: lazyRoute(<Settings />) },
       ],

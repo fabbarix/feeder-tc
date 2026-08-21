@@ -12,8 +12,15 @@ import { E2E_CREATED_SPREADSHEET_ID, E2E_FAKE_ACCESS_TOKEN } from "../src/mocks/
 // tokens/layout rules, copied verbatim, which is what every assertion here
 // is checked against).
 
-async function addRecipe(page: import("@playwright/test").Page, name: string, cookMinutes: number): Promise<void> {
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Recipes" }).click();
+async function addRecipe(
+  page: import("@playwright/test").Page,
+  name: string,
+  cookMinutes: number,
+): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("link", { name: "Recipes" })
+    .click();
   await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill(String(cookMinutes));
@@ -74,7 +81,9 @@ test.describe("full-width layout mode for grid/browse routes (design/mock-refere
   // grid — going wide would only stretch each row across empty trailing
   // space, which is padding, not information. It deliberately keeps the
   // narrow measure even though it is a sibling "browse" tab of /recipes.
-  test("the ingredients catalog keeps the narrow reading measure (it is a list, not a grid)", async ({ page }) => {
+  test("the ingredients catalog keeps the narrow reading measure (it is a list, not a grid)", async ({
+    page,
+  }) => {
     await enterReadyShell(page, "recipes/ingredients");
     const measure = page.locator("main > div").first();
     const box = await measure.boundingBox();
@@ -132,7 +141,9 @@ test.describe("hue-derived surface tokens (design/mock-reference.css §1)", () =
       for (const [name, value] of Object.entries(tokens)) {
         expect(value, `--${name} should be an oklch() colour, not a flat hex`).toMatch(/^oklch\(/);
         if (name !== "surface") {
-          expect(value, `--${name} should carry the live --accent-hue (${hue})`).toContain(` ${hue})`);
+          expect(value, `--${name} should carry the live --accent-hue (${hue})`).toContain(
+            ` ${hue})`,
+          );
         }
       }
     });
@@ -140,21 +151,28 @@ test.describe("hue-derived surface tokens (design/mock-reference.css §1)", () =
 });
 
 test.describe("unstyled-link audit (owner-reported: the ingredients-catalog link had no className)", () => {
-  test("the Recipes/Ingredients tab bar renders as a proper styled control, not a bare default-blue link", async ({
+  // WP-VC4: this control used to be a pill `SegmentedControl`-look built on
+  // `<NavLink aria-current>`; the owner asked for real tab headers instead
+  // ("make the tab selectors look more like tab headers ... a visual clue
+  // that that is a tab, just not a segmented selector"), so it is now a
+  // proper `role="tablist"`/`"tab"` widget (RouteTabs.tsx) with
+  // `aria-selected`, not `aria-current`/role "link".
+  test("the Recipes/Ingredients tab bar renders as a real tablist, styled, not a bare default-blue link", async ({
     page,
   }) => {
     await enterReadyShell(page, "recipes");
-    const tabs = page.getByRole("navigation", { name: "Recipes section" });
+    const tabs = page.getByRole("tablist", { name: "Recipes section" });
     await expect(tabs).toBeVisible();
-    const ingredientsTab = tabs.getByRole("link", { name: "Ingredients" });
+    const ingredientsTab = tabs.getByRole("tab", { name: "Ingredients" });
     const color = await ingredientsTab.evaluate((el) => getComputedStyle(el).color);
     // Browser-default link blue is rgb(0, 0, 238); visited purple is
     // rgb(85, 26, 139). Neither should ever appear again.
     expect(color).not.toBe("rgb(0, 0, 238)");
     expect(color).not.toBe("rgb(85, 26, 139)");
 
-    const recipesTab = tabs.getByRole("link", { name: "Recipes" });
-    await expect(recipesTab).toHaveAttribute("aria-current", "page");
+    const recipesTab = tabs.getByRole("tab", { name: "Recipes" });
+    await expect(recipesTab).toHaveAttribute("aria-selected", "true");
+    await expect(ingredientsTab).toHaveAttribute("aria-selected", "false");
   });
 
   test("each ingredient row's name link inherits list text colour and carries no underline by default", async ({
@@ -172,12 +190,21 @@ test.describe("unstyled-link audit (owner-reported: the ingredients-catalog link
     expect(textDecoration).toBe("none");
   });
 
-  test("the recipe and ingredient editors' back-links are styled, not browser-default blue", async ({ page }) => {
+  // WP-VC4: the recipe editor's "← Recipes" breadcrumb is gone — Save/
+  // Cancel moved into the top bar (design/mock-screens.html #editor's
+  // `.dt-actions`), so "Cancel" is now the one link back out of this
+  // screen, and it needs the same styled-not-browser-default-blue audit
+  // the breadcrumb used to get.
+  test("the recipe editor's Cancel link is styled, not browser-default blue", async ({ page }) => {
     await enterReadyShell(page, "recipes/new");
-    const backLink = page.getByRole("link", { name: "← Recipes" });
-    const color = await backLink.evaluate((el) => getComputedStyle(el).color);
+    const cancelLink = page.getByRole("link", { name: "Cancel" });
+    const [color, textDecoration] = await cancelLink.evaluate((el) => [
+      getComputedStyle(el).color,
+      getComputedStyle(el).textDecorationLine,
+    ]);
     expect(color).not.toBe("rgb(0, 0, 238)");
     expect(color).not.toBe("rgb(85, 26, 139)");
+    expect(textDecoration).toBe("none");
   });
 });
 
@@ -201,11 +228,15 @@ test.describe("SegmentedControl is a 999px pill, not a 10px rounded rect (Task 1
     expect(groupRadius).toBe("999px");
 
     const selected = page.getByRole("radio", { checked: true }).first();
-    const segmentRadius = await selected.evaluate((el) => getComputedStyle(el.closest("label")!).borderRadius);
+    const segmentRadius = await selected.evaluate(
+      (el) => getComputedStyle(el.closest("label")!).borderRadius,
+    );
     expect(segmentRadius).toBe("999px");
   });
 
-  test("a recipe's household-flag control (RecipeDetail read view) is also a 999px pill", async ({ page }) => {
+  test("a recipe's household-flag control (RecipeDetail read view) is also a 999px pill", async ({
+    page,
+  }) => {
     await enterReadyShell(page, "recipes");
     await addRecipe(page, "Pill Shape Test", 15);
     await page.getByRole("link", { name: "Pill Shape Test" }).click();
@@ -262,7 +293,11 @@ async function seedRicePlanForThisWeek(page: Page): Promise<void> {
         status: "in-rotation",
       });
       await store.recipeIngredients.replaceForRecipe(recipeId, [
-        { recipeId, ingredientId: domain.makeIngredientId("rice"), quantity: { amount: 400, unit: "g" } },
+        {
+          recipeId,
+          ingredientId: domain.makeIngredientId("rice"),
+          quantity: { amount: 400, unit: "g" },
+        },
       ]);
 
       const monday = rangeHelpers.mondayOnOrBefore(domain.systemClock.today());
@@ -308,7 +343,9 @@ test.describe("Plan and Shopping — full-width layout (design/mock-reference.cs
   // the literal column count, not just "wider than 1200px", is what makes
   // this test fail if a future change collapses the grid to fewer/more
   // columns while still happening to measure wide.
-  test("the week planner's desktop grid renders exactly seven columns, one per day", async ({ page }) => {
+  test("the week planner's desktop grid renders exactly seven columns, one per day", async ({
+    page,
+  }) => {
     await enterReadyShell(page, "plan");
     await expect(page.getByRole("heading", { name: "Plan", level: 1 })).toBeVisible();
     // Plan.tsx renders its own Skeletons while `usePlanWeek` boots (and, as
@@ -316,7 +353,9 @@ test.describe("Plan and Shopping — full-width layout (design/mock-reference.cs
     // real week grid rather than racing either of those.
     const grid = page.locator('main [class*="week"]').first();
     await expect(grid).toBeVisible();
-    const columnCount = await grid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+    const columnCount = await grid.evaluate(
+      (el) => getComputedStyle(el).gridTemplateColumns.split(" ").length,
+    );
     expect(columnCount).toBe(7);
   });
 });
@@ -348,7 +387,9 @@ test.describe("hue-derived surface tokens on Plan/Shopping (design/mock-referenc
       for (const [name, value] of Object.entries(tokens)) {
         expect(value, `--${name} should be an oklch() colour, not a flat hex`).toMatch(/^oklch\(/);
         if (name !== "surface") {
-          expect(value, `--${name} should carry the live --accent-hue (${hue})`).toContain(` ${hue})`);
+          expect(value, `--${name} should carry the live --accent-hue (${hue})`).toContain(
+            ` ${hue})`,
+          );
         }
       }
     });
@@ -397,5 +438,103 @@ test.describe("CheckRow measured geometry on Shopping (UI_DESIGN.md §6 'the WHO
     // subheading rather than one flat list (design/mock-screens.html
     // #shopping's `.rowgroup`s).
     await expect(page.getByRole("heading", { name: "Dry goods" })).toBeVisible();
+  });
+});
+
+// WP-VC4 ("structural rework"): the owner's complaint this time was
+// structure, not colour — screenshots hide structural bugs, which is
+// exactly how the pantry shipped as one row per LOT (with a wall of
+// buttons on every row) instead of one row per ingredient. These pin the
+// DOM shape itself: element counts and roles, not just measured pixels.
+test.describe("WP-VC4 structural conformance", () => {
+  // The FILTERS rail (like the old "At a glance" rail it replaced) is
+  // desktop-only — `.rail{display:none}` below 768px (pantry.module.css) —
+  // so this whole block runs at a desktop viewport, same pattern as the
+  // other desktop-specific describe blocks in this file.
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  async function addRiceLot(page: Page, amount: string): Promise<void> {
+    await page.getByRole("button", { name: "Add to pantry" }).click();
+    await page.getByRole("button", { name: /ingredient/i }).click();
+    await page.getByRole("option", { name: "Rice", exact: true }).click();
+    await page.getByRole("textbox", { name: /amount/i }).fill(amount);
+    await page.getByRole("button", { name: "Add to pantry" }).click();
+  }
+
+  test("a pantry with two lots of one ingredient renders exactly one row, and that row links to the detail route", async ({
+    page,
+  }) => {
+    await enterReadyShell(page, "pantry");
+    await addRiceLot(page, "600");
+    await addRiceLot(page, "400");
+
+    // Exactly one row for Rice — aggregated, not one per lot (the old
+    // defect: `group.lots.map(renderRow)` rendered two near-identical rows
+    // for this exact scenario, each with its own four action buttons).
+    const riceRow = page.getByRole("link", { name: /Rice/ });
+    await expect(riceRow).toHaveCount(1);
+    await expect(page.getByRole("main")).toContainText("1000 g");
+    await expect(page.getByRole("main")).toContainText("2 lots, FIFO");
+
+    // No per-lot action buttons on the list page any more (WP-VC4 moved
+    // them to the detail route) — this used to render "Open"/"Move"/
+    // "Spoil"/"Correct" once per lot, i.e. twice each for this scenario.
+    await expect(page.getByRole("button", { name: "Move" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Spoil" })).toHaveCount(0);
+
+    // ...and the row is a real link to `/pantry/:ingredientId`, matching
+    // the mock's pantry-item screen (design/mock-screens.html #lot).
+    await riceRow.click();
+    await expect(page.getByRole("heading", { name: "Rice", level: 1 })).toBeVisible();
+    // The card head is a plain styled div, same "eyebrow label, not a
+    // heading" convention as every other `.sectionCardHead` in the app
+    // (forms.module.css — RecipeEditor's "Identity"/"Steps" card heads are
+    // the same non-heading shape), so this checks visible text, not role.
+    await expect(page.getByText("Lots · FIFO order", { exact: true })).toBeVisible();
+    // Both lots now show up individually on the detail page.
+    await expect(page.getByRole("main")).toContainText("600 g");
+    await expect(page.getByRole("main")).toContainText("400 g");
+  });
+
+  test("the pantry list's rail is FILTERS (location + show chips), not an AT A GLANCE count-only rail", async ({
+    page,
+  }) => {
+    await enterReadyShell(page, "pantry");
+    await addRiceLot(page, "500");
+    await expect(page.getByText("Filters", { exact: true })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "Location" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Show" })).toBeVisible();
+    await expect(page.getByText("At a glance", { exact: true })).toHaveCount(0);
+  });
+
+  test("a recipe card's meta line (prep/cook/serves) renders on one line, not wrapped", async ({ page }) => {
+    await enterReadyShell(page, "recipes");
+    await addRecipe(page, "Meta Line Test", 20);
+    const card = page.getByRole("link", { name: /Meta Line Test/ });
+    const metaSpans = card.locator('[class*="cardMeta"] > span');
+    await expect(metaSpans).toHaveCount(3);
+    const tops = await metaSpans.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().top));
+    // All three spans share the same top edge — if the flex row had
+    // wrapped to two lines (the reported defect), the wrapped span(s)
+    // would sit at a different `top`.
+    expect(new Set(tops).size).toBe(1);
+  });
+
+  test("the Recipes tab strip exposes role=tablist/tab, and there is exactly one h1 naming the area", async ({
+    page,
+  }) => {
+    await enterReadyShell(page, "recipes");
+    await expect(page.getByRole("tablist", { name: "Recipes section" })).toBeVisible();
+    const tabs = page.getByRole("tab");
+    await expect(tabs).toHaveCount(2);
+    // One h1 for the whole area (owner-reported: "the repetition of
+    // 'Recipes' at the top and 'Ingredients' is a waste of space") — the
+    // tab strip is the section header now, so the h1 doesn't re-name the
+    // active tab.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+
+    await page.getByRole("tab", { name: "Ingredients" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Recipes");
   });
 });

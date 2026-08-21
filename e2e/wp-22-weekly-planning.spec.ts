@@ -69,13 +69,23 @@ interface AddRecipeOptions {
 }
 
 /** Creates a dinner recipe (cooked kind) via the recipe editor, matching e2e/wp-vc-visual-conformance.spec.ts's `addRecipe` helper plus meal-tag/household-flag/ingredient-line steps WP-22 needs. */
-async function addDinnerRecipe(page: Page, name: string, options: AddRecipeOptions = {}): Promise<void> {
+async function addDinnerRecipe(
+  page: Page,
+  name: string,
+  options: AddRecipeOptions = {},
+): Promise<void> {
   await goTo(page, "Recipes");
   await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
   await page.getByRole("textbox", { name: "Name" }).fill(name);
-  await page.getByRole("group", { name: "Meal tags" }).getByRole("button", { name: "Dinner" }).click();
+  await page
+    .getByRole("group", { name: "Meal tags" })
+    .getByRole("button", { name: "Dinner" })
+    .click();
   if (options.staple) {
-    await page.getByRole("radiogroup", { name: "Household flag" }).getByRole("radio", { name: "Staple" }).click();
+    await page
+      .getByRole("radiogroup", { name: "Household flag" })
+      .getByRole("radio", { name: "Staple" })
+      .click();
   }
   if (options.ingredient) {
     await page.getByRole("button", { name: "Add ingredient line" }).click();
@@ -195,8 +205,11 @@ test("Mark cooked deducts pantry and creates leftovers", async ({ page }) => {
   await goTo(page, "Pantry");
   await expect(page.getByRole("main")).toContainText("500 g");
 
-  // And a "Leftover: Chili" lot of 4 portions appears in the pantry
-  await expect(page.getByRole("heading", { name: "Leftover: Chili" })).toBeVisible();
+  // And a "Leftover: Chili" lot of 4 portions appears in the pantry — as
+  // its own aggregated row (WP-VC4: one row per ingredient, linking to its
+  // own pantry-item detail route), not a per-ingredient heading the way
+  // the pantry used to group its old one-row-per-LOT list.
+  await expect(page.getByRole("link", { name: /Leftover: Chili/ })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("4 portion");
 
   // And "Chili" appears in cooked history

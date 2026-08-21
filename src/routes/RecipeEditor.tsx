@@ -2,8 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { ErrorState, QuantityInput, SegmentedControl, SelectSheet, Skeleton, ToggleChips } from "../ui/components";
-import { CookingPot, Minus, Plus, Trash } from "../ui/icons";
+import {
+  ErrorState,
+  QuantityInput,
+  SegmentedControl,
+  SelectSheet,
+  Skeleton,
+  ToggleChips,
+} from "../ui/components";
+import { Plus, Trash } from "../ui/icons";
 import {
   makeIngredientId,
   makeQuantity,
@@ -12,17 +19,17 @@ import {
   type Ingredient,
   type IngredientId,
   type MealTag,
-  type PlanSlot,
   type Recipe,
   type RecipeIngredient,
   type RecipeKind,
   type RecipeStatus,
   type RecipeStep,
 } from "../domain/index.ts";
-import { IntegerField, TextField } from "./fields.tsx";
+import { TextField } from "./fields.tsx";
 import { KIND_OPTIONS, MEAL_TAG_OPTIONS, STATUS_OPTIONS } from "./recipe-options.ts";
 import { uniqueSlug } from "./slug.ts";
 import styles from "./forms.module.css";
+import detailStyles from "./recipe-detail.module.css";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -49,7 +56,6 @@ export function RecipeEditor() {
 
   const [ingredientsCatalog, setIngredientsCatalog] = useState<readonly Ingredient[]>([]);
   const [linkedIngredientId, setLinkedIngredientId] = useState<IngredientId | undefined>(undefined);
-  const [cookedHistory, setCookedHistory] = useState<readonly PlanSlot[]>([]);
 
   const [name, setName] = useState("");
   const [kind, setKind] = useState<RecipeKind>("cooked");
@@ -72,11 +78,12 @@ export function RecipeEditor() {
       store.recipes.readAll(),
       store.recipeIngredients.readAll(),
       store.recipeSteps.readAll(),
-      store.planSlots.readAll(),
     ])
-      .then(([ingredientsResult, recipesResult, linesResult, stepsResult, slotsResult]) => {
+      .then(([ingredientsResult, recipesResult, linesResult, stepsResult]) => {
         if (cancelled) return;
-        setIngredientsCatalog([...ingredientsResult.rows].sort((a, b) => a.name.localeCompare(b.name)));
+        setIngredientsCatalog(
+          [...ingredientsResult.rows].sort((a, b) => a.name.localeCompare(b.name)),
+        );
 
         if (!isNew) {
           const found = recipesResult.rows.find((r) => r.id === recipeId);
@@ -109,12 +116,6 @@ export function RecipeEditor() {
             .filter((s) => s.recipeId === recipeId)
             .sort((a, b) => a.stepNumber - b.stepNumber);
           setSteps(ownSteps.length > 0 ? ownSteps.map((s) => s.text) : [""]);
-
-          const history = slotsResult.rows
-            .filter((s) => s.state === "cooked" && s.filling.kind === "recipe" && s.filling.recipeId === recipeId)
-            .slice()
-            .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-          setCookedHistory(history);
         }
 
         const warningCount =
@@ -141,11 +142,23 @@ export function RecipeEditor() {
     };
   }, [store, recipeId, isNew, showToast]);
 
+  // Store-bought recipes have no prep step (DESIGN.md §2 "Recipes") — shown
+  // and locked (QuantityInput's `disabled`) at 0 the moment "Kind" is
+  // Bought, so the field never displays a stale non-zero value while it
+  // can't be edited. Derived at render time, not via a setState-in-effect,
+  // so switching back to "Cooked" restores whatever the user had typed
+  // rather than needing a second piece of state to remember it.
+  const displayedPrepMinutes = kind === "bought" ? 0 : (prepMinutes ?? 0);
+
   const ingredientOptions = ingredientsCatalog.map((i) => ({ value: i.id, label: i.name }));
+  const kindLabel = KIND_OPTIONS.find((option) => option.value === kind)?.label ?? kind;
 
   function addLine(): void {
     lineKeyCounter.current += 1;
-    setLines((current) => [...current, { key: `new-${lineKeyCounter.current}`, ingredientId: null, amount: null }]);
+    setLines((current) => [
+      ...current,
+      { key: `new-${lineKeyCounter.current}`, ingredientId: null, amount: null },
+    ]);
   }
 
   function removeLine(key: string): void {
@@ -153,7 +166,9 @@ export function RecipeEditor() {
   }
 
   function setLineIngredient(key: string, ingredientId: IngredientId): void {
-    setLines((current) => current.map((l) => (l.key === key ? { ...l, ingredientId, amount: null } : l)));
+    setLines((current) =>
+      current.map((l) => (l.key === key ? { ...l, ingredientId, amount: null } : l)),
+    );
   }
 
   function setLineAmount(key: string, amount: number | null): void {
@@ -174,11 +189,20 @@ export function RecipeEditor() {
 
   async function handleSave(): Promise<void> {
     if (name.trim() === "" || baseServings === null || baseServings <= 0 || cookMinutes === null) {
-      showToast({ variant: "warning", title: "Fill in a name, servings and cook time before saving." });
+      showToast({
+        variant: "warning",
+        title: "Fill in a name, servings and cook time before saving.",
+      });
       return;
     }
-    if (kind === "cooked" && lines.some((l) => l.ingredientId === null || l.amount === null || l.amount <= 0)) {
-      showToast({ variant: "warning", title: "Every ingredient line needs an ingredient and a positive amount." });
+    if (
+      kind === "cooked" &&
+      lines.some((l) => l.ingredientId === null || l.amount === null || l.amount <= 0)
+    ) {
+      showToast({
+        variant: "warning",
+        title: "Every ingredient line needs an ingredient and a positive amount.",
+      });
       return;
     }
 
@@ -200,7 +224,9 @@ export function RecipeEditor() {
       let recipeLines: readonly RecipeIngredient[];
       if (kind === "bought") {
         const existingIngredientIds = new Set(ingredientsCatalog.map((i) => i.id));
-        const productId = linkedIngredientId ?? makeIngredientId(uniqueSlug(recipe.name, existingIngredientIds, rng));
+        const productId =
+          linkedIngredientId ??
+          makeIngredientId(uniqueSlug(recipe.name, existingIngredientIds, rng));
         const existingProduct = ingredientsCatalog.find((i) => i.id === productId);
         const productIngredient: Ingredient = {
           id: productId,
@@ -212,7 +238,9 @@ export function RecipeEditor() {
         };
         await store.ingredients.upsert(productIngredient);
         setLinkedIngredientId(productId);
-        recipeLines = [{ recipeId: id, ingredientId: productId, quantity: makeQuantity(1, "piece") }];
+        recipeLines = [
+          { recipeId: id, ingredientId: productId, quantity: makeQuantity(1, "piece") },
+        ];
       } else {
         recipeLines = lines
           .filter(
@@ -221,7 +249,11 @@ export function RecipeEditor() {
           )
           .map((l) => {
             const unit = ingredientsCatalog.find((i) => i.id === l.ingredientId)?.unit ?? "g";
-            return { recipeId: id, ingredientId: l.ingredientId, quantity: makeQuantity(l.amount, unit) };
+            return {
+              recipeId: id,
+              ingredientId: l.ingredientId,
+              quantity: makeQuantity(l.amount, unit),
+            };
           });
       }
 
@@ -238,218 +270,255 @@ export function RecipeEditor() {
         variant: "success",
         title: `Saved "${recipe.name}"`,
         durationMs: 5000,
-        ...(kind === "bought" ? { description: `Linked catalog ingredient "${recipe.name}" (piece).` } : {}),
+        ...(kind === "bought"
+          ? { description: `Linked catalog ingredient "${recipe.name}" (piece).` }
+          : {}),
       });
       navigate("/recipes");
     } catch (err) {
-      showToast({ variant: "error", title: "Couldn't save the recipe", description: messageOf(err) });
+      showToast({
+        variant: "error",
+        title: "Couldn't save the recipe",
+        description: messageOf(err),
+      });
     } finally {
       setSaving(false);
     }
   }
 
+  const cancelTo = isNew ? "/recipes" : `/recipes/${recipeId}`;
+
   return (
     <section>
-      <p>
-        <Link to="/recipes" className={styles.backLink}>
-          &larr; Recipes
-        </Link>
-      </p>
-      <h1>{isNew ? "Add recipe" : "Edit recipe"}</h1>
+      {/* Exactly one h1 (axe `page-has-heading-one`, same discipline as
+          RecipeDetail.tsx) — shown here while loading/erroring, and again,
+          once, inside the form's own top bar below once data is ready. */}
+      {loading || error ? <h1>{isNew ? "Add recipe" : "Edit recipe"}</h1> : null}
 
       {loading ? <Skeleton /> : null}
-      {!loading && error ? <ErrorState title="Couldn't load this recipe" description={error} /> : null}
+      {!loading && error ? (
+        <ErrorState title="Couldn't load this recipe" description={error} />
+      ) : null}
       {!loading && !error ? (
         <form
-          className={styles.form}
           onSubmit={(event) => {
             event.preventDefault();
             void handleSave();
           }}
         >
-          <TextField label="Name" value={name} onChange={setName} required placeholder="e.g. Weeknight chili" />
-
-          <div className={styles.field}>
-            <span>Kind</span>
-            <SegmentedControl<RecipeKind> aria-label="Recipe kind" options={KIND_OPTIONS} value={kind} onChange={setKind} />
-          </div>
-
-          {/* Household flag — the mockup places this right under the recipe's
-              own identity, full-width, not tucked among the time/servings
-              fields — it's the single most important control on the page
-              after "what recipe is this". */}
-          <div className={styles.field}>
-            <span className={styles.fieldLabel}>Household flag</span>
-            <div className={styles.fullWidthControl}>
-              <SegmentedControl<RecipeStatus>
-                aria-label="Household flag"
-                options={STATUS_OPTIONS}
-                value={status}
-                onChange={setStatus}
-              />
+          {/* Top bar: Save/Cancel live beside the heading, never floating
+              mid-page (WP-VC4, design/mock-screens.html #editor's
+              `.dt-actions`/`.p-head` — the owner's own words: "Save lives
+              in the top bar, not floating in the middle of the page"). */}
+          <div className={detailStyles.headRow}>
+            <div>
+              <h1>{isNew ? "Add recipe" : "Edit recipe"}</h1>
+              {!isNew ? (
+                <p className={detailStyles.dtSub}>
+                  {name.trim() || "Untitled"} · {kindLabel}
+                </p>
+              ) : null}
+            </div>
+            <div className={detailStyles.headActions}>
+              <Link to={cancelTo} className={detailStyles.editLink}>
+                Cancel
+              </Link>
+              <button type="submit" className={styles.saveButton} disabled={saving}>
+                {saving ? "Saving…" : "Save recipe"}
+              </button>
             </div>
           </div>
 
-          <div className={styles.field}>
-            <span>Meal tags</span>
-            <ToggleChips<MealTag> aria-label="Meal tags" options={MEAL_TAG_OPTIONS} value={mealTags} onChange={setMealTags} />
-          </div>
-
-          <div className={styles.row}>
-            <div className={styles.field}>
-              <span className={styles.fieldLabel}>Servings</span>
-              <ServingsStepper value={baseServings} onChange={setBaseServings} />
-            </div>
-            {kind === "cooked" ? (
-              <IntegerField label="Prep time" suffix="min" value={prepMinutes} onChange={setPrepMinutes} required />
-            ) : (
-              <div className={styles.field}>
-                <span>Prep time</span>
-                <p className={styles.hint}>0 min — store-bought meals have no prep step.</p>
-              </div>
-            )}
-            <IntegerField
-              label="Cook time"
-              suffix="min"
-              value={cookMinutes}
-              onChange={setCookMinutes}
-              required
-            />
-          </div>
-
-          {kind === "cooked" ? (
-            <div className={styles.field}>
-              <p className={styles.sectionHeading}>Ingredients</p>
+          {/* Three concerns, three (or four) titled cards — never one
+              run-on list (WP-VC4, design/mock-screens.html #editor's own
+              note: "the form has three distinct concerns — identity,
+              timing, and content — and they should read as three cards").
+              "Content" is Steps always, plus Ingredients too for a cooked
+              recipe — the mock's own example is a Bought recipe, which has
+              no ingredient lines by design, so its screenshot shows only
+              Identity/Steps in this column. */}
+          <div className={detailStyles.cols}>
+            <div className={detailStyles.main}>
               <div className={styles.sectionCard}>
+                <div className={styles.sectionCardHead}>Identity</div>
                 <div className={styles.sectionCardBody}>
-                  {lines.length === 0 ? <p className={styles.hint}>No ingredient lines yet.</p> : null}
-                  {lines.map((line) => {
-                    const unit = ingredientsCatalog.find((i) => i.id === line.ingredientId)?.unit ?? "g";
-                    return (
-                      <div className={styles.line} key={line.key}>
-                        <SelectSheet
-                          label="Ingredient"
-                          options={ingredientOptions}
-                          value={line.ingredientId}
-                          onChange={(value) => setLineIngredient(line.key, value)}
-                          placeholder="Choose an ingredient…"
-                        />
-                        <QuantityInput
-                          label="Amount"
-                          unit={unit}
-                          value={line.amount}
-                          onChange={(q) => setLineAmount(line.key, q?.amount ?? null)}
-                          disabled={line.ingredientId === null}
-                          required
-                        />
-                        <button
-                          type="button"
-                          className={styles.removeButton}
-                          onClick={() => removeLine(line.key)}
-                          aria-label="Remove ingredient line"
-                        >
-                          <Trash size={18} aria-hidden="true" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                  <button type="button" className={styles.addButton} onClick={addLine}>
+                  <TextField
+                    label="Name"
+                    value={name}
+                    onChange={setName}
+                    required
+                    placeholder="e.g. Weeknight chili"
+                  />
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Meal tags</span>
+                    <ToggleChips<MealTag>
+                      aria-label="Meal tags"
+                      options={MEAL_TAG_OPTIONS}
+                      value={mealTags}
+                      onChange={setMealTags}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {kind === "cooked" ? (
+                <div className={styles.sectionCard}>
+                  <div className={styles.sectionCardHead}>Ingredients</div>
+                  <div className={styles.sectionCardBody}>
+                    {lines.length === 0 ? (
+                      <p className={styles.hint}>No ingredient lines yet.</p>
+                    ) : null}
+                    {lines.map((line) => {
+                      const unit =
+                        ingredientsCatalog.find((i) => i.id === line.ingredientId)?.unit ?? "g";
+                      return (
+                        <div className={styles.line} key={line.key}>
+                          <SelectSheet
+                            label="Ingredient"
+                            options={ingredientOptions}
+                            value={line.ingredientId}
+                            onChange={(value) => setLineIngredient(line.key, value)}
+                            placeholder="Choose an ingredient…"
+                          />
+                          <QuantityInput
+                            label="Amount"
+                            unit={unit}
+                            value={line.amount}
+                            onChange={(q) => setLineAmount(line.key, q?.amount ?? null)}
+                            disabled={line.ingredientId === null}
+                            required
+                          />
+                          <button
+                            type="button"
+                            className={styles.removeButton}
+                            onClick={() => removeLine(line.key)}
+                            aria-label="Remove ingredient line"
+                          >
+                            <Trash size={18} aria-hidden="true" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    <button type="button" className={styles.addButton} onClick={addLine}>
+                      <Plus size={18} aria-hidden="true" />
+                      Add ingredient line
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className={styles.hint}>
+                  Saving links a single catalog ingredient, &ldquo;{name.trim() || "(recipe name)"}
+                  &rdquo;, unit &ldquo;piece&rdquo; — the product itself.
+                </p>
+              )}
+
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionCardHead}>Steps</div>
+                <div className={styles.sectionCardBody}>
+                  {steps.map((step, index) => (
+                    <div className={styles.line} key={index}>
+                      <TextField
+                        label={`Step ${index + 1}`}
+                        value={step}
+                        onChange={(text) => updateStep(index, text)}
+                        placeholder="e.g. 375 degrees, 30 min covered"
+                      />
+                      <button
+                        type="button"
+                        className={styles.removeButton}
+                        onClick={() => removeStep(index)}
+                        aria-label={`Remove step ${index + 1}`}
+                      >
+                        <Trash size={18} aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+                  <button type="button" className={styles.addButton} onClick={addStep}>
                     <Plus size={18} aria-hidden="true" />
-                    Add ingredient line
+                    Add step
                   </button>
                 </div>
               </div>
             </div>
-          ) : (
-            <p className={styles.hint}>
-              Saving links a single catalog ingredient, &ldquo;{name.trim() || "(recipe name)"}&rdquo;, unit
-              &ldquo;piece&rdquo; — the product itself.
-            </p>
-          )}
 
-          <div className={styles.field}>
-            <p className={styles.sectionHeading}>Steps</p>
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionCardBody}>
-                {steps.map((step, index) => (
-                  <div className={styles.line} key={index}>
-                    <TextField
-                      label={`Step ${index + 1}`}
-                      value={step}
-                      onChange={(text) => updateStep(index, text)}
-                      placeholder="e.g. 375 degrees, 30 min covered"
+            <div className={detailStyles.rail}>
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionCardHead}>Kind &amp; rotation</div>
+                <div className={styles.sectionCardBody}>
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Kind</span>
+                    <SegmentedControl<RecipeKind>
+                      aria-label="Recipe kind"
+                      options={KIND_OPTIONS}
+                      value={kind}
+                      onChange={setKind}
                     />
-                    <button
-                      type="button"
-                      className={styles.removeButton}
-                      onClick={() => removeStep(index)}
-                      aria-label={`Remove step ${index + 1}`}
-                    >
-                      <Trash size={18} aria-hidden="true" />
-                    </button>
                   </div>
-                ))}
-                <button type="button" className={styles.addButton} onClick={addStep}>
-                  <Plus size={18} aria-hidden="true" />
-                  Add step
-                </button>
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Household flag</span>
+                    <div className={styles.fullWidthControl}>
+                      <SegmentedControl<RecipeStatus>
+                        aria-label="Household flag"
+                        options={STATUS_OPTIONS}
+                        value={status}
+                        onChange={setStatus}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionCardHead}>Timing &amp; servings</div>
+                <div className={styles.sectionCardBody}>
+                  {/* Every numeric field on this screen is the SAME control
+                      — `QuantityInput` with steppers (design/mock-screens.html
+                      #editor's own note). Prep time used to be a plain number
+                      box, and a sentence in its place for a bought recipe;
+                      cook time was a different-looking box again. Not
+                      anymore: all three are the one control, prep just
+                      locked at 0 (disabled, never hidden/replaced by prose)
+                      when Kind is Bought. */}
+                  <QuantityInput<"servings">
+                    label="Servings"
+                    unit="servings"
+                    value={baseServings}
+                    onChange={(q) => setBaseServings(q?.amount ?? null)}
+                    showSteppers
+                    required
+                  />
+                  {/* `key={kind}` forces a remount when Kind toggles:
+                      `QuantityInput` seeds its raw text from `value` only
+                      on mount (uncontrolled-after-mount, like every text
+                      input in this kit — see its own doc comment), so
+                      without this the field would keep showing whatever
+                      was last typed instead of snapping to "0" the instant
+                      Kind becomes Bought, which is exactly the stale-value
+                      bug this screen exists to fix. */}
+                  <QuantityInput<"min">
+                    key={kind}
+                    label="Prep time"
+                    unit="min"
+                    value={displayedPrepMinutes}
+                    onChange={(q) => setPrepMinutes(q?.amount ?? null)}
+                    disabled={kind === "bought"}
+                    showSteppers
+                    required
+                  />
+                  <QuantityInput<"min">
+                    label="Cook time"
+                    unit="min"
+                    value={cookMinutes}
+                    onChange={(q) => setCookMinutes(q?.amount ?? null)}
+                    showSteppers
+                    required
+                  />
+                </div>
               </div>
             </div>
           </div>
-
-          <div className={styles.actions}>
-            <button type="submit" className={styles.saveButton} disabled={saving}>
-              {saving ? "Saving…" : "Save recipe"}
-            </button>
-          </div>
         </form>
       ) : null}
-
-      {!loading && !error && !isNew ? (
-        <div className={styles.field}>
-          <p className={styles.sectionHeading}>Cooked history</p>
-          <div className={styles.sectionCard}>
-            <div className={styles.sectionCardBody}>
-              {cookedHistory.length === 0 ? (
-                <p className={styles.hint}>Not marked cooked yet.</p>
-              ) : (
-                cookedHistory.map((slot) => (
-                  <div className={styles.line} key={slot.id}>
-                    <CookingPot size={18} aria-hidden="true" />
-                    <span>
-                      {slot.date} · {slot.slotType}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
-  );
-}
-
-/** Servings +/- stepper — matches the mockup's `.qty` control (UI_DESIGN.md §5: real touch targets, never a native numeric spinner). */
-function ServingsStepper({
-  value,
-  onChange,
-}: {
-  readonly value: number | null;
-  readonly onChange: (value: number) => void;
-}) {
-  const current = value ?? 1;
-  return (
-    <div className={styles.qty}>
-      <button type="button" aria-label="Fewer servings" onClick={() => onChange(Math.max(1, current - 1))}>
-        <Minus size={16} aria-hidden="true" />
-      </button>
-      <span className={styles.qtyValue}>
-        {current} <span className={styles.qtyUnit}>servings</span>
-      </span>
-      <button type="button" aria-label="More servings" onClick={() => onChange(current + 1)}>
-        <Plus size={16} aria-hidden="true" />
-      </button>
-    </div>
   );
 }

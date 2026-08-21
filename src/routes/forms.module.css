@@ -52,15 +52,21 @@
   gap: var(--space-1);
 }
 
-/* Matches QuantityInput.module.css's .label/.control exactly (bold,
-   --text-h label; --radius-md; accent border-color on focus) — this form
-   sits QuantityInput fields directly beside plain-text ones (RecipeEditor's
-   ingredient lines), so a lighter/smaller/differently-rounded look for the
-   plain fields read as a second, uncoordinated input style on one screen. */
+/* One label style throughout a form (WP-VC4, owner-reported: the recipe
+   editor mixed this rule's old sentence-case/0.9rem look with
+   `.fieldLabel`'s uppercase eyebrow on the very same screen — e.g.
+   "Household flag" vs "Name" reading as two different kinds of label).
+   Identical declarations to `.fieldLabel` below, on purpose: a `<label>`
+   (TextField/IntegerField's own markup) and a bare `<span
+   className={styles.fieldLabel}>` (RecipeEditor's Kind/Meal tags/Household
+   flag/Stepper labels) are the same design element and must render
+   identically regardless of which tag a given field happens to use. */
 .field label {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--text-h);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .field input[type="text"] {
@@ -269,6 +275,17 @@
   font-weight: 500;
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+
+/* A locked numeric field (RecipeEditor: prep time forced to 0 for a
+   store-bought recipe) still renders as the SAME `.qty` control — never a
+   sentence in its place (WP-VC4) — just visually and functionally inert. */
+.qtyDisabled {
+  opacity: 0.6;
+}
+
+.qtyDisabled button {
+  cursor: not-allowed;
 }
 
 /* Ingredients/steps section container — a bordered card with a small-caps
