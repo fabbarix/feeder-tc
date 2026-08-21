@@ -484,11 +484,28 @@ details.stepdetail.why[open] summary::before{content:"Hide ▴"}
 .mday{border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:9px;overflow:hidden}
 .mday-h{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--surface-2);font:600 11px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint)}
 .mslot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;border-top:1px solid var(--line-soft)}
-.mslot .mn{font:500 14px/1.2 var(--ui)}
-.mslot .mt{font:600 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);display:block;margin-bottom:3px}
+.mslot .mn,.mslot2 .mn{font:500 14px/1.2 var(--ui)}
+.mslot .mt,.mslot2 .mt{font:600 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);display:block;margin-bottom:3px}
 .iconbtn{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text-dim);display:grid;place-items:center;cursor:pointer;flex:none;transition:all 170ms var(--ease)}
 .iconbtn:hover{border-color:var(--accent-line);color:var(--accent)}
 .iconbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+/* Remove is destructive, not routine — same crit token the photo/step
+   delete actions already use, only on hover so the row doesn't shout
+   red at rest. */
+.iconbtn.danger:hover{border-color:var(--crit);color:var(--crit)}
+/* Today, in the week grid — same accent-line/accent-bg pair .mday-cell
+   already uses for the month/quarter views, applied to the day itself
+   here since a week day is a card, not a dot. */
+.day.istoday{border-color:var(--accent-line);background:var(--accent-bg)}
+.day.istoday .day-n{color:var(--accent)}
+.mday.istoday{border-color:var(--accent-line)}
+.mday.istoday .mday-h{background:var(--accent-bg);color:var(--accent)}
+/* Two-line mobile slot (§ owner request): name + a per-slot servings
+   stepper on row 1, actions row below — row 2 is the only place an
+   icon cluster competes for width on a 296px phone frame, never row 1. */
+.mslot2{display:flex;flex-direction:column;gap:8px;padding:11px 12px;border-top:1px solid var(--line-soft)}
+.mslot-row1{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mslot-row2{display:flex;align-items:center;gap:5px}
 .fab{position:absolute;right:14px;bottom:70px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--accent-text);border:0;display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow-2);transition:transform 180ms var(--ease)}
 .fab:hover{transform:scale(1.07)}
 .fab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
@@ -1934,7 +1951,11 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
       <p class="tier-note">A prominent week control replaces the old bare chevrons — the date range is now the
-        thing you tap, flanked by real prev/next targets, with "Today" one tap away instead of several taps back.</p>
+        thing you tap, flanked by real prev/next targets, with "Today" one tap away instead of several taps back.
+        Also fixed here: <b>Wed 26</b> (today) gets the same accent tint as the month/quarter dot, past days
+        (<b>Mon 24, Tue 25</b>) drop reroll/pin for a <code>Cooked</code> status — you can't reroll a meal that's
+        already happened — and every slot gains a two-line layout: name plus a per-slot servings stepper on row
+        one, actions (including <b>Remove</b>, new) on row two.</p>
       <div class="tier-frame"><div class="phone">
         <div class="p-head"><span class="p-title">Plan</span></div>
         <div class="p-body">
@@ -1945,16 +1966,28 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <button class="btn sm full" style="margin-bottom:12px">Generate week</button>
           <div class="mday">
             <div class="mday-h"><span>Mon 24</span><span>2 slots</span></div>
-            <div class="mslot"><span><span class="mt">Lunch</span><span class="mn">Tomato salad</span></span><div style="display:flex;gap:5px"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button></div></div>
-            <div class="mslot"><span><span class="mt">Dinner · pinned</span><span class="mn">Chili</span></span><div style="display:flex;gap:5px"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" style="border-color:var(--accent-line);color:var(--accent)" aria-label="Unpin"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button></div></div>
+            <div class="mslot2">
+              <div class="mslot-row1"><span><span class="mt">Lunch</span><span class="mn">Tomato salad</span></span><span class="badge ok">Cooked</span></div>
+              <div class="mslot-row2"><button class="iconbtn danger" style="margin-left:auto" aria-label="Remove from plan"><svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></div>
+            </div>
+            <div class="mslot2">
+              <div class="mslot-row1"><span><span class="mt">Dinner</span><span class="mn">Chili</span></span><span class="badge ok">Cooked</span></div>
+              <div class="mslot-row2"><button class="iconbtn danger" style="margin-left:auto" aria-label="Remove from plan"><svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></div>
+            </div>
           </div>
           <div class="mday">
             <div class="mday-h"><span>Tue 25</span><span>1 slot</span></div>
-            <div class="mslot"><span><span class="mt">Dinner · leftover</span><span class="mn">Leftover: Chili</span></span><span class="badge a">4 portions</span></div>
+            <div class="mslot2">
+              <div class="mslot-row1"><span><span class="mt">Dinner · leftover</span><span class="mn">Leftover: Chili</span></span><span class="badge ok">Cooked</span></div>
+              <div class="mslot-row2"><button class="iconbtn danger" style="margin-left:auto" aria-label="Remove from plan"><svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></div>
+            </div>
           </div>
-          <div class="mday">
+          <div class="mday istoday">
             <div class="mday-h"><span>Wed 26</span><span>1 slot</span></div>
-            <div class="mslot"><span><span class="mt">Dinner · tonight</span><span class="mn">Roast chicken</span></span><button class="btn sm">Cook</button></div>
+            <div class="mslot2">
+              <div class="mslot-row1"><span><span class="mt">Dinner · tonight</span><span class="mn">Roast chicken</span></span><div class="qty" style="max-width:148px"><button aria-label="Fewer">−</button><span class="val">4 <span class="unit">servings</span></span><button aria-label="More">+</button></div></div>
+              <div class="mslot-row2"><button class="btn sm">Cook</button><button class="iconbtn danger" style="margin-left:auto" aria-label="Remove from plan"><svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></div>
+            </div>
           </div>
           <div class="mday">
             <div class="mday-h"><span>Thu 27</span><span>empty</span></div>
@@ -1962,7 +1995,21 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           </div>
           <div class="mday">
             <div class="mday-h"><span>Fri 28</span><span>1 slot</span></div>
-            <div class="mslot"><span><span class="mt">Dinner</span><span class="mn">Store lasagna</span></span><span class="badge ok">→ 2 leftover</span></div>
+            <div class="mslot2">
+              <div class="mslot-row1"><span><span class="mt">Dinner</span><span class="mn">Store lasagna</span></span><span class="badge ok">→ 2 leftover</span></div>
+              <div class="mslot-row2"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button><button class="iconbtn danger" style="margin-left:auto" aria-label="Remove from plan"><svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></div>
+            </div>
+          </div>
+          <div class="mday">
+            <div class="mday-h"><span>Sat 29</span><span>2 slots</span></div>
+            <div class="mslot2">
+              <div class="mslot-row1"><span><span class="mt">Lunch · leftover</span><span class="mn">Leftover: Chili</span></span><span class="badge a">4 portions</span></div>
+              <div class="mslot-row2"><button class="iconbtn danger" style="margin-left:auto" aria-label="Remove from plan"><svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></div>
+            </div>
+            <div class="mslot2">
+              <div class="mslot-row1"><span><span class="mt">Dinner</span><span class="mn">Fish pie</span></span><div class="qty" style="max-width:148px"><button aria-label="Fewer">−</button><span class="val">4 <span class="unit">servings</span></span><button aria-label="More">+</button></div></div>
+              <div class="mslot-row2"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button><button class="iconbtn danger" style="margin-left:auto" aria-label="Remove from plan"><svg viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></div>
+            </div>
           </div>
         </div>
       </div></div>
@@ -1974,7 +2021,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         to fill the fourth slot. At the tier's narrow end (768px) each column is still ~176px; at its wide end
         (near the owner's 1378px iPad) it's ~280px — comfortably above the ~150px a slot needs for "Sam's Stuffed
         Peppers" to sit on one or two lines, never three. Icon buttons stay inline beside the meal name at every
-        width in this tier.</p>
+        width in this tier. <b>Wed 26</b> (today) carries the same accent tint as the month view's dot; <b>Mon 24
+        / Tue 25</b> (past) drop reroll/pin for a <code>Cooked</code> badge; every filled slot gains a
+        <b>Remove</b> icon (the servings stepper is phone-only — this tier keeps the compact single-line slot,
+        there's no second row to put it on).</p>
       <div class="tier-frame"><div class="tablet">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/plan</div></div>
         <div class="dt-top">
@@ -1991,18 +2041,18 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div class="weekband">
             <div class="weekband-label">Mon – Thu</div>
             <div class="week4">
-              <div class="day"><div class="day-n">Mon 24</div><div class="slot"><span class="t">Lunch</span>Tomato salad</div><div class="slot pin"><span class="t">Dinner · pinned</span>Chili<span class="sactions"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button></span></div></div>
-              <div class="day"><div class="day-n">Tue 25</div><div class="slot left"><span class="t">Dinner</span>Leftover: Chili</div></div>
-              <div class="day"><div class="day-n">Wed 26</div><div class="slot"><span class="t">Dinner · tonight</span>Roast chicken<span class="sactions"><button class="btn sm" style="padding:5px 10px">Cook</button></span></div></div>
+              <div class="day"><div class="day-n">Mon 24</div><div class="slot"><span class="t">Lunch</span>Tomato salad<span class="sactions"><span class="badge ok">Cooked</span><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div><div class="slot"><span class="t">Dinner</span>Chili<span class="sactions"><span class="badge ok">Cooked</span><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+              <div class="day"><div class="day-n">Tue 25</div><div class="slot left"><span class="t">Dinner</span>Leftover: Chili<span class="sactions"><span class="badge ok">Cooked</span><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+              <div class="day istoday"><div class="day-n">Wed 26</div><div class="slot"><span class="t">Dinner · tonight</span>Roast chicken<span class="sactions"><button class="btn sm" style="padding:5px 10px">Cook</button><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
               <div class="day"><div class="day-n">Thu 27</div><div class="slot add">+ Dinner</div></div>
             </div>
           </div>
           <div class="weekband">
             <div class="weekband-label">Fri – Sun</div>
             <div class="week4">
-              <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna<span class="badge ok">→ 2 leftover</span></div></div>
-              <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili</div><div class="slot"><span class="t">Dinner</span>Fish pie</div></div>
-              <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast</div></div>
+              <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna<span class="badge ok">→ 2 leftover</span><span class="sactions"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+              <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili<span class="sactions"><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div><div class="slot"><span class="t">Dinner</span>Fish pie<span class="sactions"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+              <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast<span class="sactions"><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
               <div></div>
             </div>
           </div>
@@ -2011,7 +2061,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     </div>
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
-      <p class="tier-note">Unchanged — this is the tier the seven-column week was always designed for.</p>
+      <p class="tier-note">Seven-column week, unchanged. <b>Wed 26</b> (today) gets the same accent tint as the
+        month view's dot and the tablet frame above; <b>Mon 24 / Tue 25</b> (past) show <code>Cooked</code>
+        instead of reroll/pin; every filled slot gains <b>Remove</b>. The per-slot servings stepper stays phone-only
+        (§ owner request) — with this much width the single-line slot has no need for a second row.</p>
       <div class="tier-frame"><div class="browser">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/plan</div></div>
         <div class="dt-top">
@@ -2026,13 +2079,13 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           </div>
           <p class="dt-sub">Household of 4 · 2 staples placed · 1 slot empty · Carbonara excluded (cooked 1 week ago)</p>
           <div class="week">
-            <div class="day"><div class="day-n">Mon 24</div><div class="slot"><span class="t">Lunch</span>Tomato salad</div><div class="slot pin"><span class="t">Dinner · pinned</span>Chili</div></div>
-            <div class="day"><div class="day-n">Tue 25</div><div class="slot left"><span class="t">Dinner</span>Leftover: Chili</div></div>
-            <div class="day"><div class="day-n">Wed 26</div><div class="slot"><span class="t">Dinner · tonight</span>Roast chicken</div></div>
+            <div class="day"><div class="day-n">Mon 24</div><div class="slot"><span class="t">Lunch</span>Tomato salad<span class="sactions"><span class="badge ok">Cooked</span><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div><div class="slot"><span class="t">Dinner</span>Chili<span class="sactions"><span class="badge ok">Cooked</span><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+            <div class="day"><div class="day-n">Tue 25</div><div class="slot left"><span class="t">Dinner</span>Leftover: Chili<span class="sactions"><span class="badge ok">Cooked</span><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+            <div class="day istoday"><div class="day-n">Wed 26</div><div class="slot"><span class="t">Dinner · tonight</span>Roast chicken<span class="sactions"><button class="btn sm" style="padding:5px 10px">Cook</button><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
             <div class="day"><div class="day-n">Thu 27</div><div class="slot add">+ Dinner</div></div>
-            <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna<span class="badge ok">→ 2 leftover</span></div></div>
-            <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili</div><div class="slot"><span class="t">Dinner</span>Fish pie</div></div>
-            <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast</div></div>
+            <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna<span class="badge ok">→ 2 leftover</span><span class="sactions"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+            <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili<span class="sactions"><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div><div class="slot"><span class="t">Dinner</span>Fish pie<span class="sactions"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
+            <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast<span class="sactions"><button class="iconbtn danger" aria-label="Remove from plan"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M5 7h14"/><path d="M10 7V4.5h4V7"/><path d="M7 7l1 12.5a1.5 1.5 0 0 0 1.5 1.5h7a1.5 1.5 0 0 0 1.5-1.5L18 7"/></svg></button></span></div></div>
           </div>
         </div>
       </div></div>
@@ -2071,6 +2124,56 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     a surprise at mark-cooked. §9.3 recommends the leftover lot itself is still only <em>created</em> at mark-cooked
     (matching the existing reconciliation flow) — this badge is a forecast, not a promise the pantry already
     reflects.
+  </div>
+
+  <h3 style="font:400 26px/1.2 var(--display);font-variation-settings:'opsz' 60;margin:40px 0 8px">Removing a plan entry — corrects the record, never erases it silently</h3>
+  <p class="sub">Every filled slot above now has a <b>Remove</b> icon, including past ones — previously there was
+    no way to remove a slot at all once it existed. A future slot is just an unscheduled recipe; removing it
+    deletes nothing that matters and needs no ceremony. A <b>past, already-cooked</b> slot is different: Chili's
+    pantry deduction and the leftover it created are <code>InventoryEvents</code> rows, and HANDOVER.md's
+    invariant 1 says those rows are <b>immutable</b> — a correction is a new event, never an edit or a delete.
+    Removing Monday's Chili from the plan must not read as "undo the cooking," because it can't: the confirm copy
+    says exactly what does and doesn't change.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone · removing a past, cooked slot</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="sheetframe">
+        <div class="scrim"></div>
+        <div class="sheet2">
+          <div class="grab2"></div>
+          <h4 style="font:500 18px/1.2 var(--display);margin:0 0 3px">Remove Chili — Monday dinner?</h4>
+          <p class="dsub">Monday has already passed</p>
+          <div class="reconcile" style="text-align:left">
+            <p class="rc-math" style="text-align:left">This only corrects what the plan calendar shows for Monday.
+              Chili's pantry deduction and the leftover it created are already-recorded events and stay exactly as
+              they are — removing the slot doesn't undo the cooking.</p>
+          </div>
+          <div style="display:flex;gap:8px"><button class="chip" style="flex:1;justify-content:center">Cancel</button><button class="btn danger" style="flex:1">Remove from plan</button></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop · removing a future slot</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Tablet uses this same centred dialog, only narrower — the pattern this file already
+        established for every other overlay. A slot that hasn't happened yet has nothing recorded to correct, so
+        the copy stays short — no invariant-1 explanation, because none applies.</p>
+      <div class="tier-frame"><div class="dialogframe">
+        <div class="dialog" style="max-width:340px">
+          <h4>Remove Fish pie — Saturday dinner?</h4>
+          <p class="dsub">Nothing's been cooked yet — this just clears the slot</p>
+          <div class="dialog-actions"><button class="chip">Cancel</button><button class="btn danger sm">Remove from plan</button></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="note">
+    <strong>Two confirms, not one, because the two cases mean different things.</strong> Same <b>Remove</b> icon,
+    same trash glyph, same sheet/dialog chrome — but a past slot's copy names invariant 1 in plain language
+    ("doesn't undo the cooking") because a household could otherwise reasonably expect removing Monday's dinner to
+    also claw back the mince and onion it used, which it never will and never should. A future slot's copy is a
+    single sentence because there is genuinely nothing at stake — this is the same "don't ask twice when nothing
+    is at risk" instinct that keeps the rest of this file from throwing a confirm dialog at every tap. The confirm
+    action reuses <code>.btn.danger</code> (the same crit-tinted button the ingredient-photo "Remove" already
+    uses), never plain <code>.btn</code> — it's a destructive action and should look like one at the moment of
+    commitment, even though the icon that opened it stays neutral until hovered.
   </div>
 
   <h3 style="font:400 26px/1.2 var(--display);font-variation-settings:'opsz' 60;margin:40px 0 8px">Month — an overview, not an editor</h3>
@@ -2121,8 +2224,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <div class="mday-cell"><div class="dn">22</div><div class="dots"><i></i></div></div>
             <div class="mday-cell"><div class="dn">23</div><div class="dots"><i></i></div></div>
             <div class="mday-cell"><div class="dn">24</div><div class="dots"><i></i><i></i></div></div>
-            <div class="mday-cell istoday"><div class="dn">25</div><div class="dots"><i></i></div></div>
-            <div class="mday-cell"><div class="dn">26</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">25</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell istoday"><div class="dn">26</div><div class="dots"><i></i></div></div>
             <div class="mday-cell"><div class="dn">27</div><div class="dots"><i class="empty"></i></div></div>
             <div class="mday-cell"><div class="dn">28</div><div class="dots"><i></i></div></div>
             <div class="mday-cell"><div class="dn">29</div><div class="dots"><i></i><i class="left"></i></div></div>
@@ -2188,8 +2291,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               <div class="mday-cell"><div class="dn">22</div><div class="dots"><i></i></div></div>
               <div class="mday-cell"><div class="dn">23</div><div class="dots"><i></i></div></div>
               <div class="mday-cell"><div class="dn">24</div><div class="dots"><i></i><i></i></div></div>
-              <div class="mday-cell istoday"><div class="dn">25</div><div class="dots"><i></i></div></div>
-              <div class="mday-cell"><div class="dn">26</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">25</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell istoday"><div class="dn">26</div><div class="dots"><i></i></div></div>
               <div class="mday-cell"><div class="dn">27</div><div class="dots"><i class="empty"></i></div></div>
               <div class="mday-cell"><div class="dn">28</div><div class="dots"><i></i></div></div>
               <div class="mday-cell"><div class="dn">29</div><div class="dots"><i></i><i class="left"></i></div></div>
@@ -2203,7 +2306,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i class="left"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
               <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i><i class="left"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
               <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div>
-              <div class="mday-cell istoday"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i class="left"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell istoday"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i class="left"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
             </div></div>
             <div><div class="qmonth-label">September</div><div class="monthgrid">
               <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
@@ -2231,6 +2334,15 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     but it's still the thing you're scanning a month for ("did I plan next Tuesday yet?"), so it has to read
     distinctly from a filled dot at a glance without borrowing the alarm palette. Clicking any day opens that
     week — this view answers "what's ahead," it doesn't let you edit a slot from here.
+  </div>
+  <div class="note">
+    <strong>Pre-existing defect found and fixed while wiring up today's highlight: the month/quarter dot was
+    marking the wrong day.</strong> <code>.mday-cell.istoday</code> already existed in this file before this
+    revision, but it sat on <b>25</b> — every other "today" reference in the whole package (Home's tonight card,
+    the week view's "Dinner · tonight," the Mark-cooked flow) is <b>Wed 26</b>. Moved both the main month grid
+    (phone and desktop) and the quarter strip's August mini-grid to 26, and gave the week view (above) the same
+    <code>.istoday</code> treatment it never had at all — a gap this task's "highlight today, and make it
+    unmistakable everywhere" request surfaced, not something introduced by it.
   </div>
 </section>
 
