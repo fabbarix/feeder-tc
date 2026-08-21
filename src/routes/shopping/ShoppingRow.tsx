@@ -12,7 +12,7 @@ import {
   type ShoppingListLine,
   type StorageLocation,
 } from "../../domain/index.ts";
-import { buildProvenanceText, buildRoundingExplanation, type ProvenanceContext } from "./provenance.ts";
+import { buildIndivisibleSecondary, buildProvenanceText, buildRoundingExplanation, type ProvenanceContext } from "./provenance.ts";
 import { buyQuantity, defaultLooseStep, formatAmountForUnit, isAdjusted, isRoundedOrAdjusted } from "./purchase-display.ts";
 import { LOCATION_OPTIONS, expiryOverrideOptions } from "./checkoff-options.ts";
 import type { CheckOffInput } from "./useShoppingList.ts";
@@ -125,20 +125,23 @@ export function ShoppingRow({
 
   const surplusOnAdjust = Math.max(0, adjustAmount - line.neededQuantity.amount);
 
+  const indivisibleSecondary = buildIndivisibleSecondary(line, provenanceContext);
+
   const secondary =
     checked && checkedItem?.boughtQuantity ? (
       boughtSecondary(checkedItem)
     ) : (
       <>
         {adjusted ? <span className={styles.adjusted}>Adjusted · </span> : null}
-        {rounded ? (
-          `needs ${formatAmountForUnit(line.neededQuantity, ingredient)}`
-        ) : (
-          <>
-            <span className={styles.provenanceShort}>{buildProvenanceText(line.sources, "short")}</span>
-            <span className={styles.provenanceLong}>{buildProvenanceText(line.sources, "long")}</span>
-          </>
-        )}
+        {indivisibleSecondary ??
+          (rounded ? (
+            `needs ${formatAmountForUnit(line.neededQuantity, ingredient)}`
+          ) : (
+            <>
+              <span className={styles.provenanceShort}>{buildProvenanceText(line.sources, "short")}</span>
+              <span className={styles.provenanceLong}>{buildProvenanceText(line.sources, "long")}</span>
+            </>
+          ))}
       </>
     );
 

@@ -12,7 +12,13 @@ import {
   type Settings,
 } from "../../domain/index.ts";
 import type { ShoppingListLine } from "../../domain/index.ts";
-import { buildProvenanceText, buildRoundingExplanation, buildWhyExplanation, sourceAmount } from "./provenance.ts";
+import {
+  buildIndivisibleSecondary,
+  buildProvenanceText,
+  buildRoundingExplanation,
+  buildWhyExplanation,
+  sourceAmount,
+} from "./provenance.ts";
 
 const TOMATO = makeIngredientId("tomato");
 const MONDAY_DINNER_RECIPE = makeRecipeId("monday-dinner-recipe");
@@ -119,6 +125,52 @@ describe("buildWhyExplanation", () => {
 });
 
 // WP-PURCHASING (DESIGN_PURCHASING.md §6) — the extra "Why?" sentence.
+describe("buildIndivisibleSecondary", () => {
+  it("returns 'serves N, you need M' for a bought-meal line — the mock's Store lasagna row subtitle", () => {
+    const lasagnaRecipe: Recipe = {
+      id: makeRecipeId("store-lasagna"),
+      name: "Store lasagna",
+      kind: "bought",
+      baseServings: 4,
+      prepMinutes: 0,
+      cookMinutes: 40,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+    };
+    const lasagnaIngredientId = makeIngredientId("store-lasagna-product");
+    const fridaySlot = makePlanSlotId("fri-dinner");
+    const fridayDate = makeIsoDate("2026-08-21");
+    const ctx = {
+      planSlots: [
+        {
+          id: fridaySlot,
+          date: fridayDate,
+          slotType: "dinner" as const,
+          slotIndex: 0,
+          filling: { kind: "recipe" as const, recipeId: lasagnaRecipe.id },
+          state: "planned" as const,
+          pinned: false,
+        },
+      ],
+      recipes: [lasagnaRecipe],
+      recipeIngredients: [{ recipeId: lasagnaRecipe.id, ingredientId: lasagnaIngredientId, quantity: makeQuantity(1, "piece") }],
+      settings: { householdSize: 2, slotLayout: [], repeatExclusionWeeks: 3 },
+    };
+    const lasagnaLine: ShoppingListLine = {
+      ingredientId: lasagnaIngredientId,
+      rangeStart: fridayDate,
+      rangeEnd: fridayDate,
+      neededQuantity: makeQuantity(1, "piece"),
+      sources: [{ planSlotId: fridaySlot, date: fridayDate, slotType: "dinner", slotIndex: 0, recipeId: lasagnaRecipe.id }],
+    };
+    expect(buildIndivisibleSecondary(lasagnaLine, ctx)).toBe("serves 4, you need 2");
+  });
+
+  it("returns undefined for a plain (non-indivisible) line", () => {
+    expect(buildIndivisibleSecondary(LINE, CTX)).toBeUndefined();
+  });
+});
+
 describe("buildRoundingExplanation", () => {
   it("returns undefined once the line has been explicitly overridden — an explicit choice doesn't need defending (§6)", () => {
     const mayo: Ingredient = {

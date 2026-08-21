@@ -105,6 +105,25 @@ export function buildWhyExplanation(
 }
 
 /**
+ * WP-PURCHASING (DESIGN_PURCHASING.md §6 mock: "Store lasagna — serves 4,
+ * you need 2") — the row subtitle for a line backed by an indivisible
+ * recipe. Takes priority over both plain provenance and the generic "needs
+ * X" text, because the household-relevant fact for a bought meal is the
+ * SERVINGS gap, not the (already-whole, already-equal-to-the-buy) unit
+ * count. `undefined` for any other line, so the caller's existing fallback
+ * chain (rounded/adjusted "needs X", else provenance) is untouched.
+ */
+export function buildIndivisibleSecondary(line: ShoppingListLine, ctx: ProvenanceContext): string | undefined {
+  const source = line.sources[0];
+  const recipe = source ? ctx.recipes.find((r) => r.id === source.recipeId) : undefined;
+  if (!source || !recipe || !isIndivisible(recipe)) return undefined;
+  const slot = ctx.planSlots.find((s) => s.id === source.planSlotId);
+  const scaleServings = slot && slot.filling.kind === "recipe" ? slot.filling.scaleServings : undefined;
+  const targetServings = scaleServings ?? ctx.settings.householdSize;
+  return `serves ${recipe.baseServings}, you need ${formatAmount(targetServings)}`;
+}
+
+/**
  * WP-PURCHASING (DESIGN_PURCHASING.md §6): the extra sentence the "Why?"
  * disclosure gains, explaining the rounding itself — *"3 meals need 130 g;
  * sold in 250 g jars."* An explicit household override never needs
