@@ -72,6 +72,51 @@ treat a breaking change to their exported signatures with the same caution.
   now a documented exception, confined to `src/domain/units.ts` and the
   (future, out of scope for M6-A) product editor that calls it.
 
+> **Superseded in part by WP-PHOTO (below):** `ProductPhotos` and the
+> `productPhotos` store namespace described above no longer exist — the sheet
+> was absorbed into the unified `Photos` sheet. The rest of the M6-A entry
+> still stands.
+
+**WP-PHOTO contract change (dedicated, coordinator-approved, per
+`DESIGN_PHOTOS.md`), PR #30 — the first change here that is NOT
+additive-only. Owner approved the deviation explicitly on 2026-08-21:**
+
+- Why it could not stay additive: `DESIGN_PHOTOS.md` settles on **one**
+  `Photos` sheet for every entity's image. Keeping M6-A's per-entity
+  `ProductPhotos` alongside it would mean two competing photo pipelines and
+  two places to look for the same kind of bytes — the exact duplication the
+  design exists to remove. Consolidation therefore requires a removal.
+- `types.ts` — **removed:** `"ProductPhotos"` from `WorkbookSheetName`
+  (replaced by `"Photos"`), the `ProductPhoto` type, and
+  `MAX_PRODUCT_PHOTO_DATA_URL_LENGTH` (replaced by
+  `MAX_PHOTO_DATA_URL_LENGTH`, same 50,000 value).
+- `types.ts` — **added:** branded `StepId`/`makeStepId`; `PhotoOwnerKind`,
+  `PhotoOwnerId`, and the `Photo` entity; optional `hasPhoto?: boolean` on
+  `Ingredient` and `Recipe` (render hint only, never a substitute for
+  reading the sheet).
+- `types.ts` — **reshaped `RecipeStep`:** required `text` renamed to required
+  `description`; required `id: StepId` added; optional `detail`,
+  `durationMinutes`, `hasPhoto` added. `id` is required *on the type* because
+  a step without stable identity is the bug this closes — photos key on `id`,
+  never on `stepNumber`, so reordering steps can no longer silently move a
+  photo to a different instruction. The `text` → `description` rename was the
+  one piece not forced by the design; the owner chose to keep it rather than
+  carry two names for the same always-visible instruction line.
+- `contracts.ts`: `WorkbookStore.productPhotos` replaced by
+  `WorkbookStore.photos` — `get(ownerKind, ownerId)` / `upsert(photo)` /
+  `remove(ownerKind, ownerId)`, deliberately **no** `readAll` (a permanent
+  decision, not an oversight: bulk-reading every photo is what the lazy
+  per-visible-item fetch exists to prevent).
+- **Legacy rows still decode — the half of the invariant that was NOT bent.**
+  `decodeRecipeStep` reads `description` at column index 2, exactly where the
+  old `text` cell sat, so a pre-WP-PHOTO 3-cell row decodes with zero
+  migration. A row with no `id` cell gets one minted deterministically by
+  `legacyStepId(recipeId, stepNumber)` → `legacy:${recipeId}:${stepNumber}`,
+  never randomly — re-reads and separate clients must agree on which step a
+  `Photo` belongs to. A pre-existing workbook keeps an orphaned, unread
+  `ProductPhotos` tab; nothing ever wrote to it, since the M6 barcode UI is
+  unbuilt.
+
 ## The purity rule
 
 Every module in `src/domain` is pure: no I/O, no React, no browser/Node

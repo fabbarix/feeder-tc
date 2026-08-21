@@ -22,11 +22,13 @@ import {
   makeLotId,
   makePlanSlotId,
   makeRecipeId,
+  makeStepId,
   type EventId,
   type IngredientId,
   type LotId,
   type PlanSlotId,
   type RecipeId,
+  type StepId,
 } from "./types.ts";
 
 const ID_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -59,4 +61,8 @@ export function newIngredientId(rng: Rng): IngredientId {
 
 export function newRecipeId(rng: Rng): RecipeId {
   return makeRecipeId(randomIdString(rng));
+}
+
+export function newStepId(rng: Rng): StepId {
+  return makeStepId(randomIdString(rng));
 }

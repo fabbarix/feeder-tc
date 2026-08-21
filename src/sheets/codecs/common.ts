@@ -77,6 +77,12 @@ export function cellBoolean(row: CellRow, index: number, field: string): boolean
   throw new Error(`${field} must be a boolean, got ${JSON.stringify(cell)}`);
 }
 
+export function cellOptionalBoolean(row: CellRow, index: number, field: string): boolean | undefined {
+  const cell = row[index];
+  if (cell === null || cell === undefined || cell === "") return undefined;
+  return cellBoolean(row, index, field);
+}
+
 export function cellEnum<T extends string>(
   row: CellRow,
   index: number,

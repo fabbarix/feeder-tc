@@ -85,7 +85,8 @@ describeFeature(feature, ({ Scenario }) => {
       // above stays byte-for-byte what WP-11 wrote, even though
       // WORKBOOK_SHEET_NAMES itself has since grown by three more sheets
       // (M6-A — DESIGN_PRODUCTS.md §2: Products/ProductPhotos/
-      // PriceObservations), asserted separately right below.
+      // PriceObservations, the middle one later folded into Photos by
+      // WP-PHOTO — DESIGN_PHOTOS.md §7), asserted separately right below.
       expect([...WORKBOOK_SHEET_NAMES].slice(0, 9)).toEqual([
         "Meta",
         "Settings",
@@ -97,9 +98,10 @@ describeFeature(feature, ({ Scenario }) => {
         "InventoryEvents",
         "ShoppingItems",
       ]);
-      // M6-A addition (DESIGN_PRODUCTS.md §2) — also bootstrapped, with a
-      // header row, on every fresh workbook from here on.
-      expect([...WORKBOOK_SHEET_NAMES].slice(9)).toEqual(["Products", "ProductPhotos", "PriceObservations"]);
+      // M6-A addition (DESIGN_PRODUCTS.md §2), `ProductPhotos` renamed/folded
+      // into `Photos` by WP-PHOTO (DESIGN_PHOTOS.md §7) — also bootstrapped,
+      // with a header row, on every fresh workbook from here on.
+      expect([...WORKBOOK_SHEET_NAMES].slice(9)).toEqual(["Products", "Photos", "PriceObservations"]);
       for (const sheet of WORKBOOK_SHEET_NAMES) {
         const row = await transport.readRange(`${sheet}!A1:Z1`);
         expect(row[0]).toEqual(WORKBOOK_HEADERS[sheet]);

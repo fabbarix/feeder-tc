@@ -28,6 +28,16 @@ export type LotId = Brand<string, "LotId">;
 export type PlanSlotId = Brand<string, "PlanSlotId">;
 export type EventId = Brand<string, "EventId">;
 export type PriceObservationId = Brand<string, "PriceObservationId">;
+/**
+ * A `RecipeStep`'s stable identity (WP-PHOTO — DESIGN_PHOTOS.md §3).
+ * Previously a step was addressed only by its position (`stepNumber`
+ * within a recipe) — reordering or deleting a step would silently
+ * reassign any photo keyed on that position to the wrong instruction,
+ * with nothing erroring. `StepId` is minted client-side (`newStepId`,
+ * src/domain/ids.ts) exactly like every other id, and `Photo` keys on it
+ * instead of `(recipeId, stepNumber)`.
+ */
+export type StepId = Brand<string, "StepId">;
 
 function assertNonEmpty(raw: string, label: string): void {
   if (raw.trim().length === 0) {
@@ -69,6 +79,12 @@ export function makeEventId(raw: string): EventId {
 export function makePriceObservationId(raw: string): PriceObservationId {
   assertNonEmpty(raw, "PriceObservationId");
   return raw as PriceObservationId;
+}
+
+/** Validating constructor: wraps a raw string as a StepId. */
+export function makeStepId(raw: string): StepId {
+  assertNonEmpty(raw, "StepId");
+  return raw as StepId;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,7 +225,7 @@ export type WorkbookSheetName =
   | "InventoryEvents"
   | "ShoppingItems"
   | "Products"
-  | "ProductPhotos"
+  | "Photos"
   | "PriceObservations";
 
 // ---------------------------------------------------------------------------
@@ -274,6 +290,18 @@ export interface Ingredient {
    * src/sheets/codecs/ingredients.ts).
    */
   readonly category?: IngredientCategory;
+  /**
+   * Denormalised photo-presence hint (WP-PHOTO — DESIGN_PHOTOS.md,
+   * same purpose as `Product.hasPhoto` below): lets a list decide
+   * skeleton-vs-placeholder without a `Photos.get()` round trip per row.
+   * Optional/additive, same pattern as `category` — a legacy row with no
+   * cell here decodes to `undefined` (treated as "no photo"), never a
+   * quarantined row. The actual photo bytes live only in the `Photos`
+   * sheet, keyed on `(ownerKind: "ingredient", ownerId: this.id)`; this
+   * flag is not a substitute for reading it, only a hint for rendering
+   * before that read resolves.
+   */
+  readonly hasPhoto?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -295,6 +323,8 @@ export interface Recipe {
   readonly cookMinutes: number;
   readonly mealTags: readonly MealTag[];
   readonly status: RecipeStatus;
+  /** Denormalised photo-presence hint — see `Ingredient.hasPhoto`'s doc comment for the pattern; owner kind is `"recipe"`. */
+  readonly hasPhoto?: boolean;
 }
 
 /** One row per (recipe, ingredient) — join row, not a wide column or JSON blob. */
@@ -305,11 +335,50 @@ export interface RecipeIngredient {
   readonly quantity: Quantity;
 }
 
-/** One row per (recipe, step number) — numbered instruction line. */
+/**
+ * One row per (recipe, step) — numbered instruction line (WP-PHOTO widened
+ * this, DESIGN_PHOTOS.md §3).
+ *
+ * `id` is the step's stable identity — **required**, not optional, because a
+ * step without one is exactly the bug this widening exists to close: photos
+ * (and anything else that needs to reference one specific step) key on `id`,
+ * never on `stepNumber`. `stepNumber` stays purely the *ordering* field it
+ * always was — reordering steps changes `stepNumber` on some rows without
+ * touching `id`, so a photo keyed on `id` never silently jumps to a
+ * different instruction the way it would if it were keyed on position.
+ *
+ * A legacy row written before this change has no `id` cell at all. The
+ * codec (`src/sheets/codecs/recipe-steps.ts`) mints one deterministically
+ * from `(recipeId, stepNumber)` on read, rather than throwing/quarantining
+ * — see that file's `legacyStepId` for exactly how, and its own doc comment
+ * for why determinism (not a random id) matters here: re-reading the same
+ * unmigrated row twice must keep producing the same id, or two clients
+ * would disagree about which step a given `Photo` row belongs to.
+ *
+ * `description`/`detail`/`durationMinutes` are new, owner-requested fields
+ * (product-owner interview, 2026-08-20 — see DESIGN_PHOTOS.md's header).
+ * `description` **replaces** the old required `text` field rather than
+ * living alongside it: the two named the same thing (the always-visible
+ * instruction line), and keeping both would mean every writer has to decide
+ * which one is authoritative. `description` is still required, matching
+ * `text`'s old cardinality — a step's headline text is not optional, only
+ * the newly-added `detail` (a longer markdown body) and `durationMinutes`
+ * are. A legacy row's old `text` cell decodes straight into `description`
+ * (same column position — see the codec), so this rename costs no
+ * migration.
+ */
 export interface RecipeStep {
   readonly recipeId: RecipeId;
+  readonly id: StepId;
   readonly stepNumber: number;
-  readonly text: string;
+  /** The short, always-visible instruction line — was `text` before WP-PHOTO; see this interface's doc comment. */
+  readonly description: string;
+  /** Longer markdown body, shown on demand (e.g. an expanded step view). Optional — most steps only need `description`. */
+  readonly detail?: string;
+  /** Estimated minutes this step takes, if the recipe author entered one (e.g. "simmer for 45 minutes" -> 45). Optional. */
+  readonly durationMinutes?: number;
+  /** Denormalised photo-presence hint — see `Ingredient.hasPhoto`'s doc comment for the pattern; owner kind is `"recipe-step"`, owner id is this step's `id`. */
+  readonly hasPhoto?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -591,39 +660,64 @@ export interface Product {
   /** Unopened shelf life, in days, for a purchased unit of this specific product. */
   readonly shelfLifeDays: number;
   readonly isBulk: boolean;
-  /** Denormalised presence flag so a `Products.readAll()` listing never needs to touch `ProductPhotos` (see `ProductPhoto` below) just to know whether to show a placeholder. */
+  /** Denormalised presence flag so a `Products.readAll()` listing never needs to touch `Photos` (see `Photo` below) just to know whether to show a placeholder. Same pattern as `Ingredient.hasPhoto`/`Recipe.hasPhoto`/`RecipeStep.hasPhoto` above, except required here rather than optional — `Product` was already M6-A's own entity with no legacy rows to stay compatible with. */
   readonly hasPhoto: boolean;
 }
 
-/**
- * Hard Google Sheets per-cell character ceiling (DESIGN_PRODUCTS.md §5).
- * Lives here, not just in the codec, because it is part of the
- * `WorkbookStore.productPhotos` *contract*, not an implementation detail of
- * one backend: both `src/sheets/codecs/product-photos.ts` (the real,
- * Sheets-backed codec) and `src/domain/fakes/workbook-store.ts` (the
- * in-memory fake every other work package tests against) must refuse an
- * oversized `dataUrl` identically, or a package developing against the fake
- * would never see the failure the real backend enforces.
- */
-export const MAX_PRODUCT_PHOTO_DATA_URL_LENGTH = 50_000;
+// ---------------------------------------------------------------------------
+// Photos — one sheet for every photo-owning entity (WP-PHOTO —
+// DESIGN_PHOTOS.md, superseding M6-A's per-entity `ProductPhotos` sheet).
+//
+// Four entities want photos: recipes, recipe steps, ingredients, and
+// products. One `Photos` sheet keyed on `(ownerKind, ownerId)` means one
+// codec, one lazy-fetch path, one place enforcing the byte budget — see
+// DESIGN_PHOTOS.md §1 for why three-or-four parallel sheets was rejected.
+// ---------------------------------------------------------------------------
+
+/** Which kind of entity a `Photo` row belongs to (DESIGN_PHOTOS.md §2). */
+export type PhotoOwnerKind = "recipe" | "recipe-step" | "ingredient" | "product";
+
+/** A `Photo`'s owner id — whichever branded id matches its `ownerKind`. */
+export type PhotoOwnerId = RecipeId | StepId | IngredientId | Barcode;
 
 /**
- * Deliberately its own entity/sheet, not a `Product` column
- * (DESIGN_PRODUCTS.md §2/§5): `WorkbookStore.products.readAll()` would
- * otherwise drag every product's photo down the wire on every listing —
- * 100 products x ~30 KB is ~3 MB on a shop connection. `WorkbookStore`
- * exposes this as read-one-by-barcode + upsert only, never `readAll` (see
- * contracts.ts) — that split is the entire point of the separate sheet.
+ * Hard Google Sheets per-cell character ceiling (DESIGN_PHOTOS.md §4,
+ * DESIGN_PRODUCTS.md §5 — the limit is reused verbatim, not re-litigated).
+ * Lives here, not just in the codec, because it is part of the
+ * `WorkbookStore.photos` *contract*, not an implementation detail of one
+ * backend: both `src/sheets/codecs/photos.ts` (the real, Sheets-backed
+ * codec) and `src/domain/fakes/workbook-store.ts` (the in-memory fake every
+ * other work package tests against) must refuse an oversized `dataUrl`
+ * identically, or a package developing against the fake would never see the
+ * failure the real backend enforces. Was `MAX_PRODUCT_PHOTO_DATA_URL_LENGTH`
+ * before this sheet absorbed `ProductPhotos` — same value (50,000), renamed
+ * to match the one sheet it now bounds.
+ */
+export const MAX_PHOTO_DATA_URL_LENGTH = 50_000;
+
+/**
+ * Deliberately its own sheet, not a column on any owning entity
+ * (DESIGN_PHOTOS.md §2/§6): `WorkbookStore.<entity>.readAll()` would
+ * otherwise drag every row's photo down the wire on every listing. Access is
+ * by key only (`WorkbookStore.photos.get`), on demand, for whichever items
+ * are currently visible — see that namespace's own doc comment in
+ * contracts.ts for why it deliberately has **no `readAll`**.
+ *
+ * `(ownerKind, ownerId)` is the key — insert-or-replace by that pair,
+ * exactly like `ingredients.upsert` by id.
  *
  * `dataUrl` is a bounded, documented exception to invariant 6
- * ("human-readable workbook, no blobs") — see DESIGN_PRODUCTS.md §5 for the
- * byte budget the encoder targets and `MAX_PRODUCT_PHOTO_DATA_URL_LENGTH`
- * above for the hard backstop every `WorkbookStore` implementation enforces
- * on write.
+ * ("human-readable workbook, no blobs") — one column, one sheet. See
+ * DESIGN_PHOTOS.md §4 for the byte budget the encoder targets and
+ * `MAX_PHOTO_DATA_URL_LENGTH` above for the hard backstop every
+ * `WorkbookStore` implementation enforces on write.
  */
-export interface ProductPhoto {
-  readonly barcode: Barcode;
+export interface Photo {
+  readonly ownerKind: PhotoOwnerKind;
+  readonly ownerId: PhotoOwnerId;
   readonly dataUrl: string;
+  /** Lets a client cache and revalidate without diffing blobs (DESIGN_PHOTOS.md §2). */
+  readonly updatedAt: IsoTimestamp;
 }
 
 /**

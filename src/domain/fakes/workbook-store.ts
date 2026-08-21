@@ -10,18 +10,20 @@
  */
 import type { DecodeResult, WorkbookStore } from "../contracts.ts";
 import {
-  MAX_PRODUCT_PHOTO_DATA_URL_LENGTH,
+  MAX_PHOTO_DATA_URL_LENGTH,
   type Barcode,
   type Ingredient,
   type IngredientId,
   type InventoryEvent,
   type Meta,
+  type Photo,
+  type PhotoOwnerId,
+  type PhotoOwnerKind,
   type PlanSlot,
   type PlanSlotId,
   type PriceObservation,
   type PriceObservationId,
   type Product,
-  type ProductPhoto,
   type Recipe,
   type RecipeId,
   type RecipeIngredient,
@@ -57,8 +59,12 @@ export function createFakeWorkbookStore(): WorkbookStore {
   const inventoryEvents: InventoryEvent[] = [];
   const shoppingItems = new Map<string, ShoppingItem>();
   const products = new Map<Barcode, Product>();
-  const productPhotos = new Map<Barcode, ProductPhoto>();
+  const photos = new Map<string, Photo>();
   const priceObservations = new Map<PriceObservationId, PriceObservation>();
+
+  function photoKey(ownerKind: PhotoOwnerKind, ownerId: PhotoOwnerId): string {
+    return `${ownerKind}|${ownerId}`;
+  }
 
   return {
     meta: {
@@ -145,21 +151,26 @@ export function createFakeWorkbookStore(): WorkbookStore {
         products.set(product.barcode, product);
       },
     },
-    productPhotos: {
-      async read(barcode) {
-        return productPhotos.get(barcode);
+    photos: {
+      // Deliberately no `readAll` here — see WorkbookStore.photos's own doc
+      // comment in contracts.ts for why one must never be added.
+      async get(ownerKind, ownerId) {
+        return photos.get(photoKey(ownerKind, ownerId));
       },
       async upsert(photo) {
         // Mirrors the 50,000-character Sheets cell ceiling the real,
-        // Sheets-backed codec enforces (src/sheets/codecs/product-photos.ts)
-        // — a package developing against this fake must see the same
-        // refusal the real backend would give, not a false pass.
-        if (photo.dataUrl.length > MAX_PRODUCT_PHOTO_DATA_URL_LENGTH) {
+        // Sheets-backed codec enforces (src/sheets/codecs/photos.ts) — a
+        // package developing against this fake must see the same refusal
+        // the real backend would give, not a false pass.
+        if (photo.dataUrl.length > MAX_PHOTO_DATA_URL_LENGTH) {
           throw new Error(
-            `Product photo data URL is ${photo.dataUrl.length} characters, over the ${MAX_PRODUCT_PHOTO_DATA_URL_LENGTH}-character Google Sheets cell limit (DESIGN_PRODUCTS.md §5). Refusing to write — re-encode at a smaller byte budget rather than truncating.`,
+            `Photo data URL is ${photo.dataUrl.length} characters, over the ${MAX_PHOTO_DATA_URL_LENGTH}-character Google Sheets cell limit (DESIGN_PHOTOS.md §4). Refusing to write — re-encode at a smaller byte budget rather than truncating.`,
           );
         }
-        productPhotos.set(photo.barcode, photo);
+        photos.set(photoKey(photo.ownerKind, photo.ownerId), photo);
+      },
+      async remove(ownerKind, ownerId) {
+        photos.delete(photoKey(ownerKind, ownerId));
       },
     },
     priceObservations: {

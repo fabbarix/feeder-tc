@@ -27,8 +27,10 @@ import {
  * Deliberately independent of spreadsheet.ts's own (private) list of the
  * same twelve names — WP-11 does not reach into WP-10's module internals
  * for this. (Was "nine" until M6-A added Products/ProductPhotos/
- * PriceObservations; the count is easy to leave stale, so if you add a
- * sheet, grep for "nine"/"twelve" across the repo.)
+ * PriceObservations; still twelve after WP-PHOTO, which folded
+ * `ProductPhotos` into `Photos` — DESIGN_PHOTOS.md §7. The count is easy to
+ * leave stale, so if you add a sheet, grep for "nine"/"twelve" across the
+ * repo.)
  */
 export const WORKBOOK_SHEET_NAMES: readonly WorkbookSheetName[] = [
   "Meta",
@@ -41,7 +43,7 @@ export const WORKBOOK_SHEET_NAMES: readonly WorkbookSheetName[] = [
   "InventoryEvents",
   "ShoppingItems",
   "Products",
-  "ProductPhotos",
+  "Photos",
   "PriceObservations",
 ];
 

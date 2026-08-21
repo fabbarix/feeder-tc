@@ -15,12 +15,13 @@ import {
   makePriceObservationId,
   makeQuantity,
   makeRecipeId,
+  makeStepId,
   type Ingredient,
   type InventoryEvent,
+  type Photo,
   type PlanSlot,
   type PriceObservation,
   type Product,
-  type ProductPhoto,
   type Recipe,
   type RecipeIngredient,
   type RecipeStep,
@@ -30,6 +31,7 @@ import {
 
 const RICE = makeIngredientId("rice");
 const CHILI = makeRecipeId("chili");
+const CHILI_STEP_1 = makeStepId("chili-step-1");
 const SLOT_1 = makePlanSlotId("slot-1");
 const RICE_BAG_BARCODE = makeBarcode("8001120000123");
 
@@ -64,7 +66,7 @@ function chiliRiceLine(): RecipeIngredient {
 }
 
 function chiliStep(): RecipeStep {
-  return { recipeId: CHILI, stepNumber: 1, text: "Simmer for 45 minutes." };
+  return { recipeId: CHILI, id: CHILI_STEP_1, stepNumber: 1, description: "Simmer for 45 minutes." };
 }
 
 function tuesdaySlot(overrides: Partial<PlanSlot> = {}): PlanSlot {
@@ -129,10 +131,12 @@ function riceBagProduct(overrides: Partial<Product> = {}): Product {
   };
 }
 
-function riceBagPhoto(overrides: Partial<ProductPhoto> = {}): ProductPhoto {
+function riceBagPhoto(overrides: Partial<Photo> = {}): Photo {
   return {
-    barcode: RICE_BAG_BARCODE,
+    ownerKind: "product",
+    ownerId: RICE_BAG_BARCODE,
     dataUrl: "data:image/webp;base64,dGVzdC1waG90by1ieXRlcw==",
+    updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
     ...overrides,
   };
 }
@@ -251,28 +255,64 @@ export function describeWorkbookStoreContract(makeSubject: () => WorkbookStore):
       expect(warnings).toEqual([]);
     });
 
-    it("productPhotos: read(barcode) is undefined before any upsert, and returns the photo after", async () => {
+    it("photos: get(ownerKind, ownerId) is undefined before any upsert, and returns the photo after", async () => {
       const store = makeSubject();
-      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toBeUndefined();
-      await store.productPhotos.upsert(riceBagPhoto());
-      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toEqual(riceBagPhoto());
+      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toBeUndefined();
+      await store.photos.upsert(riceBagPhoto());
+      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toEqual(riceBagPhoto());
     });
 
-    it("productPhotos: upsert with the same barcode replaces rather than duplicates", async () => {
+    it("photos: upsert with the same (ownerKind, ownerId) replaces rather than duplicates", async () => {
       const store = makeSubject();
-      await store.productPhotos.upsert(riceBagPhoto());
-      await store.productPhotos.upsert(riceBagPhoto({ dataUrl: "data:image/webp;base64,dXBkYXRlZA==" }));
-      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toEqual(
+      await store.photos.upsert(riceBagPhoto());
+      await store.photos.upsert(riceBagPhoto({ dataUrl: "data:image/webp;base64,dXBkYXRlZA==" }));
+      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toEqual(
         riceBagPhoto({ dataUrl: "data:image/webp;base64,dXBkYXRlZA==" }),
       );
     });
 
-    it("productPhotos: upsert refuses a data URL over the 50,000-character Sheets cell limit rather than truncating it", async () => {
+    it("photos: different owner kinds sharing the same raw id string are distinct rows (the key is the PAIR, not just ownerId)", async () => {
       const store = makeSubject();
-      const oversized: ProductPhoto = { barcode: RICE_BAG_BARCODE, dataUrl: "A".repeat(50_001) };
-      await expect(store.productPhotos.upsert(oversized)).rejects.toThrow(/50,000-character|Google Sheets cell limit/);
+      const sharedRawId = "shared-8001120000123-ish";
+      await store.photos.upsert({
+        ownerKind: "ingredient",
+        ownerId: makeIngredientId(sharedRawId),
+        dataUrl: "data:image/webp;base64,aW5ncmVkaWVudA==",
+        updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
+      });
+      await store.photos.upsert({
+        ownerKind: "recipe",
+        ownerId: makeRecipeId(sharedRawId),
+        dataUrl: "data:image/webp;base64,cmVjaXBl",
+        updatedAt: makeIsoTimestamp("2026-03-02T09:00:00Z"),
+      });
+      expect((await store.photos.get("ingredient", makeIngredientId(sharedRawId)))?.dataUrl).toBe(
+        "data:image/webp;base64,aW5ncmVkaWVudA==",
+      );
+      expect((await store.photos.get("recipe", makeRecipeId(sharedRawId)))?.dataUrl).toBe(
+        "data:image/webp;base64,cmVjaXBl",
+      );
+    });
+
+    it("photos: remove deletes the row; removing a never-written key is a no-op", async () => {
+      const store = makeSubject();
+      await store.photos.upsert(riceBagPhoto());
+      await store.photos.remove("product", RICE_BAG_BARCODE);
+      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toBeUndefined();
+      await expect(store.photos.remove("product", RICE_BAG_BARCODE)).resolves.toBeUndefined();
+    });
+
+    it("photos: upsert refuses a data URL over the 50,000-character Sheets cell limit rather than truncating it", async () => {
+      const store = makeSubject();
+      const oversized: Photo = {
+        ownerKind: "product",
+        ownerId: RICE_BAG_BARCODE,
+        dataUrl: "A".repeat(50_001),
+        updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
+      };
+      await expect(store.photos.upsert(oversized)).rejects.toThrow(/50,000-character|Google Sheets cell limit/);
       // Nothing was written — not even a truncated row.
-      expect(await store.productPhotos.read(RICE_BAG_BARCODE)).toBeUndefined();
+      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toBeUndefined();
     });
 
     it("priceObservations: append is the only write, readAll returns everything appended", async () => {

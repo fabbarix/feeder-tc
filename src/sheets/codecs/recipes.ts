@@ -1,7 +1,7 @@
 /** `Recipes` sheet codec (WP-11) — DESIGN.md §3 / §2 "Recipes". */
 import type { CellRow } from "../../domain/contracts.ts";
 import { makeRecipeId, type MealTag, type Recipe } from "../../domain/types.ts";
-import { cellEnum, cellNumber, cellOptionalString, cellString } from "./common.ts";
+import { cellEnum, cellNumber, cellOptionalBoolean, cellOptionalString, cellString } from "./common.ts";
 import { MEAL_TAGS, RECIPE_KINDS, RECIPE_STATUSES } from "./enums.ts";
 
 export const RECIPES_HEADER: CellRow = [
@@ -13,6 +13,11 @@ export const RECIPES_HEADER: CellRow = [
   "cook_minutes",
   "meal_tags",
   "status",
+  // WP-PHOTO, appended at the end (additive — see types.ts's Recipe.hasPhoto
+  // doc comment): a workbook row written before this change has no cell
+  // here at all, not just a blank one. decodeRecipe below treats that the
+  // same as an explicitly blank cell — undefined, never a thrown error.
+  "has_photo",
 ];
 
 /**
@@ -49,6 +54,7 @@ export function encodeRecipe(recipe: Recipe): CellRow {
     recipe.cookMinutes,
     encodeMealTags(recipe.mealTags),
     recipe.status,
+    recipe.hasPhoto ?? "",
   ];
 }
 
@@ -67,6 +73,7 @@ export function decodeRecipe(row: CellRow): Recipe {
   const cookMinutes = cellNumber(row, 5, "cook_minutes");
   const mealTags = decodeMealTags(row);
   const status = cellEnum(row, 7, "status", RECIPE_STATUSES);
+  const hasPhoto = cellOptionalBoolean(row, 8, "has_photo");
 
   if (baseServings <= 0) {
     throw new Error(`base_servings must be greater than 0, got ${baseServings}`);
@@ -81,5 +88,15 @@ export function decodeRecipe(row: CellRow): Recipe {
     throw new Error(`a "bought" recipe must have prep_minutes 0, got ${prepMinutes}`);
   }
 
-  return { id, name, kind, baseServings, prepMinutes, cookMinutes, mealTags, status };
+  return {
+    id,
+    name,
+    kind,
+    baseServings,
+    prepMinutes,
+    cookMinutes,
+    mealTags,
+    status,
+    ...(hasPhoto !== undefined ? { hasPhoto } : {}),
+  };
 }

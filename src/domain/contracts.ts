@@ -11,17 +11,18 @@
  * no new value exports of its own beyond the interfaces/types declared here.
  */
 import type {
-  Barcode,
   EventId,
   Ingredient,
   InventoryEvent,
   IsoDate,
   IsoTimestamp,
   Meta,
+  Photo,
+  PhotoOwnerId,
+  PhotoOwnerKind,
   PlanSlot,
   PriceObservation,
   Product,
-  ProductPhoto,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -181,14 +182,25 @@ export interface WorkbookStore {
     upsert(product: Product): Promise<void>;
   };
   /**
-   * M6-A — DESIGN_PRODUCTS.md §2/§5. Deliberately NO `readAll` here: photos
-   * live in their own sheet precisely so a `products.readAll()` listing
-   * never has to pay for every photo's bytes. A caller fetches one photo,
-   * on demand, only when it is actually displayed.
+   * WP-PHOTO — DESIGN_PHOTOS.md §2/§6. One sheet for every photo-owning
+   * entity (recipe / recipe-step / ingredient / product), keyed on
+   * `(ownerKind, ownerId)`; supersedes M6-A's per-entity `productPhotos`
+   * namespace.
+   *
+   * Deliberately **NO `readAll` here, and never add one**: reading this
+   * sheet whole would pull every image in the workbook down the wire — the
+   * entire reason photos live in their own sheet instead of a column on
+   * their owner (a `Products`/`Recipes`/`Ingredients` listing would
+   * otherwise drag every row's photo along on every load). A caller fetches
+   * one photo, on demand, by key, only when it is actually displayed
+   * (DESIGN_PHOTOS.md §2: "Access is by key, on demand, for the items
+   * currently visible").
    */
-  readonly productPhotos: {
-    read(barcode: Barcode): Promise<ProductPhoto | undefined>;
-    upsert(photo: ProductPhoto): Promise<void>;
+  readonly photos: {
+    get(ownerKind: PhotoOwnerKind, ownerId: PhotoOwnerId): Promise<Photo | undefined>;
+    /** Insert-or-replace by `(ownerKind, ownerId)`; last-write-wins, same as every other `upsert` here. */
+    upsert(photo: Photo): Promise<void>;
+    remove(ownerKind: PhotoOwnerKind, ownerId: PhotoOwnerId): Promise<void>;
   };
   /**
    * M6-A — DESIGN_PRODUCTS.md §2. Append-only like `inventoryEvents` above

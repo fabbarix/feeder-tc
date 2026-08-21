@@ -1,7 +1,7 @@
 /** `Ingredients` sheet codec (WP-11) — DESIGN.md §3 / §2 "Ingredients". */
 import type { CellRow } from "../../domain/contracts.ts";
 import { makeIngredientId, type Ingredient } from "../../domain/types.ts";
-import { cellEnum, cellNumber, cellOptionalString, cellString } from "./common.ts";
+import { cellEnum, cellNumber, cellOptionalBoolean, cellOptionalString, cellString } from "./common.ts";
 import { isIngredientCategory, STORAGE_LOCATIONS, UNITS } from "./enums.ts";
 
 export const INGREDIENTS_HEADER: CellRow = [
@@ -17,6 +17,9 @@ export const INGREDIENTS_HEADER: CellRow = [
   // treat that the same as an explicitly blank cell — undefined, never a
   // thrown error/quarantined row.
   "category",
+  // WP-PHOTO, appended after category for the same reason — see
+  // types.ts's Ingredient.hasPhoto doc comment.
+  "has_photo",
 ];
 
 export function encodeIngredient(ingredient: Ingredient): CellRow {
@@ -28,6 +31,7 @@ export function encodeIngredient(ingredient: Ingredient): CellRow {
     ingredient.openedShelfLifeDays,
     ingredient.defaultLocation,
     ingredient.category ?? "",
+    ingredient.hasPhoto ?? "",
   ];
 }
 
@@ -61,6 +65,7 @@ export function decodeIngredient(row: CellRow): Ingredient {
   }
   const categoryRaw = cellOptionalString(row, 6);
   const category = categoryRaw !== undefined && isIngredientCategory(categoryRaw) ? categoryRaw : undefined;
+  const hasPhoto = cellOptionalBoolean(row, 7, "has_photo");
   return {
     id,
     name,
@@ -69,5 +74,6 @@ export function decodeIngredient(row: CellRow): Ingredient {
     openedShelfLifeDays,
     defaultLocation,
     ...(category !== undefined ? { category } : {}),
+    ...(hasPhoto !== undefined ? { hasPhoto } : {}),
   };
 }

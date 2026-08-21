@@ -21,18 +21,19 @@ import {
   makePriceObservationId,
   makeQuantity,
   makeRecipeId,
+  makeStepId,
   type EntryUnit,
   type Ingredient,
   type IngredientCategory,
   type IsoDate,
   type IsoTimestamp,
   type MealTag,
+  type Photo,
   type PlanSlot,
   type PlanSlotFilling,
   type PlanSlotState,
   type PriceObservation,
   type Product,
-  type ProductPhoto,
   type Recipe,
   type RecipeIngredient,
   type RecipeKind,
@@ -47,10 +48,10 @@ import {
   decodeIngredient,
   decodeInventoryEvent,
   decodeMeta,
+  decodePhoto,
   decodePlanSlot,
   decodePriceObservation,
   decodeProduct,
-  decodeProductPhoto,
   decodeRecipe,
   decodeRecipeIngredient,
   decodeRecipeStep,
@@ -59,10 +60,10 @@ import {
   encodeIngredient,
   encodeInventoryEvent,
   encodeMeta,
+  encodePhoto,
   encodePlanSlot,
   encodePriceObservation,
   encodeProduct,
-  encodeProductPhoto,
   encodeRecipe,
   encodeRecipeIngredient,
   encodeRecipeStep,
@@ -70,6 +71,7 @@ import {
   encodeShoppingItem,
   ENTRY_UNITS,
   INGREDIENT_CATEGORIES,
+  legacyStepId,
   MAX_PHOTO_DATA_URL_LENGTH,
   MEAL_TAGS,
   STORAGE_LOCATIONS,
@@ -177,11 +179,22 @@ describe("RecipeIngredient codec", () => {
 
 // --- RecipeSteps ------------------------------------------------------------
 
-const recipeStepArb: fc.Arbitrary<RecipeStep> = fc.record({
-  recipeId: idArb.map(makeRecipeId),
-  stepNumber: fc.integer({ min: 1, max: 50 }),
-  text: fc.string({ minLength: 1, maxLength: 200 }),
-});
+const recipeStepArb: fc.Arbitrary<RecipeStep> = fc
+  .record({
+    recipeId: idArb.map(makeRecipeId),
+    id: idArb.map(makeStepId),
+    stepNumber: fc.integer({ min: 1, max: 50 }),
+    description: fc.string({ minLength: 1, maxLength: 200 }),
+    detail: fc.option(fc.string({ minLength: 1, maxLength: 500 }), { nil: undefined }),
+    durationMinutes: fc.option(fc.integer({ min: 0, max: 600 }), { nil: undefined }),
+    hasPhoto: fc.option(fc.boolean(), { nil: undefined }),
+  })
+  .map(({ detail, durationMinutes, hasPhoto, ...rest }) => ({
+    ...rest,
+    ...(detail !== undefined ? { detail } : {}),
+    ...(durationMinutes !== undefined ? { durationMinutes } : {}),
+    ...(hasPhoto !== undefined ? { hasPhoto } : {}),
+  }));
 
 describe("RecipeStep codec", () => {
   it("encode -> decode is identity", () => {
@@ -190,6 +203,17 @@ describe("RecipeStep codec", () => {
         expect(decodeRecipeStep(encodeRecipeStep(step))).toEqual(step);
       }),
     );
+  });
+
+  it("a legacy row with no id cell decodes deterministically from (recipe_id, step_number), not a quarantined row", () => {
+    const recipeId = makeRecipeId("legacy-recipe");
+    const legacyRow = [recipeId, 2, "Simmer for 45 minutes."]; // pre-WP-PHOTO shape: recipe_id, step_number, text
+    const decoded = decodeRecipeStep(legacyRow);
+    expect(decoded.id).toBe(legacyStepId(recipeId, 2));
+    expect(decoded.description).toBe("Simmer for 45 minutes.");
+    // Re-decoding the exact same row must mint the SAME id every time —
+    // determinism is the whole point (see recipe-steps.ts's doc comment).
+    expect(decodeRecipeStep(legacyRow).id).toBe(decoded.id);
   });
 });
 
@@ -493,46 +517,63 @@ describe("Product codec", () => {
   });
 });
 
-// --- ProductPhotos --------------------------------------------------------------
+// --- Photos --------------------------------------------------------------
 
-// Comfortably under the 50,000-char cell ceiling (DESIGN_PRODUCTS.md §5) —
+// One owner-id arbitrary per PhotoOwnerKind, paired so decodePhoto always
+// reconstructs the correctly-branded ownerId for whichever ownerKind comes
+// out of the same record (WP-PHOTO — DESIGN_PHOTOS.md §2).
+const ownedIdArb = fc.oneof(
+  idArb.map(makeRecipeId).map((ownerId) => ({ ownerKind: "recipe" as const, ownerId })),
+  idArb.map(makeStepId).map((ownerId) => ({ ownerKind: "recipe-step" as const, ownerId })),
+  idArb.map(makeIngredientId).map((ownerId) => ({ ownerKind: "ingredient" as const, ownerId })),
+  BARCODE_ARB.map((ownerId) => ({ ownerKind: "product" as const, ownerId })),
+);
+
+// Comfortably under the 50,000-char cell ceiling (DESIGN_PHOTOS.md §4) —
 // the oversized case is covered by its own rejection test below, not the
 // round-trip property.
-const productPhotoArb: fc.Arbitrary<ProductPhoto> = fc.record({
-  barcode: BARCODE_ARB,
-  // Not real base64 — the codec has no opinion on data-URL contents beyond
-  // length, so an arbitrary printable string exercises the round trip just
-  // as well without pulling in a Buffer/base64 dependency here.
-  dataUrl: fc.string({ minLength: 1, maxLength: 500 }).map((s) => `data:image/webp;base64,${s}`),
-});
+const photoArb: fc.Arbitrary<Photo> = fc
+  .record({
+    owned: ownedIdArb,
+    // Not real base64 — the codec has no opinion on data-URL contents beyond
+    // length, so an arbitrary printable string exercises the round trip just
+    // as well without pulling in a Buffer/base64 dependency here.
+    dataUrl: fc.string({ minLength: 1, maxLength: 500 }).map((s) => `data:image/webp;base64,${s}`),
+    updatedAt: isoTimestampArb,
+  })
+  .map(({ owned, dataUrl, updatedAt }) => ({ ownerKind: owned.ownerKind, ownerId: owned.ownerId, dataUrl, updatedAt }));
 
-describe("ProductPhoto codec", () => {
-  it("encode -> decode is identity", () => {
+describe("Photo codec", () => {
+  it("encode -> decode is identity for every owner kind", () => {
     fc.assert(
-      fc.property(productPhotoArb, (photo) => {
-        expect(decodeProductPhoto(encodeProductPhoto(photo))).toEqual(photo);
+      fc.property(photoArb, (photo) => {
+        expect(decodePhoto(encodePhoto(photo))).toEqual(photo);
       }),
     );
   });
 
   it("refuses to encode a data URL over the 50,000-character Sheets cell limit rather than truncating it", () => {
-    const oversized: ProductPhoto = {
-      barcode: makeBarcode("8001120000123"),
+    const oversized: Photo = {
+      ownerKind: "product",
+      ownerId: makeBarcode("8001120000123"),
       dataUrl: `data:image/webp;base64,${"A".repeat(MAX_PHOTO_DATA_URL_LENGTH)}`,
+      updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
     };
     expect(oversized.dataUrl.length).toBeGreaterThan(MAX_PHOTO_DATA_URL_LENGTH);
-    expect(() => encodeProductPhoto(oversized)).toThrow(/50,000-character|Google Sheets cell limit/);
+    expect(() => encodePhoto(oversized)).toThrow(/50,000-character|Google Sheets cell limit/);
     // Confirms this is a hard refusal, not silent truncation: nothing
     // shorter than the original was ever produced to compare against.
   });
 
   it("accepts a data URL exactly at the 50,000-character limit", () => {
-    const atLimit: ProductPhoto = {
-      barcode: makeBarcode("8001120000123"),
+    const atLimit: Photo = {
+      ownerKind: "product",
+      ownerId: makeBarcode("8001120000123"),
       dataUrl: "A".repeat(MAX_PHOTO_DATA_URL_LENGTH),
+      updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
     };
-    expect(() => encodeProductPhoto(atLimit)).not.toThrow();
-    expect(decodeProductPhoto(encodeProductPhoto(atLimit))).toEqual(atLimit);
+    expect(() => encodePhoto(atLimit)).not.toThrow();
+    expect(decodePhoto(encodePhoto(atLimit))).toEqual(atLimit);
   });
 });
 
