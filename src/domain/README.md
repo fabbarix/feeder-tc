@@ -117,6 +117,53 @@ additive-only. Owner approved the deviation explicitly on 2026-08-21:**
   `ProductPhotos` tab; nothing ever wrote to it, since the M6 barcode UI is
   unbuilt.
 
+**WP-PURCHASING contract change (dedicated, coordinator-approved, per
+DESIGN_PURCHASING.md), additive-only in both files — the pattern M6-A and
+WP-VC3 set, unlike WP-PHOTO's necessary exception above:**
+
+- `types.ts`: `Ingredient` gained `purchaseMode?: "whole" | "loose"`,
+  `packSize?: Quantity`, `roundTo?: number`, `gramsPerMl?: number`,
+  `gramsPerPiece?: number` (§3/§10.1a/§11.3 — `roundTo` shipped even though
+  §11.3 defers exposing it in UI, because defining it cost nothing
+  additive). `Recipe` gained `indivisible?: boolean` (absent ⇒
+  `kind === "bought"`, §4/§8). `RecipeIngredient` gained
+  `displayQuantity?: number`/`displayUnit?: EntryUnit`, mirroring
+  `Product`'s settled display-pair pattern exactly (§10.3). `ShoppingItem`
+  gained `suggestedPurchase?: Quantity`/`purchaseOverride?: Quantity` (§7).
+  `EntryUnit` gained `"cup" | "tbsp" | "tsp"` (§10.2 — the US legal set: 1
+  cup = 240 ml = 16 tbsp = 48 tsp). `WorkbookSheetName` is untouched — every
+  addition is columns on an existing sheet, no new sheet.
+- `contracts.ts`: untouched. This package needed no new store namespace.
+- New pure engine module `src/domain/purchasing.ts`: `suggestPurchase(need,
+  ingredient, product?)` (rounds a need to a purchasable amount — whole-pack
+  ceiling or loose-with-optional-roundTo) and `scaleIndivisible(recipe,
+  targetServings)` (the fix for "0.5 Store Bought Lasagna" — an indivisible
+  recipe scales in whole units, then reports the yield/surplus honestly).
+  Wired into `shopping-needs.ts` (indivisible recipes use
+  `scaleIndivisible(...).units` as the scale factor instead of the raw
+  `targetServings / baseServings`) and `shopping-allocate.ts`
+  (`suggestedPurchase` computed exactly once, on the aggregated, post-FIFO
+  shortfall — §2.1's "round once, at the end").
+- `src/domain/units.ts` (not frozen, but the one sanctioned conversion
+  module, lint-enforced): `toCanonicalScale` gained `cup`/`tbsp`/`tsp` as
+  exact volume constants; `convertEntryToCanonical` gained an optional third
+  `density?: { gramsPerMl?; gramsPerPiece? }` argument enabling the two
+  cross-dimension conversions §10.1 documents (volume→mass, count→mass) —
+  omitting it (every pre-existing call site does) preserves the exact prior
+  "reject a dimension mismatch" behaviour, never a guessed default.
+- Sheets: three columns on `Ingredients` (well, five —
+  `purchase_mode`/`pack_size_amount`/`pack_size_unit`/`round_to`/
+  `grams_per_ml`/`grams_per_piece`), one on `Recipes` (`indivisible`), two on
+  `RecipeIngredients` (`display_quantity`/`display_unit`), four on
+  `ShoppingItems` (`suggested_purchase_amount`/`_unit`,
+  `purchase_override_amount`/`_unit`) — all appended at the end, all
+  missing-cell-safe (a legacy row decodes every new field to `undefined`,
+  never a thrown error or a quarantined row — see each codec's own tests).
+- Left for a later package (editor UI, explicitly out of this package's
+  scope): the ingredient editor's "How you buy it"/"How you measure it"
+  groups and the recipe editor's "Can't be split" toggle/entry-unit picker.
+  The contract fields and engine/units.ts plumbing they need already exist.
+
 ## The purity rule
 
 Every module in `src/domain` is pure: no I/O, no React, no browser/Node

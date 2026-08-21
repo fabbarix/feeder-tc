@@ -160,7 +160,17 @@ export function makeQuantity(amount: number, unit: Unit): Quantity {
  * `"piece"` to match `Unit`'s existing count label instead of introducing a
  * second word for the same idea.
  */
-export type EntryUnit = "kg" | "g" | "lb" | "oz" | "l" | "ml" | "fl oz" | "piece";
+/**
+ * WP-PURCHASING (DESIGN_PURCHASING.md §10.3) added `"cup" | "tbsp" | "tsp"` —
+ * additive to the union, nothing existing renamed. These three are volume
+ * units like `l`/`ml`/`fl oz` (exact ml-scale constants, §10.2: the US legal
+ * set — 1 cup = 240 ml, 1 tbsp = 15 ml, 1 tsp = 5 ml), but converting one of
+ * them into a MASS canonical unit (e.g. "1 cup flour" -> grams) additionally
+ * needs the target ingredient's density (`Ingredient.gramsPerMl`, §10.1a) —
+ * see `src/domain/units.ts`'s `convertEntryToCanonical`, which takes that as
+ * an optional third argument rather than guessing.
+ */
+export type EntryUnit = "kg" | "g" | "lb" | "oz" | "l" | "ml" | "fl oz" | "piece" | "cup" | "tbsp" | "tsp";
 
 // ---------------------------------------------------------------------------
 // Dates
@@ -302,6 +312,54 @@ export interface Ingredient {
    * before that read resolves.
    */
   readonly hasPhoto?: boolean;
+  /**
+   * WP-PURCHASING (DESIGN_PURCHASING.md §3/§7), additive. How this
+   * ingredient is bought: `"whole"` (indivisible units — a jar, an onion,
+   * `buy = ceil(need / packSize) * packSize`) or `"loose"` (any amount,
+   * `buy = need`, optionally rounded up to `roundTo`). Absent means "derive
+   * from `unit`" — `piece`/`portion` default to `whole`, `g`/`ml` default to
+   * `loose` (§3's table) — so every ingredient seeded before this change
+   * keeps behaving exactly as it does today with zero data entry. See
+   * `src/domain/purchasing.ts`'s `suggestPurchase`, the only place this is
+   * read.
+   */
+  readonly purchaseMode?: "whole" | "loose";
+  /**
+   * Typical package size, in this ingredient's own canonical `unit`
+   * (§3/§11.2 — e.g. a 250 g jar of mayonnaise). Only meaningful for
+   * `purchaseMode: "whole"` (explicit or defaulted); absent there means
+   * "one bare unit is the pack" (`packSize` of `{ amount: 1, unit }`) — the
+   * `piece`/`portion` default from §3's table needs no packSize at all. A
+   * specific `Product.canonicalQuantity` (M6-A), when known, overrides this
+   * typical value — see DESIGN_PURCHASING.md §3's "ingredient is typical,
+   * product is actual."
+   */
+  readonly packSize?: Quantity;
+  /**
+   * Loose-mode-only rounding step (§9.4/§11.3 — deferred, defined here only
+   * because doing so costs nothing additive). Absent means "no rounding,
+   * buy exactly the shortfall" (today's behaviour, unchanged). When set,
+   * `suggestPurchase` rounds a loose ingredient's shortfall up to the
+   * nearest multiple of this many canonical units (scenario 10).
+   */
+  readonly roundTo?: number;
+  /**
+   * Density — grams per millilitre of this specific ingredient (§10.1a: one
+   * number, every volume entry unit — cup/tbsp/tsp/ml/l/fl oz — derives from
+   * it). Enables volume-entered recipe quantities to convert into this
+   * ingredient's canonical mass unit (`src/domain/units.ts`). Absent means
+   * that conversion simply isn't offered (§10.1: never guess a density — a
+   * default of 1.0 would overstate flour by ~80%).
+   */
+  readonly gramsPerMl?: number;
+  /**
+   * Typical weight of one piece/item, in grams (§9.1/§10: "1 onion weighs
+   * 150 g"). Enables a count-entered recipe quantity ("2 tomatoes") to
+   * convert into this ingredient's canonical mass unit when it is measured
+   * by weight (e.g. re-united produce like Tomato). Absent means that
+   * conversion isn't offered, same rule as `gramsPerMl`.
+   */
+  readonly gramsPerPiece?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +383,18 @@ export interface Recipe {
   readonly status: RecipeStatus;
   /** Denormalised photo-presence hint — see `Ingredient.hasPhoto`'s doc comment for the pattern; owner kind is `"recipe"`. */
   readonly hasPhoto?: boolean;
+  /**
+   * WP-PURCHASING (DESIGN_PURCHASING.md §4/§8), additive. `true` if this
+   * recipe's yield cannot be subdivided — a bought lasagna, a whole quiche —
+   * so scaling it to a household that isn't an exact multiple of
+   * `baseServings` must round the number of *units made/bought* up, not the
+   * ingredient amounts down to a fraction. Absent means `kind === "bought"`
+   * (§4: "the obvious case"), so every recipe seeded before this change
+   * keeps its existing behaviour with zero data entry; a cooked recipe can
+   * still opt in explicitly. See `src/domain/purchasing.ts`'s
+   * `scaleIndivisible`, the only place this is read.
+   */
+  readonly indivisible?: boolean;
 }
 
 /** One row per (recipe, ingredient) — join row, not a wide column or JSON blob. */
@@ -333,6 +403,18 @@ export interface RecipeIngredient {
   readonly ingredientId: IngredientId;
   /** Quantity needed at the recipe's `baseServings`; the planner scales this. */
   readonly quantity: Quantity;
+  /**
+   * WP-PURCHASING (DESIGN_PURCHASING.md §10.3), additive, provenance only —
+   * mirrors `Product.displayQuantity`/`displayUnit`'s settled pattern
+   * exactly. What the recipe author actually typed ("1", `"cup"`) before
+   * entry-time conversion (`src/domain/units.ts`) turned it into `quantity`
+   * (always canonical grams/millilitres/pieces). Nothing in `src/domain`,
+   * `src/sheets`, or any fold may read either field to compute anything —
+   * `quantity` alone is what arithmetic touches.
+   */
+  readonly displayQuantity?: number;
+  /** As entered by the human (`"cup"`), display/provenance only — never used in arithmetic. See `displayQuantity`. */
+  readonly displayUnit?: EntryUnit;
 }
 
 /**
@@ -628,6 +710,23 @@ export interface ShoppingItem {
   readonly neededQuantity: Quantity;
   readonly checked: boolean;
   readonly boughtQuantity?: Quantity;
+  /**
+   * WP-PURCHASING (DESIGN_PURCHASING.md §7), additive. The engine-computed
+   * purchasable amount at the time this row was last written (`g`/`ml` and
+   * `piece`/`portion` alike — see `src/domain/purchasing.ts`'s
+   * `suggestPurchase`). Persisted alongside `neededQuantity` purely so a
+   * checked-off row can still show what was suggested without recomputing
+   * the whole engine; never itself read by any engine.
+   */
+  readonly suggestedPurchase?: Quantity;
+  /**
+   * The household's own explicit buy-amount choice (§6 scenario 9 — "I want
+   * 500 g of tomatoes"), persisted so it **survives a plan recompute**: a
+   * reroll changes `neededQuantity`/`suggestedPurchase`, never a choice the
+   * household already made about what to buy. Present only once a shopper
+   * has used the adjust stepper; absent means "use `suggestedPurchase`."
+   */
+  readonly purchaseOverride?: Quantity;
 }
 
 // ---------------------------------------------------------------------------

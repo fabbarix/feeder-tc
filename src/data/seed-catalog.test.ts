@@ -106,12 +106,63 @@ describe("seedCatalog", () => {
     }
   });
 
-  it("gives a tomato both a pantry default and a shorter opened shelf life once cut (matches WP-12's BDD fixture)", () => {
+  it("gives a tomato a pantry default and a shorter opened shelf life once cut, now re-united to grams (WP-PURCHASING §9.1/§11.2)", () => {
     const tomato = seedCatalog.find((i) => i.id === "tomato");
     expect(tomato).toBeDefined();
-    expect(tomato?.unit).toBe("piece");
+    // §9.1: the owner-decided re-unit — a recipe now reads "400 g tomatoes";
+    // shelf life values are unchanged by the re-unit.
+    expect(tomato?.unit).toBe("g");
     expect(tomato?.shelfLifeDays).toBe(7);
     expect(tomato?.openedShelfLifeDays).toBe(2);
+    // gramsPerPiece lets "2 tomatoes" still convert to grams at entry time.
+    expect(tomato?.gramsPerPiece).toBeGreaterThan(0);
+  });
+});
+
+describe("seedCatalog — purchasability (WP-PURCHASING §3/§11.2)", () => {
+  it("Onion and Bell pepper STAY piece — the §11.2 correction, and §5's own worked example depends on it", () => {
+    const onion = seedCatalog.find((i) => i.id === "onion");
+    const bellPepper = seedCatalog.find((i) => i.id === "bell-pepper");
+    expect(onion?.unit).toBe("piece");
+    expect(bellPepper?.unit).toBe("piece");
+  });
+
+  it("re-units every §11.2 jar/tin item to g/ml with a whole purchaseMode and a positive packSize in its own unit", () => {
+    const reUnited = [
+      "tinned-tomatoes",
+      "tinned-chickpeas",
+      "tinned-black-beans",
+      "tinned-tuna",
+      "tinned-corn",
+      "tomato-passata",
+      "pasta-sauce",
+      "peanut-butter",
+      "jam",
+      "honey",
+      "olives",
+      "pickles",
+    ];
+    for (const id of reUnited) {
+      const ingredient = seedCatalog.find((i) => i.id === id);
+      expect(ingredient, `expected seed ingredient "${id}" to exist`).toBeDefined();
+      expect(["g", "ml"]).toContain(ingredient?.unit);
+      expect(ingredient?.purchaseMode).toBe("whole");
+      expect(ingredient?.packSize?.amount).toBeGreaterThan(0);
+      expect(ingredient?.packSize?.unit).toBe(ingredient?.unit);
+    }
+  });
+
+  it("gives flour a density so cup/tbsp/tsp entry is offered (§10.1a's own worked example: 1 cup flour = 130 g)", () => {
+    const flour = seedCatalog.find((i) => i.id === "flour");
+    expect(flour?.gramsPerMl).toBeCloseTo(130 / 240, 3);
+  });
+
+  it("never sets gramsPerMl/gramsPerPiece/roundTo to a non-positive value", () => {
+    for (const ingredient of seedCatalog) {
+      if (ingredient.gramsPerMl !== undefined) expect(ingredient.gramsPerMl).toBeGreaterThan(0);
+      if (ingredient.gramsPerPiece !== undefined) expect(ingredient.gramsPerPiece).toBeGreaterThan(0);
+      if (ingredient.roundTo !== undefined) expect(ingredient.roundTo).toBeGreaterThan(0);
+    }
   });
 });
 

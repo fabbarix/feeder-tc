@@ -4,7 +4,7 @@ import { resolveTargetServings } from "../../domain/index.ts";
 import type { PlanSlotId, Settings } from "../../domain/index.ts";
 import { ArrowsClockwise, CookingPot, Minus, Plus, PushPin, PushPinSlash, type IconComponent } from "../../ui/icons.ts";
 import { mealTagLabel } from "./plan-week.ts";
-import type { PlanSlotView } from "./plan-derive.ts";
+import { computeIndivisibleForecast, type PlanSlotView } from "./plan-derive.ts";
 import styles from "./plan.module.css";
 
 function IconButton({
@@ -103,6 +103,12 @@ export function PlanSlotRow({
   const targetServings = resolveTargetServings(settings, slot.filling) ?? settings.householdSize;
   const isOverridden = slot.filling.scaleServings !== undefined;
   const badgeText = `${tagLabel}${slot.pinned ? " · pinned" : ""}${view.isToday ? " · tonight" : ""}`;
+  // WP-PURCHASING (DESIGN_PURCHASING.md §4/§6 last bullet): an indivisible
+  // recipe (a bought meal, or `indivisible: true`) can't take a per-serving
+  // stepper — there's no such thing as 2.3 lasagnas — so it shows the
+  // leftover forecast instead, matching the mock's Friday "Store lasagna"
+  // slot ("→ 2 leftover") in place of the +/- servings control.
+  const forecast = computeIndivisibleForecast(view.recipe, targetServings);
 
   // Past "planned" (cooked/skipped): a read-only card, no actions. WP-13's
   // own generator already refuses to touch a non-"planned" slot when
@@ -133,23 +139,33 @@ export function PlanSlotRow({
           {view.recipe?.name ?? "Unknown recipe"}
         </button>
         <div className={styles.slotActions}>
-          {isOverridden ? (
-            <span className={styles.scaleBadge}>
-              {targetServings} servings
-            </span>
-          ) : null}
-          <IconButton
-            icon={Minus}
-            label={`Fewer servings for ${view.recipe?.name ?? tagLabel}`}
-            disabled={isBusy || targetServings <= 1}
-            onPress={() => onScaleChange(slot.id, Math.max(1, targetServings - 1))}
-          />
-          <IconButton
-            icon={Plus}
-            label={`More servings for ${view.recipe?.name ?? tagLabel}`}
-            disabled={isBusy}
-            onPress={() => onScaleChange(slot.id, targetServings + 1)}
-          />
+          {forecast ? (
+            forecast.surplusServings > 0 ? (
+              <span className={styles.scaleBadge}>
+                → {forecast.surplusServings} leftover
+              </span>
+            ) : null
+          ) : (
+            <>
+              {isOverridden ? (
+                <span className={styles.scaleBadge}>
+                  {targetServings} servings
+                </span>
+              ) : null}
+              <IconButton
+                icon={Minus}
+                label={`Fewer servings for ${view.recipe?.name ?? tagLabel}`}
+                disabled={isBusy || targetServings <= 1}
+                onPress={() => onScaleChange(slot.id, Math.max(1, targetServings - 1))}
+              />
+              <IconButton
+                icon={Plus}
+                label={`More servings for ${view.recipe?.name ?? tagLabel}`}
+                disabled={isBusy}
+                onPress={() => onScaleChange(slot.id, targetServings + 1)}
+              />
+            </>
+          )}
           {/* Cook is offered on any still-planned recipe slot, not gated to
               "today" — a household marks meals cooked after the fact too
               (e.g. logging yesterday's dinner). "tonight" in the tag line

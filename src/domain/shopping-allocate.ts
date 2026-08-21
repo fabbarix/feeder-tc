@@ -13,9 +13,10 @@
  * order-stable" (IMPLEMENTATION_PLAN.md WP-14 success criteria) means in
  * practice: shuffle any input array and the result is byte-identical.
  */
-import type { Lot, MealTag, Unit } from "./types.ts";
+import type { Ingredient, IngredientId, Lot, MealTag, Unit } from "./types.ts";
 import { makeQuantity } from "./types.ts";
 import { compareIsoDate, isOnOrAfter } from "./dates.ts";
+import { suggestPurchase } from "./purchasing.ts";
 import type { DateRange, ShoppingListLine, ShoppingNeed, ShoppingNeedSource } from "./shopping-types.ts";
 
 const MEAL_TAG_ORDER: Record<MealTag, number> = {
@@ -90,12 +91,27 @@ function groupBy<T, K>(items: readonly T[], key: (item: T) => K): Map<K, T[]> {
  * `sources`. An ingredient with no shortfall at all produces no line —
  * excess stock (more viable stock than total need) is simply left
  * unconsumed, never negative, never a line.
+ *
+ * WP-PURCHASING (DESIGN_PURCHASING.md §2.1): `suggestedPurchase` is computed
+ * exactly once per ingredient here, right where a line is built — i.e. on
+ * the already-aggregated `shortfallAmount`, strictly after the FIFO stock
+ * loop above has run. This ordering is the entire point of §2.1 ("round
+ * once, at the end"): rounding per-meal would buy three jars of mayonnaise
+ * for three 50 g needs; rounding before stock subtraction would buy a jar
+ * already owned. `ingredients` is optional and keyed by id so every
+ * existing caller (tests, WP-13/14's own history) keeps compiling — a line
+ * for an ingredient missing from the catalog simply gets no
+ * `suggestedPurchase`, falling back to `neededQuantity` at the UI layer,
+ * rather than throwing (a catalog lookup miss here is a data-integrity
+ * concern for the caller, not this pure engine's to enforce).
  */
 export function allocateShoppingList(
   needs: readonly ShoppingNeed[],
   lots: readonly Lot[],
   range: DateRange,
+  ingredients?: readonly Ingredient[],
 ): readonly ShoppingListLine[] {
+  const ingredientsById = new Map<IngredientId, Ingredient>((ingredients ?? []).map((i) => [i.id, i]));
   const needsByIngredient = groupBy(needs, (n) => n.ingredientId);
   const lotsByIngredient = groupBy(lots, (l) => l.ingredientId);
 
@@ -131,12 +147,16 @@ export function allocateShoppingList(
     }
 
     if (shortfallAmount > 0 && unit !== undefined) {
+      const neededQuantity = makeQuantity(shortfallAmount, unit);
+      const ingredient = ingredientsById.get(ingredientId);
+      const suggestion = ingredient ? suggestPurchase(neededQuantity, ingredient) : undefined;
       lines.push({
         ingredientId,
         rangeStart: range.start,
         rangeEnd: range.end,
-        neededQuantity: makeQuantity(shortfallAmount, unit),
+        neededQuantity,
         sources: shortfallSources.sort(compareSource),
+        ...(suggestion ? { suggestedPurchase: suggestion.quantity } : {}),
       });
     }
   }

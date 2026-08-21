@@ -12,7 +12,7 @@
  * "<path>/domain/shopping.ts"` (or via the `src/domain` barrel) without
  * reaching into the individual shopping-*.ts files.
  */
-import type { Lot, PlanSlot, Recipe, RecipeIngredient, Settings } from "./types.ts";
+import type { Ingredient, Lot, PlanSlot, Recipe, RecipeIngredient, Settings } from "./types.ts";
 import { computeNeeds } from "./shopping-needs.ts";
 import { allocateShoppingList } from "./shopping-allocate.ts";
 import type { DateRange, ShoppingListLine } from "./shopping-types.ts";
@@ -35,6 +35,13 @@ export interface ShoppingEngineInputs {
   readonly recipeIngredients: readonly RecipeIngredient[];
   readonly settings: Settings;
   readonly lots: readonly Lot[];
+  /**
+   * WP-PURCHASING, optional (additive — every pre-existing caller/test still
+   * compiles without it, just without `suggestedPurchase` on the result —
+   * see `allocateShoppingList`'s own doc comment). The ingredient catalog
+   * `suggestPurchase` needs to know each line's purchase mode/pack size.
+   */
+  readonly ingredients?: readonly Ingredient[];
 }
 
 /**
@@ -50,5 +57,5 @@ export function computeShoppingList(inputs: ShoppingEngineInputs): readonly Shop
     inputs.recipeIngredients,
     inputs.settings,
   );
-  return allocateShoppingList(needs, inputs.lots, inputs.range);
+  return allocateShoppingList(needs, inputs.lots, inputs.range, inputs.ingredients);
 }

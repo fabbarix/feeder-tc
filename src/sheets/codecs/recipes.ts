@@ -18,6 +18,9 @@ export const RECIPES_HEADER: CellRow = [
   // here at all, not just a blank one. decodeRecipe below treats that the
   // same as an explicitly blank cell — undefined, never a thrown error.
   "has_photo",
+  // WP-PURCHASING, appended after has_photo (additive — see types.ts's
+  // Recipe.indivisible doc comment). Same missing-cell-safe rule.
+  "indivisible",
 ];
 
 /**
@@ -55,6 +58,7 @@ export function encodeRecipe(recipe: Recipe): CellRow {
     encodeMealTags(recipe.mealTags),
     recipe.status,
     recipe.hasPhoto ?? "",
+    recipe.indivisible ?? "",
   ];
 }
 
@@ -74,6 +78,7 @@ export function decodeRecipe(row: CellRow): Recipe {
   const mealTags = decodeMealTags(row);
   const status = cellEnum(row, 7, "status", RECIPE_STATUSES);
   const hasPhoto = cellOptionalBoolean(row, 8, "has_photo");
+  const indivisible = cellOptionalBoolean(row, 9, "indivisible");
 
   if (baseServings <= 0) {
     throw new Error(`base_servings must be greater than 0, got ${baseServings}`);
@@ -98,5 +103,6 @@ export function decodeRecipe(row: CellRow): Recipe {
     mealTags,
     status,
     ...(hasPhoto !== undefined ? { hasPhoto } : {}),
+    ...(indivisible !== undefined ? { indivisible } : {}),
   };
 }

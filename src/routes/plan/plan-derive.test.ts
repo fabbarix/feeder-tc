@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildSlotView,
   computeExpiringIngredientIds,
+  computeIndivisibleForecast,
   computeWeekSummary,
   groupSlotsByDay,
   mergeWeekSlots,
@@ -256,5 +257,40 @@ describe("mergeWeekSlots", () => {
     const first = mergeWeekSlots([spec], []);
     const second = mergeWeekSlots([spec], []);
     expect(first[0]!.id).toBe(second[0]!.id);
+  });
+});
+
+// WP-PURCHASING (DESIGN_PURCHASING.md §4/§6 last bullet) — the plan slot's
+// own leftover forecast, computed the same way the Shopping route's "Why?"
+// disclosure computes it.
+describe("computeIndivisibleForecast", () => {
+  const lasagna: Recipe = {
+    id: makeRecipeId("store-lasagna"),
+    name: "Store lasagna",
+    kind: "bought",
+    baseServings: 4,
+    prepMinutes: 0,
+    cookMinutes: 40,
+    mealTags: ["dinner"],
+    status: "in-rotation",
+  };
+
+  it("forecasts a leftover for a bought meal that doesn't divide evenly (household 2 against baseServings 4)", () => {
+    const forecast = computeIndivisibleForecast(lasagna, 2);
+    expect(forecast).toEqual({ units: 1, producedServings: 4, surplusServings: 2 });
+  });
+
+  it("forecasts zero surplus when servings divide evenly", () => {
+    const forecast = computeIndivisibleForecast(lasagna, 4);
+    expect(forecast?.surplusServings).toBe(0);
+  });
+
+  it("returns undefined for a non-indivisible (cooked) recipe", () => {
+    const soup: Recipe = { ...lasagna, id: makeRecipeId("soup"), kind: "cooked" };
+    expect(computeIndivisibleForecast(soup, 2)).toBeUndefined();
+  });
+
+  it("returns undefined when there's no recipe at all (e.g. a dangling reference)", () => {
+    expect(computeIndivisibleForecast(undefined, 2)).toBeUndefined();
   });
 });

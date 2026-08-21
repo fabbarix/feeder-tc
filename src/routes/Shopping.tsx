@@ -9,7 +9,7 @@ import { RangeChips } from "./shopping/RangeChips.tsx";
 import { ShoppingRow } from "./shopping/ShoppingRow.tsx";
 import { useShoppingList } from "./shopping/useShoppingList.ts";
 import { formatRangeLabel, rangeForPreset, type ShoppingRangePreset } from "./shopping/range.ts";
-import { buildWhyExplanation } from "./shopping/provenance.ts";
+import { buildRoundingExplanation, buildWhyExplanation, type ProvenanceContext } from "./shopping/provenance.ts";
 import styles from "./shopping/shopping.module.css";
 import forms from "./forms.module.css";
 
@@ -85,14 +85,19 @@ export function Shopping() {
   const coveredCount = Math.max(0, shopping.totalNeededIngredientCount - uncheckedLines.length);
   const itemsLeft = uncheckedLines.length;
 
+  const provenanceContext: ProvenanceContext = {
+    planSlots: shopping.planSlots,
+    recipes: shopping.recipes,
+    recipeIngredients: shopping.recipeIngredients,
+    settings: shopping.settings ?? { householdSize: 1, slotLayout: [], repeatExclusionWeeks: 3 },
+  };
+
   const whyEntry = uncheckedLines[0] ?? linesWithIngredient[0];
-  const whyText = whyEntry
-    ? buildWhyExplanation(whyEntry.line, {
-        planSlots: shopping.planSlots,
-        recipes: shopping.recipes,
-        recipeIngredients: shopping.recipeIngredients,
-        settings: shopping.settings ?? { householdSize: 1, slotLayout: [], repeatExclusionWeeks: 3 },
-      })
+  const whyText = whyEntry ? buildWhyExplanation(whyEntry.line, provenanceContext) : undefined;
+  // WP-PURCHASING (DESIGN_PURCHASING.md §6): "the rail is where the
+  // arithmetic already lives... extended here with the rounding sentence."
+  const roundingText = whyEntry
+    ? buildRoundingExplanation(whyEntry.line, whyEntry.ingredient, provenanceContext)
     : undefined;
 
   return (
@@ -151,9 +156,11 @@ export function Shopping() {
                       checkedItem={shopping.checkedByIngredient.get(ingredient.id)}
                       today={today}
                       failed={shopping.failedCheckoff?.ingredientId === ingredient.id}
+                      provenanceContext={provenanceContext}
                       onRetryFailed={shopping.retryFlush}
                       onCheckOff={(input) => void shopping.checkOff(line, input)}
                       onUncheck={() => void shopping.uncheck(line)}
+                      onAdjust={(override) => void shopping.setPurchaseOverride(line, override)}
                     />
                   ))}
                 </ListSection>
@@ -173,6 +180,7 @@ export function Shopping() {
                     Why {formatQuantity(whyEntry.line.neededQuantity)} {whyEntry.ingredient.name.toLowerCase()}?
                   </strong>
                   {whyText}
+                  {roundingText ? <p className={styles.whyRounding}>{roundingText}</p> : null}
                 </div>
               ) : (
                 <div className={styles.whyBlock}>Nothing to explain yet — the list is empty.</div>

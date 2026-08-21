@@ -1,8 +1,15 @@
 /** `Ingredients` sheet codec (WP-11) — DESIGN.md §3 / §2 "Ingredients". */
 import type { CellRow } from "../../domain/contracts.ts";
-import { makeIngredientId, type Ingredient } from "../../domain/types.ts";
-import { cellEnum, cellNumber, cellOptionalBoolean, cellOptionalString, cellString } from "./common.ts";
-import { isIngredientCategory, STORAGE_LOCATIONS, UNITS } from "./enums.ts";
+import { makeIngredientId, makeQuantity, type Ingredient } from "../../domain/types.ts";
+import {
+  cellEnum,
+  cellNumber,
+  cellOptionalBoolean,
+  cellOptionalNumber,
+  cellOptionalString,
+  cellString,
+} from "./common.ts";
+import { isIngredientCategory, isPurchaseMode, isUnit, STORAGE_LOCATIONS, UNITS } from "./enums.ts";
 
 export const INGREDIENTS_HEADER: CellRow = [
   "id",
@@ -20,6 +27,15 @@ export const INGREDIENTS_HEADER: CellRow = [
   // WP-PHOTO, appended after category for the same reason — see
   // types.ts's Ingredient.hasPhoto doc comment.
   "has_photo",
+  // WP-PURCHASING, appended after has_photo (additive, same "missing cell
+  // decodes to undefined" rule — see types.ts's Ingredient.purchaseMode/
+  // packSize/roundTo/gramsPerMl/gramsPerPiece doc comments).
+  "purchase_mode",
+  "pack_size_amount",
+  "pack_size_unit",
+  "round_to",
+  "grams_per_ml",
+  "grams_per_piece",
 ];
 
 export function encodeIngredient(ingredient: Ingredient): CellRow {
@@ -32,6 +48,12 @@ export function encodeIngredient(ingredient: Ingredient): CellRow {
     ingredient.defaultLocation,
     ingredient.category ?? "",
     ingredient.hasPhoto ?? "",
+    ingredient.purchaseMode ?? "",
+    ingredient.packSize?.amount ?? "",
+    ingredient.packSize?.unit ?? "",
+    ingredient.roundTo ?? "",
+    ingredient.gramsPerMl ?? "",
+    ingredient.gramsPerPiece ?? "",
   ];
 }
 
@@ -66,6 +88,35 @@ export function decodeIngredient(row: CellRow): Ingredient {
   const categoryRaw = cellOptionalString(row, 6);
   const category = categoryRaw !== undefined && isIngredientCategory(categoryRaw) ? categoryRaw : undefined;
   const hasPhoto = cellOptionalBoolean(row, 7, "has_photo");
+
+  // WP-PURCHASING columns (8-13) — every one leniently missing-safe, same
+  // "no cell at all decodes to undefined" rule as category/has_photo above:
+  // a pre-existing workbook's rows simply have nothing here.
+  const purchaseModeRaw = cellOptionalString(row, 8);
+  const purchaseMode = purchaseModeRaw !== undefined && isPurchaseMode(purchaseModeRaw) ? purchaseModeRaw : undefined;
+  const packSizeAmount = cellOptionalNumber(row, 9, "pack_size_amount");
+  const packSizeUnitRaw = cellOptionalString(row, 10);
+  // packSize must be in THIS ingredient's own canonical unit (invariant 3's
+  // spirit extends here too) — a mismatch is dropped, not trusted blindly,
+  // the same "never quarantine over a soft/derived field" treatment
+  // `category` gets above.
+  let packSize: Ingredient["packSize"];
+  if (
+    packSizeAmount !== undefined &&
+    packSizeUnitRaw !== undefined &&
+    isUnit(packSizeUnitRaw) &&
+    packSizeUnitRaw === unit &&
+    packSizeAmount > 0
+  ) {
+    packSize = makeQuantity(packSizeAmount, packSizeUnitRaw);
+  }
+  const roundToRaw = cellOptionalNumber(row, 11, "round_to");
+  const roundTo = roundToRaw !== undefined && roundToRaw > 0 ? roundToRaw : undefined;
+  const gramsPerMlRaw = cellOptionalNumber(row, 12, "grams_per_ml");
+  const gramsPerMl = gramsPerMlRaw !== undefined && gramsPerMlRaw > 0 ? gramsPerMlRaw : undefined;
+  const gramsPerPieceRaw = cellOptionalNumber(row, 13, "grams_per_piece");
+  const gramsPerPiece = gramsPerPieceRaw !== undefined && gramsPerPieceRaw > 0 ? gramsPerPieceRaw : undefined;
+
   return {
     id,
     name,
@@ -75,5 +126,10 @@ export function decodeIngredient(row: CellRow): Ingredient {
     defaultLocation,
     ...(category !== undefined ? { category } : {}),
     ...(hasPhoto !== undefined ? { hasPhoto } : {}),
+    ...(purchaseMode !== undefined ? { purchaseMode } : {}),
+    ...(packSize !== undefined ? { packSize } : {}),
+    ...(roundTo !== undefined ? { roundTo } : {}),
+    ...(gramsPerMl !== undefined ? { gramsPerMl } : {}),
+    ...(gramsPerPiece !== undefined ? { gramsPerPiece } : {}),
   };
 }

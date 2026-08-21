@@ -46,6 +46,7 @@
  */
 import {
   makeIngredientId,
+  makeQuantity,
   type Ingredient,
   type IngredientCategory,
   type StorageLocation,
@@ -88,6 +89,19 @@ interface SeedIngredient {
   readonly shelfLifeDays: number;
   readonly openedShelfLifeDays: number;
   readonly defaultLocation: StorageLocation;
+  /**
+   * WP-PURCHASING (DESIGN_PURCHASING.md §10.4 pass 2 / §11.2) — optional
+   * purchasability data, populated incrementally per the design's own
+   * "missing constants are fine and safe" rule. `purchaseMode`/`packSize`
+   * are needed for the twelve re-united jar/tin items (§11.2); `gramsPerMl`/
+   * `gramsPerPiece` are seeded for the common baking staples and countables
+   * a recipe might weigh named explicitly in §10.4, not the whole catalog.
+   */
+  readonly purchaseMode?: "whole" | "loose";
+  /** Typical pack size, in `unit` — turned into a `Quantity` below. */
+  readonly packSizeAmount?: number;
+  readonly gramsPerMl?: number;
+  readonly gramsPerPiece?: number;
 }
 
 interface SeedCategorySection {
@@ -107,20 +121,29 @@ const CATALOG_SECTIONS: readonly SeedCategorySection[] = [
   {
     category: "produce",
     entries: [
-  { id: "tomato", name: "Tomato", unit: "piece", shelfLifeDays: 7, openedShelfLifeDays: 2, defaultLocation: "pantry" },
-  { id: "onion", name: "Onion", unit: "piece", shelfLifeDays: 30, openedShelfLifeDays: 5, defaultLocation: "pantry" },
-  { id: "garlic", name: "Garlic", unit: "piece", shelfLifeDays: 90, openedShelfLifeDays: 90, defaultLocation: "pantry" },
+  // WP-PURCHASING §9.1/§11.2 (owner-decided 2026-08-21, corrected 2026-08-21):
+  // Tomato is the ONE produce item that re-units to grams — recipes really
+  // do write "400 g tomatoes" and a shop really does sell it loose by
+  // weight. `gramsPerPiece` lets a recipe still say "2 tomatoes" and convert
+  // to grams at entry time (src/domain/units.ts). Onion and Bell pepper
+  // deliberately STAY `piece` — a recipe author writes "2 onions", not
+  // "300 g onion", and §5's own worked example depends on Onion rounding to
+  // a whole unit; `gramsPerPiece` is still populated for both so a recipe
+  // that DOES want to weigh one can.
+  { id: "tomato", name: "Tomato", unit: "g", shelfLifeDays: 7, openedShelfLifeDays: 2, defaultLocation: "pantry", purchaseMode: "loose", gramsPerPiece: 120 },
+  { id: "onion", name: "Onion", unit: "piece", shelfLifeDays: 30, openedShelfLifeDays: 5, defaultLocation: "pantry", gramsPerPiece: 150 },
+  { id: "garlic", name: "Garlic", unit: "piece", shelfLifeDays: 90, openedShelfLifeDays: 90, defaultLocation: "pantry", gramsPerPiece: 5 },
   { id: "potato", name: "Potato", unit: "g", shelfLifeDays: 60, openedShelfLifeDays: 60, defaultLocation: "pantry" },
   { id: "carrot", name: "Carrot", unit: "g", shelfLifeDays: 21, openedShelfLifeDays: 10, defaultLocation: "fridge" },
-  { id: "lettuce", name: "Lettuce", unit: "piece", shelfLifeDays: 10, openedShelfLifeDays: 4, defaultLocation: "fridge" },
+  { id: "lettuce", name: "Lettuce", unit: "piece", shelfLifeDays: 10, openedShelfLifeDays: 4, defaultLocation: "fridge", gramsPerPiece: 500 },
   { id: "spinach", name: "Spinach", unit: "g", shelfLifeDays: 5, openedShelfLifeDays: 3, defaultLocation: "fridge" },
-  { id: "cucumber", name: "Cucumber", unit: "piece", shelfLifeDays: 7, openedShelfLifeDays: 3, defaultLocation: "fridge" },
-  { id: "bell-pepper", name: "Bell pepper", unit: "piece", shelfLifeDays: 10, openedShelfLifeDays: 4, defaultLocation: "fridge" },
+  { id: "cucumber", name: "Cucumber", unit: "piece", shelfLifeDays: 7, openedShelfLifeDays: 3, defaultLocation: "fridge", gramsPerPiece: 300 },
+  { id: "bell-pepper", name: "Bell pepper", unit: "piece", shelfLifeDays: 10, openedShelfLifeDays: 4, defaultLocation: "fridge", gramsPerPiece: 120 },
   { id: "mushroom", name: "Mushroom", unit: "g", shelfLifeDays: 7, openedShelfLifeDays: 3, defaultLocation: "fridge" },
-  { id: "banana", name: "Banana", unit: "piece", shelfLifeDays: 5, openedShelfLifeDays: 5, defaultLocation: "pantry" },
-  { id: "apple", name: "Apple", unit: "piece", shelfLifeDays: 21, openedShelfLifeDays: 3, defaultLocation: "fridge" },
-  { id: "lemon", name: "Lemon", unit: "piece", shelfLifeDays: 21, openedShelfLifeDays: 21, defaultLocation: "pantry" },
-  { id: "avocado", name: "Avocado", unit: "piece", shelfLifeDays: 5, openedShelfLifeDays: 1, defaultLocation: "pantry" },
+  { id: "banana", name: "Banana", unit: "piece", shelfLifeDays: 5, openedShelfLifeDays: 5, defaultLocation: "pantry", gramsPerPiece: 120 },
+  { id: "apple", name: "Apple", unit: "piece", shelfLifeDays: 21, openedShelfLifeDays: 3, defaultLocation: "fridge", gramsPerPiece: 180 },
+  { id: "lemon", name: "Lemon", unit: "piece", shelfLifeDays: 21, openedShelfLifeDays: 21, defaultLocation: "pantry", gramsPerPiece: 100 },
+  { id: "avocado", name: "Avocado", unit: "piece", shelfLifeDays: 5, openedShelfLifeDays: 1, defaultLocation: "pantry", gramsPerPiece: 200 },
 
     ],
   },
@@ -128,11 +151,14 @@ const CATALOG_SECTIONS: readonly SeedCategorySection[] = [
     category: "dairy-eggs",
     entries: [
   { id: "milk", name: "Milk", unit: "ml", shelfLifeDays: 10, openedShelfLifeDays: 7, defaultLocation: "fridge" },
-  { id: "butter", name: "Butter", unit: "g", shelfLifeDays: 60, openedShelfLifeDays: 21, defaultLocation: "fridge" },
+  // WP-PURCHASING §10.1a/§10.4: density (grams per ml) for the common
+  // "1 cup X" baking staples the design names by example, so cup/tbsp/tsp
+  // entry (src/domain/units.ts) is offered for these without guessing.
+  { id: "butter", name: "Butter", unit: "g", shelfLifeDays: 60, openedShelfLifeDays: 21, defaultLocation: "fridge", gramsPerMl: 0.9458 },
   { id: "cheddar-cheese", name: "Cheddar cheese", unit: "g", shelfLifeDays: 30, openedShelfLifeDays: 10, defaultLocation: "fridge" },
   { id: "parmesan-cheese", name: "Parmesan cheese", unit: "g", shelfLifeDays: 90, openedShelfLifeDays: 30, defaultLocation: "fridge" },
   { id: "plain-yogurt", name: "Plain yogurt", unit: "g", shelfLifeDays: 14, openedShelfLifeDays: 7, defaultLocation: "fridge" },
-  { id: "eggs", name: "Eggs", unit: "piece", shelfLifeDays: 28, openedShelfLifeDays: 28, defaultLocation: "fridge" },
+  { id: "eggs", name: "Eggs", unit: "piece", shelfLifeDays: 28, openedShelfLifeDays: 28, defaultLocation: "fridge", gramsPerPiece: 50 },
   { id: "cream", name: "Cream", unit: "ml", shelfLifeDays: 10, openedShelfLifeDays: 4, defaultLocation: "fridge" },
   { id: "sour-cream", name: "Sour cream", unit: "g", shelfLifeDays: 21, openedShelfLifeDays: 7, defaultLocation: "fridge" },
   { id: "mozzarella", name: "Mozzarella", unit: "g", shelfLifeDays: 14, openedShelfLifeDays: 4, defaultLocation: "fridge" },
@@ -174,20 +200,28 @@ const CATALOG_SECTIONS: readonly SeedCategorySection[] = [
     ],
   },
   {
+    // WP-PURCHASING §3/§5/§11.2: these twelve are exactly the "sold as a
+    // whole pack, but a recipe measures them by weight" case §3 exists for
+    // — "1 tbsp honey" or "400 g chopped tomatoes", never "0.05 jars". Every
+    // entry gets `purchaseMode: "whole"` and a typical `packSizeAmount` in
+    // its own (now g/ml) `unit`, so `suggestPurchase` rounds the aggregated
+    // shortfall up to whole tins/jars (§5 scenarios 5-8) instead of the
+    // pre-WP-PURCHASING `unit: "piece"` modelling ("a tin of chickpeas")
+    // that made every recipe quantity here impossible to express in grams.
     category: "tinned-jarred",
     entries: [
-  { id: "tinned-tomatoes", name: "Tinned tomatoes", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 5, defaultLocation: "pantry" },
-  { id: "tinned-chickpeas", name: "Tinned chickpeas", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 4, defaultLocation: "pantry" },
-  { id: "tinned-black-beans", name: "Tinned black beans", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 4, defaultLocation: "pantry" },
-  { id: "tinned-tuna", name: "Tinned tuna", unit: "piece", shelfLifeDays: 1095, openedShelfLifeDays: 3, defaultLocation: "pantry" },
-  { id: "tinned-corn", name: "Tinned corn", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 5, defaultLocation: "pantry" },
-  { id: "tomato-passata", name: "Tomato passata", unit: "piece", shelfLifeDays: 365, openedShelfLifeDays: 5, defaultLocation: "pantry" },
-  { id: "pasta-sauce", name: "Pasta sauce", unit: "piece", shelfLifeDays: 540, openedShelfLifeDays: 7, defaultLocation: "pantry" },
-  { id: "pickles", name: "Pickles", unit: "piece", shelfLifeDays: 365, openedShelfLifeDays: 30, defaultLocation: "pantry" },
-  { id: "olives", name: "Olives", unit: "piece", shelfLifeDays: 365, openedShelfLifeDays: 14, defaultLocation: "pantry" },
-  { id: "peanut-butter", name: "Peanut butter", unit: "piece", shelfLifeDays: 365, openedShelfLifeDays: 60, defaultLocation: "pantry" },
-  { id: "jam", name: "Jam", unit: "piece", shelfLifeDays: 365, openedShelfLifeDays: 30, defaultLocation: "pantry" },
-  { id: "honey", name: "Honey", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
+  { id: "tinned-tomatoes", name: "Tinned tomatoes", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 5, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 400 },
+  { id: "tinned-chickpeas", name: "Tinned chickpeas", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 4, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 400 },
+  { id: "tinned-black-beans", name: "Tinned black beans", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 4, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 400 },
+  { id: "tinned-tuna", name: "Tinned tuna", unit: "g", shelfLifeDays: 1095, openedShelfLifeDays: 3, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 150 },
+  { id: "tinned-corn", name: "Tinned corn", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 5, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 340 },
+  { id: "tomato-passata", name: "Tomato passata", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 5, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 700 },
+  { id: "pasta-sauce", name: "Pasta sauce", unit: "g", shelfLifeDays: 540, openedShelfLifeDays: 7, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 400 },
+  { id: "pickles", name: "Pickles", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 30, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 350 },
+  { id: "olives", name: "Olives", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 14, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 200 },
+  { id: "peanut-butter", name: "Peanut butter", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 60, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 350 },
+  { id: "jam", name: "Jam", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 30, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 340 },
+  { id: "honey", name: "Honey", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry", purchaseMode: "whole", packSizeAmount: 340, gramsPerMl: 1.4167 },
 
     ],
   },
@@ -211,7 +245,8 @@ const CATALOG_SECTIONS: readonly SeedCategorySection[] = [
     entries: [
   { id: "ketchup", name: "Ketchup", unit: "ml", shelfLifeDays: 365, openedShelfLifeDays: 30, defaultLocation: "pantry" },
   { id: "mustard", name: "Mustard", unit: "ml", shelfLifeDays: 365, openedShelfLifeDays: 60, defaultLocation: "pantry" },
-  { id: "mayonnaise", name: "Mayonnaise", unit: "ml", shelfLifeDays: 90, openedShelfLifeDays: 30, defaultLocation: "fridge" },
+  // WP-PURCHASING §5/§6's own worked example ("needs 130 ml; sold in 250 ml jars").
+  { id: "mayonnaise", name: "Mayonnaise", unit: "ml", shelfLifeDays: 90, openedShelfLifeDays: 30, defaultLocation: "fridge", purchaseMode: "whole", packSizeAmount: 250 },
   { id: "soy-sauce", name: "Soy sauce", unit: "ml", shelfLifeDays: 730, openedShelfLifeDays: 180, defaultLocation: "pantry" },
   { id: "hot-sauce", name: "Hot sauce", unit: "ml", shelfLifeDays: 730, openedShelfLifeDays: 180, defaultLocation: "pantry" },
   { id: "vinegar", name: "Vinegar", unit: "ml", shelfLifeDays: 1095, openedShelfLifeDays: 365, defaultLocation: "pantry" },
@@ -227,13 +262,15 @@ const CATALOG_SECTIONS: readonly SeedCategorySection[] = [
   {
     category: "baking",
     entries: [
-  { id: "flour", name: "Flour", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 365, defaultLocation: "pantry" },
-  { id: "sugar", name: "Sugar", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
-  { id: "brown-sugar", name: "Brown sugar", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
+  // Flour is DESIGN_PURCHASING.md §10/§10.1a's own worked example: "1 cup
+  // flour" -> 130 g, i.e. gramsPerMl = 130/240.
+  { id: "flour", name: "Flour", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 365, defaultLocation: "pantry", gramsPerMl: 0.5417 },
+  { id: "sugar", name: "Sugar", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry", gramsPerMl: 0.8333 },
+  { id: "brown-sugar", name: "Brown sugar", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry", gramsPerMl: 0.9167 },
   { id: "baking-powder", name: "Baking powder", unit: "g", shelfLifeDays: 540, openedShelfLifeDays: 365, defaultLocation: "pantry" },
   { id: "baking-soda", name: "Baking soda", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 365, defaultLocation: "pantry" },
   { id: "yeast", name: "Yeast", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 90, defaultLocation: "pantry" },
-  { id: "cocoa-powder", name: "Cocoa powder", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 365, defaultLocation: "pantry" },
+  { id: "cocoa-powder", name: "Cocoa powder", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 365, defaultLocation: "pantry", gramsPerMl: 0.5 },
   { id: "chocolate-chips", name: "Chocolate chips", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 180, defaultLocation: "pantry" },
   { id: "vanilla-extract", name: "Vanilla extract", unit: "ml", shelfLifeDays: 1095, openedShelfLifeDays: 1095, defaultLocation: "pantry" },
 
@@ -287,4 +324,8 @@ export const seedCatalog: readonly Ingredient[] = RAW_CATALOG.map((entry) => ({
   openedShelfLifeDays: entry.openedShelfLifeDays,
   defaultLocation: entry.defaultLocation,
   category: entry.category,
+  ...(entry.purchaseMode !== undefined ? { purchaseMode: entry.purchaseMode } : {}),
+  ...(entry.packSizeAmount !== undefined ? { packSize: makeQuantity(entry.packSizeAmount, entry.unit) } : {}),
+  ...(entry.gramsPerMl !== undefined ? { gramsPerMl: entry.gramsPerMl } : {}),
+  ...(entry.gramsPerPiece !== undefined ? { gramsPerPiece: entry.gramsPerPiece } : {}),
 }));

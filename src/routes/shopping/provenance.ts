@@ -19,12 +19,17 @@
  * re-implementation of FIFO allocation, so it stays presentation logic, not
  * a shadow copy of the engine.
  */
-import type {
-  IngredientId,
-  PlanSlot,
-  Recipe,
-  RecipeIngredient,
-  Settings,
+import {
+  formatQuantity,
+  isIndivisible,
+  scaleIndivisible,
+  suggestPurchase,
+  type Ingredient,
+  type IngredientId,
+  type PlanSlot,
+  type Recipe,
+  type RecipeIngredient,
+  type Settings,
 } from "../../domain/index.ts";
 import type { ShoppingListLine, ShoppingNeedSource } from "../../domain/index.ts";
 import { weekdayLabel } from "./range.ts";
@@ -97,4 +102,78 @@ export function buildWhyExplanation(
     return amount === undefined ? label : `${label} needs ${formatAmount(amount)}`;
   });
   return `${clauses.join(", ")}, and no viable lot expires on or after those dates.`;
+}
+
+/**
+ * WP-PURCHASING (DESIGN_PURCHASING.md §6 mock: "Store lasagna — serves 4,
+ * you need 2") — the row subtitle for a line backed by an indivisible
+ * recipe. Takes priority over both plain provenance and the generic "needs
+ * X" text, because the household-relevant fact for a bought meal is the
+ * SERVINGS gap, not the (already-whole, already-equal-to-the-buy) unit
+ * count. `undefined` for any other line, so the caller's existing fallback
+ * chain (rounded/adjusted "needs X", else provenance) is untouched.
+ */
+export function buildIndivisibleSecondary(line: ShoppingListLine, ctx: ProvenanceContext): string | undefined {
+  const source = line.sources[0];
+  const recipe = source ? ctx.recipes.find((r) => r.id === source.recipeId) : undefined;
+  if (!source || !recipe || !isIndivisible(recipe)) return undefined;
+  const slot = ctx.planSlots.find((s) => s.id === source.planSlotId);
+  const scaleServings = slot && slot.filling.kind === "recipe" ? slot.filling.scaleServings : undefined;
+  const targetServings = scaleServings ?? ctx.settings.householdSize;
+  return `serves ${recipe.baseServings}, you need ${formatAmount(targetServings)}`;
+}
+
+/**
+ * WP-PURCHASING (DESIGN_PURCHASING.md §6): the extra sentence the "Why?"
+ * disclosure gains, explaining the rounding itself — *"3 meals need 130 g;
+ * sold in 250 g jars."* An explicit household override never needs
+ * defending (§6: "it needs the small 'adjusted' label..., not a Why?"), so
+ * this returns `undefined` for an overridden line. It also returns
+ * `undefined` when the buy amount already equals the need (nothing to
+ * explain) UNLESS the line is backed by an indivisible recipe with a
+ * forecast surplus (§4 scenario 1/2), in which case it explains the
+ * servings/leftover math instead of pack rounding — the two scenarios never
+ * both apply to the same line (an indivisible recipe's ingredient line is
+ * already whole by the time it reaches `neededQuantity`, so pack-rounding on
+ * top of it is a no-op — see `shopping-needs.ts`'s `scaleFactor`).
+ */
+export function buildRoundingExplanation(
+  line: ShoppingListLine,
+  ingredient: Ingredient,
+  ctx: ProvenanceContext,
+): string | undefined {
+  if (line.purchaseOverride !== undefined) return undefined;
+
+  const source = line.sources[0];
+  const recipe = source ? ctx.recipes.find((r) => r.id === source.recipeId) : undefined;
+  if (source && recipe && isIndivisible(recipe)) {
+    const slot = ctx.planSlots.find((s) => s.id === source.planSlotId);
+    const scaleServings = slot && slot.filling.kind === "recipe" ? slot.filling.scaleServings : undefined;
+    const targetServings = scaleServings ?? ctx.settings.householdSize;
+    const scaling = scaleIndivisible(recipe, targetServings);
+    if (scaling.surplusServings > 0) {
+      const label = sourceLabel(source, "long");
+      const unitWord = scaling.units === 1 ? "" : `${scaling.units} `;
+      const servingWord = scaling.surplusServings === 1 ? "serving" : "servings";
+      return (
+        `${label} needs ${formatAmount(targetServings)} servings. ${recipe.name} can't be split — it's bought as ` +
+        `a whole ${recipe.baseServings}-serving pack, so ${unitWord || "1 "}covers it with ` +
+        `${formatAmount(scaling.surplusServings)} ${servingWord} forecast as a leftover.`
+      );
+    }
+  }
+
+  const suggestion = suggestPurchase(line.neededQuantity, ingredient);
+  if (suggestion.quantity.amount === line.neededQuantity.amount) return undefined;
+
+  if (suggestion.mode === "whole" && suggestion.packSize && suggestion.units !== undefined) {
+    return (
+      `Needs ${formatQuantity(line.neededQuantity)}; sold in ${formatQuantity(suggestion.packSize)} packs, so we ` +
+      `round up to ${suggestion.units} — ${formatQuantity(suggestion.surplus)} becomes pantry surplus, not waste.`
+    );
+  }
+  return (
+    `Needs ${formatQuantity(line.neededQuantity)}; rounded up to ${formatQuantity(suggestion.quantity)} — ` +
+    `${formatQuantity(suggestion.surplus)} becomes pantry surplus.`
+  );
 }

@@ -4,8 +4,17 @@
  * into what the screen renders, kept separate from that hook's I/O so this
  * logic is unit-testable without mounting React or a fake WorkbookStore.
  */
-import { addDays, isOnOrAfter, makePlanSlotId, recentlyCookedRecipeIds, daysBetween } from "../../domain/index.ts";
+import {
+  addDays,
+  isIndivisible,
+  isOnOrAfter,
+  makePlanSlotId,
+  recentlyCookedRecipeIds,
+  scaleIndivisible,
+  daysBetween,
+} from "../../domain/index.ts";
 import type {
+  IndivisibleScaling,
   Ingredient,
   IngredientId,
   IsoDate,
@@ -138,6 +147,22 @@ export function computeWeekSummary(
       : undefined;
 
   return { staplesPlaced, emptySlots, excluded };
+}
+
+/**
+ * WP-PURCHASING (DESIGN_PURCHASING.md §4/§6 last bullet, §9.3): the plan
+ * slot's own leftover forecast, computed the same way the shopping list's
+ * "Why?" disclosure computes it (`scaleIndivisible`) — so the basket is
+ * explained on the slot, before the shop, not discovered later on the list.
+ * `undefined` for a recipe that isn't indivisible (§4 default:
+ * `kind === "bought"`), matching `isIndivisible`'s own default.
+ */
+export function computeIndivisibleForecast(
+  recipe: Recipe | undefined,
+  targetServings: number,
+): IndivisibleScaling | undefined {
+  if (!recipe || !isIndivisible(recipe)) return undefined;
+  return scaleIndivisible(recipe, targetServings);
 }
 
 /** Ingredient ids with a (non-freezer) pantry lot expiring within the 7-day window starting `weekStart` — WP-13's `GenerateWeekInput.expiringIngredientIds`. */

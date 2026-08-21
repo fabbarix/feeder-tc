@@ -13,6 +13,15 @@ export const SHOPPING_ITEMS_HEADER: CellRow = [
   "checked",
   "bought_amount",
   "bought_unit",
+  // WP-PURCHASING (DESIGN_PURCHASING.md §7), appended at the end (additive
+  // — see types.ts's ShoppingItem.suggestedPurchase/purchaseOverride doc
+  // comments). A legacy row has no cells here at all; decodeShoppingItem
+  // below treats that the same as explicitly blank — undefined, never a
+  // thrown error.
+  "suggested_purchase_amount",
+  "suggested_purchase_unit",
+  "purchase_override_amount",
+  "purchase_override_unit",
 ];
 
 export function encodeShoppingItem(item: ShoppingItem): CellRow {
@@ -25,6 +34,10 @@ export function encodeShoppingItem(item: ShoppingItem): CellRow {
     item.checked,
     item.boughtQuantity?.amount ?? "",
     item.boughtQuantity?.unit ?? "",
+    item.suggestedPurchase?.amount ?? "",
+    item.suggestedPurchase?.unit ?? "",
+    item.purchaseOverride?.amount ?? "",
+    item.purchaseOverride?.unit ?? "",
   ];
 }
 
@@ -58,6 +71,20 @@ export function decodeShoppingItem(row: CellRow): ShoppingItem {
     boughtQuantity = makeQuantity(boughtAmount, boughtUnitRaw);
   }
 
+  const suggestedAmount = cellOptionalNumber(row, 8, "suggested_purchase_amount");
+  const suggestedUnitRaw = cellOptionalString(row, 9);
+  let suggestedPurchase: ShoppingItem["suggestedPurchase"];
+  if (suggestedAmount !== undefined && suggestedUnitRaw !== undefined && isUnit(suggestedUnitRaw) && suggestedAmount > 0) {
+    suggestedPurchase = makeQuantity(suggestedAmount, suggestedUnitRaw);
+  }
+
+  const overrideAmount = cellOptionalNumber(row, 10, "purchase_override_amount");
+  const overrideUnitRaw = cellOptionalString(row, 11);
+  let purchaseOverride: ShoppingItem["purchaseOverride"];
+  if (overrideAmount !== undefined && overrideUnitRaw !== undefined && isUnit(overrideUnitRaw) && overrideAmount > 0) {
+    purchaseOverride = makeQuantity(overrideAmount, overrideUnitRaw);
+  }
+
   return {
     ingredientId,
     rangeStart,
@@ -65,5 +92,7 @@ export function decodeShoppingItem(row: CellRow): ShoppingItem {
     neededQuantity: makeQuantity(neededAmount, neededUnitRaw),
     checked,
     ...(boughtQuantity !== undefined ? { boughtQuantity } : {}),
+    ...(suggestedPurchase !== undefined ? { suggestedPurchase } : {}),
+    ...(purchaseOverride !== undefined ? { purchaseOverride } : {}),
   };
 }
