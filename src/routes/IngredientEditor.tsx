@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { ErrorState, SegmentedControl, Skeleton } from "../ui/components";
+import { ConfirmDialog, ErrorState, SegmentedControl, Skeleton } from "../ui/components";
 import { PhotoField, type PhotoDraft } from "../ui/photo/index.ts";
 import { IntegerField, TextField } from "./fields.tsx";
 import { uniqueSlug } from "./slug.ts";
@@ -13,6 +13,25 @@ import styles from "./forms.module.css";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Field-by-field comparison of the parts of an `Ingredient` this editor
+ * actually lets a person change — same shape and same reason as
+ * `RecipeEditor.tsx`'s `recipeContentEquals` (WP-30, the reference pattern
+ * for this stale-save workstream): detects "someone else's write landed
+ * since this editor loaded" without tripping on incidental structural
+ * differences (e.g. `hasPhoto` present-vs-absent-and-false).
+ */
+function ingredientContentEquals(a: Ingredient, b: Ingredient): boolean {
+  return (
+    a.name === b.name &&
+    a.unit === b.unit &&
+    a.defaultLocation === b.defaultLocation &&
+    a.shelfLifeDays === b.shelfLifeDays &&
+    a.openedShelfLifeDays === b.openedShelfLifeDays &&
+    (a.hasPhoto ?? false) === (b.hasPhoto ?? false)
+  );
 }
 
 // "portion" is reserved for system-minted leftover lots (DESIGN.md §2
@@ -42,6 +61,12 @@ export function IngredientEditor() {
   const [error, setError] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [existingIds, setExistingIds] = useState<ReadonlySet<string>>(new Set());
+  // WP-stale-save: the row as this editor last read it — compared against a
+  // fresh read at save time (see `handleSave`) to detect a stale save,
+  // exactly like `RecipeEditor.tsx`'s `loadedRecipeRef`. `undefined` for a
+  // brand new ingredient, which has no prior row to go stale against.
+  const loadedIngredientRef = useRef<Ingredient | undefined>(undefined);
+  const [staleConflict, setStaleConflict] = useState<Ingredient | undefined>(undefined);
 
   const [name, setName] = useState("");
   const [unit, setUnit] = useState<Unit>("g");
@@ -70,6 +95,7 @@ export function IngredientEditor() {
             setError(`No ingredient with id "${ingredientId}".`);
             return;
           }
+          loadedIngredientRef.current = found;
           setName(found.name);
           setUnit(found.unit);
           setLocation(found.defaultLocation);
@@ -89,13 +115,27 @@ export function IngredientEditor() {
     };
   }, [store, ingredientId, isNew]);
 
-  async function handleSave(): Promise<void> {
+  async function handleSave(force = false): Promise<void> {
     if (name.trim() === "" || shelfLifeDays === null || openedShelfLifeDays === null) {
       showToast({ variant: "warning", title: "Fill in every field before saving." });
       return;
     }
     setSaving(true);
     try {
+      // Stale-save check, before any write (photo included) — see
+      // RecipeEditor.tsx's identical check for the full rationale. Skipped
+      // for a brand-new ingredient and on the confirmed "Save anyway" retry.
+      if (!isNew && !force) {
+        const latest = await store.ingredients.readAll();
+        const current = latest.rows.find((i) => i.id === ingredientId);
+        const loaded = loadedIngredientRef.current;
+        if (current && loaded && !ingredientContentEquals(current, loaded)) {
+          setSaving(false);
+          setStaleConflict(current);
+          return;
+        }
+      }
+
       const id = isNew ? makeIngredientId(uniqueSlug(name, existingIds, rng)) : makeIngredientId(ingredientId!);
       // Photo write first — see RecipeEditor.tsx's identical note on why
       // (never claim `hasPhoto: true` ahead of the row that backs it).
@@ -185,6 +225,23 @@ export function IngredientEditor() {
           </div>
         </form>
       ) : null}
+      <ConfirmDialog
+        open={staleConflict !== undefined}
+        title="This ingredient changed elsewhere"
+        description={
+          staleConflict
+            ? `Someone else saved "${staleConflict.name}" since you opened it. Saving now overwrites their changes with yours.`
+            : undefined
+        }
+        confirmLabel="Save anyway"
+        cancelLabel="Keep editing"
+        destructive
+        onConfirm={() => {
+          setStaleConflict(undefined);
+          void handleSave(true);
+        }}
+        onCancel={() => setStaleConflict(undefined)}
+      />
     </section>
   );
 }
