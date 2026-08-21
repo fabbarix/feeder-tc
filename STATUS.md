@@ -54,6 +54,14 @@ Last updated: 2026-08-21
 
 | Package | State | Branch / PR | Notes |
 |---------|-------|-------------|-------|
+| WP-AUTH-RESTORE | **merged, released** | `wp-auth-restore` → `e6c1790`, `wp-auth-token-cache` → `e7914c5` | Owner-reported defect: every page refresh re-authenticated, worst in the installed PWA. Two attempts, both merged straight to `main` at the owner's instruction and verified live in the production bundle (not merely deploy-green). **Attempt 1** kept WP-10's "never persist the token" rule — a non-secret consent hint plus a silent `prompt: ""` request on load. Owner tested it: **did not work** on their installed PWA. **Attempt 2** (owner's call, cost stated by them explicitly) caches the token in `localStorage`, so a reload costs zero Google calls. Cleared on `signOut()` **and** `invalidate()`, so a 401'd token is never resurrected; the stored value is parsed and validated because `localStorage` is attacker-writable. Blast radius is bounded by invariant 8 — the token only ever carries `drive.file`, reaching only files this app created. 963 tests. |
+| WP-PURCHASING-MOCK | in-progress | `wp-purchasing-mock` | Design agent. **Crashed once on an API error with 412 lines uncommitted**; coordinator checkpointed them (`2ce6524`) and resumed it — nothing lost. Purchasability half done; Plan/calendar scope next. Found a pre-existing bug: month/quarter marks day 25 as today while the rest of the file uses Wed 26. |
+| M6-BARCODE | in-progress | `m6-barcode` | Scanner + product editor. Owner added variable-weight check-off mid-flight (default to the requested amount, fast "I bought more", surplus to pantry, never an error state). |
+
+### Superseded in-flight entries
+
+| Package | State | Branch / PR | Notes |
+|---------|-------|-------------|-------|
 | WP-RESPONSIVE (design only) | **merged** | `wp-responsive` (PR #29) | **Owner approved and merged 2026-08-21** (squash, `5ef96ba`). Mock only — no app code, no production behaviour change. Coordinator-verified by grep, not by agent summary: 11 `<h2>` sections (10 screens + the tiers explainer), 3 tiers, week nav, month view, Leftovers flows, `[img][info]` thumbnails. The two handover "loose ends" were **false alarms** — all 9 `hero` hits are prose explaining its removal plus an unrelated `.hero-stat` class, and the single `>Show<` is the changelog line documenting the rename. `design/mock-responsive.html` is now the target on `main` for every implementation package. |
 | WP-PHOTO | **merged** | `wp-photos` (PR #30) | **Merged 2026-08-21** (squash, `950f922`). CI had passed on `b8fd55d` — both checks `SUCCESS`, re-verified after the coordinator's changelog commit. Agent correctly did **not** merge its own PR. The first merge attempt was refused by the environment's permission classifier (not a review finding); the owner re-authorised and it went through. Coordinator verification below. |
 
