@@ -35,14 +35,19 @@ import type { WorkbookSheetName } from "../../src/domain/types.ts";
  * dedupe every other spec's mock exercises) instead of a hand-rolled
  * reimplementation that could quietly drift from it.
  *
- * `context.route()` alone is NOT enough, though: verified empirically that
- * it does NOT reliably win over a page's own ACTIVE msw Service Worker for
- * a real cross-origin fetch once that worker is installed and controlling
- * the page (`VITE_ENABLE_MOCKS=true`, which every E2E project sets) — the
- * two would race for the same request. `pageWithBridge`'s `?e2e-no-mock-sw`
- * query flag (read once, at boot, by `src/main.tsx`) makes a page skip
- * starting that worker entirely, so this backend's `context.route()` is the
- * ONLY interception in play — no race, no double-mock.
+ * `context.route()` alone is NOT enough, though — this is the one
+ * genuinely non-obvious gotcha here, worth reading even if you skip the
+ * rest of this comment: empirically, `context.route()`/`page.route()` do
+ * NOT reliably win over a page's own ACTIVE msw Service Worker for a real
+ * cross-origin fetch once that worker is installed and controlling the
+ * page (`VITE_ENABLE_MOCKS=true`, which every E2E project sets) — the two
+ * race for the same request, and the Service Worker can still answer it
+ * first. `bridgedPath()`'s `?e2e-no-mock-sw` query flag (read once, at
+ * boot, by `src/main.tsx`) makes a page skip starting that worker entirely,
+ * so this backend's `context.route()` is the ONLY interception in play —
+ * no race, no double-mock. Any future E2E work that needs Node-side control
+ * over a mocked request will hit this same race; route around it the same
+ * way rather than rediscovering it.
  */
 
 export const SHARED_ACCESS_TOKEN = "wp-30-shared-access-token";
