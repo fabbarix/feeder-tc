@@ -40,23 +40,38 @@ $G services api-keys list \
 $G services api-keys describe <UID> --format=yaml
 ```
 
-### The Picker API key
+### The Picker API keys — production and dev are now SEPARATE
 
-`feeder-tc web (Picker)` — uid `be2d2e1a-04c0-4975-970e-5aebe4dbb8be`.
-Restricted to `picker.googleapis.com` only. As of 2026-08-21 its allowed
-referrers are production, `https://fabbarix.github.io/*`, **and**
-`http://localhost:5173/*`.
+Split on 2026-08-21. Both are restricted to `picker.googleapis.com` only:
 
-**There is only ONE key, serving both production and local development.**
-`STATUS.md`'s debt note says to "drop localhost from the production key",
-which presupposes a separate dev key — there isn't one. Removing that
-referrer without first creating a dev key breaks real-Google development on
-5173, which is the origin the OAuth config reserves for exactly that.
+| Key | uid | Allowed referrers |
+|---|---|---|
+| `feeder-tc web (Picker)` | `be2d2e1a-04c0-4975-970e-5aebe4dbb8be` | `https://feeder.torchetti.us/*`, `https://fabbarix.github.io/feeder-tc/*` |
+| `feeder-tc web (Picker) — dev` | `7fe988c3-2e6f-4cd6-88c8-f02cc05a6350` | `http://localhost:5173/*` |
+
+Local dev uses the **dev** key via `.env.local`'s `VITE_GOOGLE_API_KEY`; the
+production key lives in the GitHub Actions secret. Do not put `localhost` back
+on the production key — that was the point of the split.
+
+Fetch a key's string with
+`gcloud services api-keys get-key-string <UID>`. Browser keys are public by
+design (they ship in the JS bundle), but there is still no reason to paste one
+into a transcript — have the user run it.
 
 **`api-keys update` REPLACES the whole restriction set**, it does not merge.
-Restate every restriction you want to keep — including `--api-target` — or
-you will silently widen the key to every API in the project. Always
-`describe` first.
+Restate every restriction you want to keep — including `--api-target` — or you
+will silently widen the key to every API in the project. Always `describe`
+first.
+
+**Do NOT pass `--clear-restrictions` alongside the restriction flags** —
+gcloud rejects the combination as mutually exclusive, and you do not need it,
+because the update replaces the set anyway. The working shape is:
+
+```bash
+$G services api-keys update <UID> \
+  --api-target=service=picker.googleapis.com \
+  --allowed-referrers="https://feeder.torchetti.us/*,https://fabbarix.github.io/feeder-tc/*"
+```
 
 Browser API keys are public by design (this one ships in the JS bundle).
 Referrer restrictions limit quota abuse, not data access.
