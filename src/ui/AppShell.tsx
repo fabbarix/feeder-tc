@@ -93,7 +93,13 @@ const NAV_ITEMS: readonly NavItem[] = [
 // is the screen that justifies desktop", UI_DESIGN.md 13's own words) --
 // capping it at the 840px reading measure would squash the whole week
 // into a column narrower than two of the mock's day cards.
-const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/pantry", "/plan"]);
+//
+// "/shopping" (WP-23) is here for the same reason as "/pantry": the desktop
+// rail (items-left stat + the per-item "Why…" provenance explanation) needs
+// real width to earn its place (UI_DESIGN.md §13 "width buys information,
+// not padding") — the 840px reading measure would squeeze list+rail into a
+// column narrower than either wants.
+const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/pantry", "/plan", "/shopping"]);
 
 export interface AppShellProps {
   readonly state: ShellState;

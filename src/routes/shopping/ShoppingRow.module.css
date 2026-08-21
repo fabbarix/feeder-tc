@@ -1,0 +1,28 @@
+/* Same responsive-text-swap pattern as AppShell's `.navIcon`/pantry's
+   `.rail` — one DOM, CSS decides which of the two provenance strings (short
+   weekday for phone, long weekday for desktop, per the mock) is visible. */
+.provenanceLong {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .provenanceShort {
+    display: none;
+  }
+
+  .provenanceLong {
+    display: inline;
+  }
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.dialogHint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
