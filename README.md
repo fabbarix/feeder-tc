@@ -32,36 +32,52 @@ sharing a household's data means sharing a spreadsheet.
 
 ## Project status
 
-**Feeder is under active development and not yet feature-complete.** Please
-read this before expecting the flows described below to work on the live
-site today.
+**Feeder is functional end to end** — sign in, create or open a workbook,
+add recipes and pantry stock, generate a week's plan, shop, mark meals
+cooked, and track leftovers all work on the live site today. It is still
+under active development, so rough edges remain (see below), but nothing in
+this README describes a stub or a "coming soon" screen.
 
-As of this writing:
+As of this writing, shipped and covered by the automated test suite (unit,
+BDD, mocked-API, and end-to-end):
 
-- **Merged and tested:** the app shell and navigation, the domain engines
-  (inventory, planner, shopping — pure, unit-tested modules), the Google
-  auth and Sheets transport layer, workbook bootstrap and codecs, the
-  sync/outbox layer, the UI component kit, and the seeded ingredient
-  catalogue (104 entries). All of this passes its automated test suite
-  (unit, BDD, and mocked-API tests) in CI.
-- **Not yet wired up in the deployed app:** the routed screens for Recipes,
-  Pantry, Plan, and Shopping are still placeholder stubs, and the sign-in /
-  workbook-picker UI in the header is not yet connected to the (already
-  built and tested) auth code. In other words, visiting the live site today
-  shows working navigation but no working sign-in button and no working
-  feature screens yet — those land with the upcoming feature milestones.
-- Real sign-in against live Google APIs (OAuth flow, `drive.file` scope,
-  consent screen) has been manually verified once by the project owner
-  outside the normal app UI. Creating a workbook and reading it back through
-  the real Sheets API (as opposed to mocks) has not yet been verified live.
+- **Recipes**, including bought/pre-prepared meals, a rich step editor with
+  per-step photos, markdown detail text, durations and an in-recipe cooking
+  timer.
+- **Pantry**, with event-sourced lot tracking, FIFO usage, expiry, and a
+  freshness meter.
+- **Plan**, a weekly meal-slot generator with staples, rotation, reroll/pin,
+  manual picks, servings scaling, and mark-cooked (which posts pantry usage
+  and turns surplus into a leftover lot).
+- **Shopping**, computed as needs minus viable stock, grouped by store
+  section, with in-store check-off that creates the purchase lot directly.
+- **Photos** on recipes, steps and ingredients (512 px WebP, stored in the
+  workbook itself — see [Privacy](#privacy)).
+- **Barcode scanning** (camera, with a manual-entry fallback) against a
+  Products catalog, for fast pantry check-off and price tracking.
+- **Whole-unit purchasing**: the shopping list rounds to something you can
+  actually buy (no more "0.5 lasagna") rather than a raw fractional need.
+- Installable **offline PWA** with an app-shell cache and a write outbox
+  that flushes automatically on reconnect.
+- The app **self-heals a workbook created before a newer feature added its
+  sheet tab** — opening an older workbook backfills what's missing rather
+  than failing to load it.
+- Real sign-in and Sheets/Drive access against live Google APIs (not just
+  mocks) has been verified by the project owner using their own account and
+  workbook.
+
+**Known rough edges:** the ingredient/recipe editors don't yet expose a
+dedicated UI for pack sizes and "how you buy it" (the shopping-list rounding
+above already works from the existing catalog data; pack-size entry is a
+planned enhancement, not a correctness dependency), and there is no
+price-history view yet even though barcode scans already record prices.
 
 This section will go stale — it describes a snapshot, not a promise. If
 something below doesn't match what you see on the site, trust the site.
 
 ## Getting started
 
-This describes the intended flow once the feature milestones above have
-shipped:
+Here's the flow, start to finish:
 
 1. Open [feeder.torchetti.us](https://feeder.torchetti.us) and sign in with
    your Google account. Feeder only requests the `drive.file` scope — it
