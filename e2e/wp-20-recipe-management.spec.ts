@@ -27,9 +27,11 @@ test("Creating a bought meal", async ({ page }) => {
   await expect(prepTimeField).toBeDisabled();
   await expect(prepTimeField).toHaveValue("0");
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill("50");
-  // One empty step field exists by default — no need to add another.
+  // One empty step field exists by default — no need to add another. Each
+  // step is now its own card (WP-PHOTO UI) with a separate "Step N" heading
+  // and an "Instruction" field, rather than a "Step N"-labelled textbox.
   await page
-    .getByRole("textbox", { name: "Step 1" })
+    .getByRole("textbox", { name: "Instruction" })
     .fill("375 degrees, 30 min covered, 20 uncovered");
 
   await page.getByRole("button", { name: "Save recipe" }).click();

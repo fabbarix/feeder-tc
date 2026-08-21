@@ -110,9 +110,12 @@
    own doc comment already calls out).
    230px minmax, not 168px — WP-PHOTO UI bumped this (mock-responsive.html's
    own "Recipes" note): a horizontal [thumbnail][info] card needs real width
-   for text beside an 80px thumb, not just above it. The tag row and meta
-   line both wrap now instead of clipping to one line/`+N` — the photo
-   freed the vertical space that "keep it to one line" used to need. */
+   for text beside an 80px thumb, not just above it. The TAG row now wraps
+   instead of clipping to one line/`+N` — the photo freed the vertical space
+   "keep it to one line" used to need there. The meta line (prep/cook/serves)
+   stays single-line regardless (still guarded by
+   e2e/wp-vc-visual-conformance.spec.ts's own "never two" regression test) —
+   only the tag row was ever the wrap candidate. */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -156,7 +159,8 @@
 .cardMeta {
   display: flex;
   gap: 9px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
   font-size: 12px;
   color: var(--text-muted);
 }
