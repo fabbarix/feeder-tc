@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { useToast } from "../ui/components/Toast/useToast.ts";
 import { EmptyState, ErrorState, ListSection, Skeleton } from "../ui/components";
 import { Barcode, ShoppingCart } from "../ui/icons";
 import { formatQuantity, type DateRange, type Ingredient, type ShoppingListLine } from "../domain/index.ts";
@@ -28,15 +28,14 @@ interface LineWithIngredient {
  * (UI_DESIGN.md §13 "Desktop": "width buys information, not padding").
  *
  * The mock's phone screen carries a barcode-scan FAB. The scan flow itself
- * (camera, decoder, product lookup) is explicitly out of this WP's scope
- * (M6 — see design/mock-screens.html's "Barcode scan" section and its own
- * "open questions" note on product-database/CORS/BarcodeDetector choices,
- * none of which are settled yet). The button below is real and wired, but
- * only to an honest "coming soon" toast — never a fake scan.
+ * (camera, decoder, product editor) now lives at `/scan` (M6 —
+ * `src/routes/scan/Scan.tsx`, DESIGN_PRODUCTS.md §1) — this button now
+ * navigates there for real, replacing the earlier WP-23-era "coming soon"
+ * toast placeholder.
  */
 export function Shopping() {
   const { clock } = useWorkbookContext();
-  const { showToast } = useToast();
+  const navigate = useNavigate();
   const today = clock.today();
 
   const [preset, setPreset] = useState<ShoppingRangePreset>("this-week");
@@ -50,12 +49,7 @@ export function Shopping() {
   }
 
   function handleScan(): void {
-    showToast({
-      variant: "info",
-      title: "Barcode scanning is coming soon",
-      description: "That's a later milestone (M6). For now, check items off the list by hand.",
-      durationMs: 5000,
-    });
+    navigate("/scan");
   }
 
   const linesWithIngredient = useMemo<readonly LineWithIngredient[]>(() => {

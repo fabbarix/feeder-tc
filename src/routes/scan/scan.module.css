@@ -1,0 +1,221 @@
+/* Scan route (M6) — layout only; colours/spacing come from the shared design
+   tokens (UI_DESIGN.md §13), same discipline as forms.module.css. */
+
+.backLink {
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.backLink:hover {
+  color: var(--accent);
+}
+
+.cameraFrame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-width: 32em;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: #000;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.viewfinder {
+  position: absolute;
+  inset: 18% 12%;
+  border: 2px solid oklch(1 0 0 / 0.85);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+}
+
+.cameraStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-width: 32em;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-4);
+}
+
+/* Covers the (black/blank) video element while the camera is starting,
+   denied or unavailable — the `<video>` itself stays mounted throughout so
+   `useBarcodeScanner`'s ref is always attached once the camera section is
+   rendered at all (see Scan.tsx's own comment on this). */
+.cameraOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: oklch(0.15 0 0 / 0.92);
+  color: oklch(0.95 0 0);
+  text-align: center;
+}
+
+.cameraHint {
+  color: oklch(0.8 0 0);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.retryButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid oklch(0.95 0 0 / 0.6);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.manualEntry {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-end;
+  margin-top: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.manualEntry > .field {
+  flex: 1 1 12em;
+}
+
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dialogHint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.buyDefault {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.buyDefaultLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.buyDefaultAmount {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-h);
+}
+
+.buyAdjustLink {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+}
+
+.buyAdjustLink:hover {
+  text-decoration: underline;
+}
+
+/* Surplus is normal, never a warning (DESIGN_PURCHASING.md §2/§6) — a
+   neutral muted tone, exactly like a "pending sync" row, never --warning/
+   --danger. */
+.surplusNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.editorPanel {
+  margin-top: var(--space-4);
+}
+
+.editorHeading {
+  margin: 0 0 var(--space-1);
+}
+
+.photoPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: fit-content;
+  min-height: var(--touch-target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.photoPicker:hover {
+  background: var(--surface-2);
+}
+
+.photoPreview {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+
+.photoInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.foundBanner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text-h);
+}

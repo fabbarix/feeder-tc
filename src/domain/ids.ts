@@ -21,12 +21,14 @@ import {
   makeIngredientId,
   makeLotId,
   makePlanSlotId,
+  makePriceObservationId,
   makeRecipeId,
   makeStepId,
   type EventId,
   type IngredientId,
   type LotId,
   type PlanSlotId,
+  type PriceObservationId,
   type RecipeId,
   type StepId,
 } from "./types.ts";
@@ -65,4 +67,9 @@ export function newRecipeId(rng: Rng): RecipeId {
 
 export function newStepId(rng: Rng): StepId {
   return makeStepId(randomIdString(rng));
+}
+
+/** M6 — `PriceObservations` is append-only (DESIGN_PRODUCTS.md §2); every row mints its own id client-side, same as `EventId`. */
+export function newPriceObservationId(rng: Rng): PriceObservationId {
+  return makePriceObservationId(randomIdString(rng));
 }
