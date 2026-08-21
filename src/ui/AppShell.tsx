@@ -88,12 +88,18 @@ const NAV_ITEMS: readonly NavItem[] = [
  * is padding, not information (UI_DESIGN.md §13's own rule for why width
  * is worth spending at all). It keeps the reading measure.
  */
-// "/shopping" (WP-23) added for the same reason as "/pantry": the desktop
+// `/plan` (WP-22) joins this set too: design/mock-screens.html's Plan
+// section is explicitly seven columns wide on desktop ("the week planner
+// is the screen that justifies desktop", UI_DESIGN.md 13's own words) --
+// capping it at the 840px reading measure would squash the whole week
+// into a column narrower than two of the mock's day cards.
+//
+// "/shopping" (WP-23) is here for the same reason as "/pantry": the desktop
 // rail (items-left stat + the per-item "Why…" provenance explanation) needs
 // real width to earn its place (UI_DESIGN.md §13 "width buys information,
 // not padding") — the 840px reading measure would squeeze list+rail into a
 // column narrower than either wants.
-const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/pantry", "/shopping"]);
+const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/pantry", "/plan", "/shopping"]);
 
 export interface AppShellProps {
   readonly state: ShellState;

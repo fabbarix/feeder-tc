@@ -1,0 +1,117 @@
+/* Settings route layout (WP-22) — design/mock-screens.html's Settings
+   section (desktop "slot layout editor" pair), translated onto the app's
+   token names. Not part of the src/ui kit (UI_DESIGN.md §7). Settings
+   deliberately keeps the 840px reading measure (AppShell.tsx's
+   WIDE_ROUTES doc comment) — it's a form, not a card grid. */
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--space-5);
+  }
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.cardHead {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-2);
+  font: 600 0.85rem/1.2 var(--sans);
+  color: var(--text-h);
+}
+
+.cardBody {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ---- Slot-layout editor rows ---- */
+.daylay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 0.85rem;
+}
+
+.daylay:last-child {
+  border-bottom: none;
+}
+
+.dayLabel {
+  width: 40px;
+  flex: none;
+  font: 600 0.7rem/1 var(--sans);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.slotchips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.slotchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 500 0.72rem/1 var(--sans);
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  cursor: pointer;
+}
+
+.slotchipAdd {
+  font: 500 0.72rem/1 var(--sans);
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  cursor: pointer;
+}
+
+.slotchipAdd:hover {
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
+
+.tagRow {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.fieldLabel {
+  font: 600 0.72rem/1 var(--sans);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

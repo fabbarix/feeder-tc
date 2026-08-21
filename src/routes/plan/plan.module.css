@@ -1,0 +1,340 @@
+/* Plan route layout (WP-22) — design/mock-screens.html's Plan section,
+   translated onto the app's own token names (see design/README.md: match
+   the mock, contrast-swept accent tokens win — src/index.css already
+   carries those). Not part of the src/ui kit — feature-specific layout,
+   same split as src/routes/pantry/pantry.module.css (UI_DESIGN.md §7). */
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.generateButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-text);
+  /* `<button>` does not inherit the page's font by default (the browser's
+     form-control UA style wins over inheritance) — every other kit button
+     sets this explicitly (see ConfirmDialog.module.css's `.confirm`) for
+     the same reason; omitting it here left this one rendering at the UA
+     default ~13px instead of the design system's type. */
+  font: 600 1rem/1 var(--sans);
+  cursor: pointer;
+}
+
+.generateButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0 0 var(--space-4);
+}
+
+.navRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+/* ---- Desktop: seven columns, the whole week visible (UI_DESIGN.md §13 "the
+   week planner is the screen that justifies desktop"). Hidden below 768px. ---- */
+.week {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+}
+
+.day {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dayHeading {
+  margin: 0;
+  font: 600 0.65rem/1 var(--sans);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---- Mobile: stacked day cards, thumb-navigable. Hidden at >=768px. ---- */
+.dayList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .dayList {
+    display: none;
+  }
+}
+
+.dayCard {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* Overrides src/index.css's global `h2` rule (font-size/margin/color) — the
+   day label is semantically a heading but visually is the card's head bar,
+   not a document heading. The slot-count text lives INSIDE this heading
+   (`.dayCardMeta`, not a sibling in its own wrapper div) so the heading's
+   container is one DOM level up in both this list and the desktop grid's
+   `.day > h2` — e2e specs rely on that matching depth to find "this day's
+   card" from its heading alone regardless of which layout is visible. */
+.dayCardHeading {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  font: 600 0.7rem/1 var(--sans);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dayCardMeta {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+
+/* ---- One slot's card, shared markup between the desktop grid and the
+   mobile day-card list — visually distinct per state (UI_DESIGN.md §13:
+   "pinned/leftover/empty slots each visually distinct"). Icon actions
+   (reroll/pin) are always visible, not hover-only, on both breakpoints: a
+   control reachable only on :hover fails keyboard and touch use, so this
+   is a deliberate addition beyond the static mock rather than a fidelity
+   gap — see the WP-22 handover report. ---- */
+.slot {
+  font: 500 0.85rem/1.25 var(--sans);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dayList .slot {
+  border-top: 1px solid var(--line-soft);
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0;
+  padding: var(--space-3);
+}
+
+.slotPinned {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.slotLeftover {
+  border-style: dashed;
+  color: var(--text);
+}
+
+.slotAdd {
+  color: var(--text-muted);
+  text-align: left;
+  border-style: dashed;
+  background: transparent;
+  cursor: pointer;
+  min-height: var(--touch-target);
+  width: 100%;
+  align-items: flex-start;
+}
+
+.slotAdd:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.slotTag {
+  font: 600 0.62rem/1 var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.slotBody {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.slotNameButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: 500 0.95rem/1.2 var(--sans);
+  color: var(--text-h);
+  cursor: pointer;
+  text-align: left;
+}
+
+.slotNameButton:hover {
+  color: var(--accent);
+}
+
+.addLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slotActions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.scaleBadge {
+  font: 600 0.7rem/1 var(--sans);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.iconButton {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+  transition:
+    border-color var(--motion-micro) var(--ease-standard),
+    color var(--motion-micro) var(--ease-standard);
+}
+
+.iconButton:hover:not(:disabled) {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.iconButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.iconButtonActive {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.cookButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-text);
+  font: 600 0.82rem/1 var(--sans);
+  cursor: pointer;
+}
+
+.cookButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.badge {
+  font: 600 0.65rem/1 var(--sans);
+  padding: 5px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+/* ---- Mark-cooked confirm/tweak dialog content (ConfirmDialog's own chrome
+   comes from src/ui/components/ConfirmDialog.module.css). ---- */
+.cookForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cookLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cookLineSkip {
+  opacity: 0.55;
+}
+
+.cookLineName {
+  flex: 1;
+  min-width: 0;
+}
+
+.cookLineSkipButton {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font: 500 0.75rem/1 var(--sans);
+  padding: 6px 10px;
+  cursor: pointer;
+  flex: none;
+}
+
+.cookLineSkipButtonActive {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.leftoverSection {
+  border-top: 1px solid var(--line-soft);
+  padding-top: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

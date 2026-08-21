@@ -3,6 +3,7 @@
 // last-write-wins refresh-before-edit helper for plain-row sheets. See
 // IMPLEMENTATION_PLAN.md WP-17.
 export { createLocalStorageSnapshotStore } from "./snapshot-store.ts";
+export { createLocalStoragePlannerStateStore, type PlannerStateStore } from "./planner-state-store.ts";
 export { createLocalStorageOutbox } from "./outbox.ts";
 export { syncSnapshot, previewSnapshotWithPending, type SyncDeps } from "./sync.ts";
 export {

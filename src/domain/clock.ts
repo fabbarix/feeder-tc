@@ -18,6 +18,11 @@ export const systemClock: Clock = {
     return makeIsoTimestamp(new Date().toISOString());
   },
   today(): IsoDate {
+    // LOCAL components, deliberately — "today" means the calendar day the
+    // household is actually living in (when dinner is "tonight", when a
+    // lot "expires today"), not whatever day it is in UTC. A US household
+    // in the evening (UTC already past midnight, into tomorrow) must still
+    // see today as today, not tomorrow.
     const d = new Date();
     return makeIsoDate(
       `${pad(d.getFullYear(), 4)}-${pad(d.getMonth() + 1, 2)}-${pad(d.getDate(), 2)}`,
