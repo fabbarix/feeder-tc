@@ -4,7 +4,7 @@ Coordinator-maintained. One line per work package. Updated at every dispatch and
 
 **States:** `pending` · `in-progress` · `in-review` · `merged` · `blocked` · `parked`
 
-Last updated: 2026-08-21
+Last updated: 2026-08-21 (second pass — see the 2026-08-21 integration-log entries)
 
 ## Stage 0 — Foundations (sequential)
 
@@ -50,13 +50,61 @@ Last updated: 2026-08-21
 | WP-VC3 | Pill SegmentedControl, shopping categories, route code-splitting | **merged** | `wp-vc3` (PR #27) | Merged 2026-08-21. |
 | WP-VC4 | Pantry aggregation, real tabs, recipe editor cards | **merged** | `wp-vc4` (PR #28) | Merged 2026-08-21. Fixed the Pantry IA that shipped structurally wrong. |
 
-## In flight
+## Recently merged — 2026-08-21 delivery run
 
-| Package | State | Branch / PR | Notes |
-|---------|-------|-------------|-------|
-| WP-AUTH-RESTORE | **merged, released** | `wp-auth-restore` → `e6c1790`, `wp-auth-token-cache` → `e7914c5` | Owner-reported defect: every page refresh re-authenticated, worst in the installed PWA. Two attempts, both merged straight to `main` at the owner's instruction and verified live in the production bundle (not merely deploy-green). **Attempt 1** kept WP-10's "never persist the token" rule — a non-secret consent hint plus a silent `prompt: ""` request on load. Owner tested it: **did not work** on their installed PWA. **Attempt 2** (owner's call, cost stated by them explicitly) caches the token in `localStorage`, so a reload costs zero Google calls. Cleared on `signOut()` **and** `invalidate()`, so a 401'd token is never resurrected; the stored value is parsed and validated because `localStorage` is attacker-writable. Blast radius is bounded by invariant 8 — the token only ever carries `drive.file`, reaching only files this app created. 963 tests. |
-| WP-PURCHASING-MOCK | in-progress | `wp-purchasing-mock` | Design agent. **Crashed once on an API error with 412 lines uncommitted**; coordinator checkpointed them (`2ce6524`) and resumed it — nothing lost. Purchasability half done; Plan/calendar scope next. Found a pre-existing bug: month/quarter marks day 25 as today while the rest of the file uses Wed 26. |
-| M6-BARCODE | in-progress | `m6-barcode` | Scanner + product editor. Owner added variable-weight check-off mid-flight (default to the requested amount, fast "I bought more", surplus to pantry, never an error state). |
+| PR | Package | Merge | Notes |
+|----|---------|-------|-------|
+| #29 | Responsive design system (mock) | `5ef96ba` | Owner-approved gate. |
+| #30 | WP-PHOTO contract + pipeline | `950f922` | Contract + codecs + encoder. **No UI** — see #33. |
+| #31 | Purchasability + Plan calendar (mock) | `e327e76` | Owner-approved. |
+| #32 | M6 barcode scanner + product editor | `394e3e4` | WASM decoder lazily loaded, kept out of the initial chunk and out of precache. |
+| #33 | WP-PHOTO **UI** | `cf82ed1` | Closed the gap the owner caught: `src/photos/` had **zero importers**; now ten. Also fixed a latent data-loss bug in `RecipeEditor`. |
+| #34 | Outbox flush coalescing | `b81851a` | **Data-loss fix — see below.** |
+| #35 | WP-PURCHASING core | `4435fae` | Kills `0.5 Store Bought Lasagna`. Contract change was genuinely **additive-only**, and it updated the contract changelog. |
+| — | Auth session restore | `e6c1790`, `e7914c5` | Released straight to production at the owner's instruction; verified live in the production bundle. |
+
+`main` after the run: **1087 tests / 190 E2E**, lint + typecheck + build green, verified locally after every merge.
+
+### The outbox bug (#34) — the most important thing found in this run
+
+Chasing a flaky barcode E2E test surfaced a genuine defect in
+`src/sync/outbox-sync-controller.ts`: `flushNow()`'s in-flight guard **silently
+dropped** a concurrent call. `flushOutbox()` snapshots `outbox.pending()` once,
+so anything enqueued after that snapshot was invisible to the running flush —
+and the dropped call was the only thing that would have come back for it. The
+event stayed stranded in the outbox indefinitely, never reaching
+`InventoryEvents`.
+
+**This was never a barcode bug.** Invariant 9 routes *every* offline write
+through the outbox, so marking a meal cooked, adjusting a lot, or checking off
+a shopping item could all have silently vanished if two writes landed close
+enough together. Verified by reverting only the controller and keeping the new
+test: it fails with a stranded `use` event (pantry consumption, not a
+purchase). Fixed by coalescing rather than dropping. Evidence: 20/20 and 70/70
+serial passes post-fix, against 5/10 and 11/20 failures before; 8/8 re-verified
+on merged `main`.
+
+### Lessons this run added
+
+- **CI green on a branch is not green on `main`.** CI only runs on
+  `pull_request`; there is no check on `main`. PR #33 was green on its branch
+  and **broke the merge** — it and #32 both appended a `Camera` export to
+  `src/ui/icons.ts` on different lines, so git merged cleanly and TypeScript
+  caught the duplicate. Route-ownership boundaries prevent nearly every
+  collision *except* shared registry files. Always re-verify `main` locally
+  after a merge.
+- **A red result can be environmental too.** A `typecheck` failure on `main`
+  after #32 was a stale local `node_modules` missing a newly-added dependency,
+  not a real break. The "ask what answered" rule cuts both ways.
+
+## Still to do
+
+| Package | State | Notes |
+|---------|-------|-------|
+| Purchasability **editor UI** | pending | Unblocked now that #33 released those files. Ingredient editor's "How you buy it" / "How you measure it"; recipe editor's "Can't be split" + entry-unit picker. Contract, `units.ts` and `purchasing.ts` plumbing all already exist and are tested. **Fold in `Ingredient.packLabel?`** while there — the mock says "1 jar", the implementation currently renders "250 g" because no container-noun field exists. |
+| WP-30 | pending | Cross-feature E2E: multi-client, generation-bump. |
+| WP-31 | pending | Onboarding polish, white-screen-without-env fix, bundle work, tag `v1.0.0`. |
+| M6 remainder | pending | Price-history view, deliberately out of #32. |
 
 ### Superseded in-flight entries
 
@@ -229,12 +277,14 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
   value, so a build without them renders nothing rather than showing a sign-in screen
   that does not need them until clicked. Production always supplies them; a fork that
   forgets gets a blank page instead of a useful error. WP-31 polish item.
-- **Bundle: code-splitting landed in WP-VC3 but bought ~13%.** Measured on `main`
-  2026-08-21: initial load is `index` 323.49 kB (97.83 kB gzip) **plus** `components`
-  311.07 kB (96.83 kB gzip) = **634.56 kB raw / 194.66 kB gzip**, because the shared
-  kit chunk is `modulepreload`ed and therefore not actually deferred. The 17 route
-  chunks total only ~99.7 kB raw (~13.6%). Splitting routes was the easy half; the
-  remaining win is in `components`, not in more route boundaries. WP-31 item.
+- **Bundle: code-splitting landed in WP-VC3 but bought ~13%, and is now drifting
+  back up.** The shared kit chunk is `modulepreload`ed, so it is not actually
+  deferred — the initial load is `index` + `components` together. Measured
+  634.56 kB raw / 194.66 kB gzip before this run; the photos UI (#33) added
+  ~13 kB raw / ~4 kB gzip because `PhotoMedia` is pulled in by the eager `Home`,
+  which is justified but the wrong direction. Splitting routes was the easy half;
+  the remaining win is inside `components`, not in more route boundaries. WP-31
+  item, and worth doing before more features land on top.
 
 - **TypeScript pinned to `^6.0.3`**, not current 7.x: `typescript-eslint@8.67` declares
   peer `<6.1.0`. Revisit as a dedicated dependency-bump task once the ecosystem
