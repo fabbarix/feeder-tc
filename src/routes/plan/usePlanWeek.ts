@@ -63,7 +63,7 @@ import {
   previewSnapshotWithPending,
   syncSnapshot,
 } from "../../sync/index.ts";
-import { LEFTOVER_DEFAULT_LOCATION, LEFTOVER_FREEZER_SHELF_LIFE_DAYS, LEFTOVER_FRIDGE_SHELF_LIFE_DAYS } from "../../data/index.ts";
+import { LEFTOVER_FREEZER_SHELF_LIFE_DAYS, LEFTOVER_FRIDGE_SHELF_LIFE_DAYS } from "../../data/index.ts";
 import { pickableRecipesForTag } from "./plan-options.ts";
 import { resolveLeftoverIngredient } from "./leftover-ingredient.ts";
 import { formatWeekHeading, formatWeekRange, mondayOnOrBefore, weekDates } from "./plan-week.ts";
@@ -570,5 +570,3 @@ export function usePlanWeek(): UsePlanWeekResult {
     confirmMarkCooked,
   };
 }
-
-export const LEFTOVER_LOCATION_DEFAULT = LEFTOVER_DEFAULT_LOCATION;
