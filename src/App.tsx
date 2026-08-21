@@ -204,6 +204,16 @@ function ShellContainer() {
 
   useEffect(() => auth.subscribe(setAuthState), [auth]);
 
+  // Session restore on load. Without this a page refresh — and every cold
+  // start of the installed PWA, which is far more frequent — dropped the
+  // in-closure token and forced a full consent round trip. `restore()` makes
+  // no Google call at all unless this browser has signed in before, and
+  // renders no UI either way, so a `false` needs no handling: the shell
+  // simply stays on its signed-out state and shows the sign-in button.
+  useEffect(() => {
+    void auth.restore();
+  }, [auth]);
+
   const refreshActiveWorkbook = useCallback(() => {
     setActiveWorkbook(registry.getActive());
   }, [registry]);

@@ -38,6 +38,10 @@ describeFeature(feature, ({ Scenario }) => {
         },
         async revoke() {},
         now: () => 0,
+        // This scenario starts from a browser that has never signed in, so
+        // the consent hint is absent and restore() makes no Google call.
+        readConsentHint: () => false,
+        writeConsentHint() {},
       };
       auth = createGoogleAuth("test-client-id", deps);
       expect(auth.state()).toBe("signed-out");

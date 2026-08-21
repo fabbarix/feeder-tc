@@ -12,15 +12,17 @@ interface FakeGis {
   createTokenClientCallCount(): number;
   respondWith(response: GoogleTokenResponse): void;
   setNow(ms: number): void;
+  consentHint(): boolean;
 }
 
-function createFakeGis(initialNow = 0): FakeGis {
+function createFakeGis(initialNow = 0, initialConsentHint = false): FakeGis {
   let callback: ((r: GoogleTokenResponse) => void) | undefined;
   let nextResponse: GoogleTokenResponse = { access_token: "tok-1", expires_in: 3600 };
   let now = initialNow;
   let clientCalls = 0;
   const requestCalls: Array<{ prompt?: string } | undefined> = [];
   const revokedTokens: string[] = [];
+  let consentHint = initialConsentHint;
 
   const client: GoogleTokenClient = {
     requestAccessToken(options) {
@@ -40,6 +42,10 @@ function createFakeGis(initialNow = 0): FakeGis {
       revokedTokens.push(accessToken);
     },
     now: () => now,
+    readConsentHint: () => consentHint,
+    writeConsentHint(consented) {
+      consentHint = consented;
+    },
   };
 
   return {
@@ -53,6 +59,7 @@ function createFakeGis(initialNow = 0): FakeGis {
     setNow(ms) {
       now = ms;
     },
+    consentHint: () => consentHint,
   };
 }
 
@@ -160,5 +167,82 @@ describe("createGoogleAuth", () => {
     expect(auth.state()).toBe("signed-out");
     expect(seen).toEqual(["signed-in", "signed-out"]);
     await expect(auth.getAccessToken()).rejects.toBeInstanceOf(ReAuthRequiredError);
+  });
+
+  // Session restore (owner-approved 2026-08-21). These cover the actual
+  // reported defect: a page reload — modelled here as a SECOND createGoogleAuth
+  // over the same persisted hint, because a reload is precisely what destroys
+  // the old closure and builds a new one.
+  describe("restore", () => {
+    it("makes no Google call at all when this browser has never signed in", async () => {
+      const fake = createFakeGis(0, false);
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+
+      expect(await auth.restore()).toBe(false);
+      // The invariant-8 guarantee worth keeping: a first-time visitor causes
+      // zero Google traffic before a gesture. No token client, no request.
+      expect(fake.createTokenClientCallCount()).toBe(0);
+      expect(fake.requestCalls).toEqual([]);
+      expect(auth.state()).toBe("signed-out");
+    });
+
+    it("signs in silently after a reload, without any interactive prompt", async () => {
+      const first = createFakeGis(0, false);
+      const auth1 = createGoogleAuth(CLIENT_ID, first.deps);
+      await auth1.signIn();
+      expect(first.consentHint()).toBe(true);
+
+      // The reload: a brand-new auth instance (new closure, no token, no
+      // token client) over a browser that kept the hint.
+      const reloaded = createFakeGis(0, true);
+      const auth2 = createGoogleAuth(CLIENT_ID, reloaded.deps);
+      const seen: string[] = [];
+      auth2.subscribe((state) => seen.push(state));
+
+      expect(await auth2.restore()).toBe(true);
+      expect(auth2.state()).toBe("signed-in");
+      expect(seen).toEqual(["signed-in"]);
+      expect(await auth2.getAccessToken()).toBe("tok-1");
+      // Silent means silent: prompt must be "", never "consent"/"select_account".
+      expect(reloaded.requestCalls).toEqual([{ prompt: "" }]);
+    });
+
+    it("falls back to signed-out when the silent request fails, and never throws", async () => {
+      const fake = createFakeGis(0, true);
+      fake.respondWith({ error: "interaction_required" });
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+
+      // Callers fire this on mount and ignore the result — it must resolve.
+      await expect(auth.restore()).resolves.toBe(false);
+      expect(auth.state()).toBe("signed-out");
+      // Hint is deliberately kept: the failure is usually transient (blocked
+      // third-party cookies, an iOS PWA cookie jar), and retrying next load
+      // costs one silent request that renders nothing.
+      expect(fake.consentHint()).toBe(true);
+    });
+
+    it("does not resurrect a session after an explicit signOut", async () => {
+      const fake = createFakeGis(0, false);
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+      await auth.signIn();
+      await auth.signOut();
+      expect(fake.consentHint()).toBe(false);
+
+      // A reload after signing out must stay signed out and make no call.
+      const reloaded = createFakeGis(0, fake.consentHint());
+      const auth2 = createGoogleAuth(CLIENT_ID, reloaded.deps);
+      expect(await auth2.restore()).toBe(false);
+      expect(reloaded.createTokenClientCallCount()).toBe(0);
+    });
+
+    it("is a no-op when a live token is already held", async () => {
+      const fake = createFakeGis(0, true);
+      const auth = createGoogleAuth(CLIENT_ID, fake.deps);
+      await auth.signIn();
+      const callsAfterSignIn = fake.requestCalls.length;
+
+      expect(await auth.restore()).toBe(true);
+      expect(fake.requestCalls.length).toBe(callsAfterSignIn);
+    });
   });
 });

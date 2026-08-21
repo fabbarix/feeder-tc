@@ -46,6 +46,8 @@ describeFeature(feature, ({ Scenario }) => {
         },
         async revoke() {},
         now: () => 0,
+        readConsentHint: () => false,
+        writeConsentHint() {},
       };
       auth = createGoogleAuth("test-client-id", deps);
       await auth.signIn();

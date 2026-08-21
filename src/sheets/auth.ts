@@ -3,10 +3,41 @@
  *
  * Design constraints (IMPLEMENTATION_PLAN.md WP-10 / HANDOVER.md invariant 8):
  *  - Request exactly the `drive.file` scope, nothing broader.
- *  - Never call any Google API before a user gesture (signIn() is that
- *    gesture; nothing here runs at import/module-init time).
  *  - Never persist the access token to localStorage/sessionStorage/IndexedDB
  *    - it lives only in the closure below, for the life of the tab.
+ *  - Never call any *interactive* Google UI before a user gesture (signIn()
+ *    is that gesture; nothing here runs at import/module-init time).
+ *
+ * Session restore (owner-approved 2026-08-21, narrowing invariant 8's "no
+ * Google call before a user gesture" to "no *interactive* Google UI before a
+ * user gesture"):
+ *
+ * The token and the token client both lived only in this closure, so a page
+ * reload lost both — and getAccessToken()'s silent refresh could not run,
+ * because it requires a token client that only signIn() ever created. Every
+ * refresh therefore forced a full consent round trip. In an installed PWA,
+ * which is cold-started far more aggressively than a browser tab, that is
+ * constant.
+ *
+ * restore() fixes it without weakening the rule that matters. What is
+ * persisted is a single non-secret boolean - "this browser has consented
+ * before" - and never the token, so there is still nothing at rest for an
+ * XSS to steal. With the hint set, restore() asks GIS for a token with
+ * `prompt: ""`, which Google documents as bypassing the account chooser and
+ * consent dialog for an existing session: it renders no UI at all, so it
+ * either succeeds invisibly or fails invisibly.
+ *
+ * A browser that has never signed in has no hint, so restore() returns
+ * immediately having made *no* Google call whatsoever - a first-time visitor
+ * still triggers zero Google traffic before a gesture, which is the part of
+ * invariant 8 worth keeping.
+ *
+ * Known limits, deliberately not worked around: a browser-only app has no
+ * refresh token (that needs a client secret and a backend, and invariant 7
+ * forbids one), so this restores a session only while the *Google* session
+ * lives; and an installed iOS PWA may hold a cookie jar separate from
+ * Safari, in which case the silent request fails and the sign-in button is
+ * shown exactly as before.
  *
  * Testability: the real GIS script/global is swapped out via `deps` (same
  * injected-adapter shape as domain's Clock/Rng), so unit tests exercise the
@@ -34,11 +65,31 @@ export interface GoogleAuthDeps {
   revoke(accessToken: string): Promise<void>;
   /** Injected for deterministic tests; defaults to Date.now. */
   now(): number;
+  /**
+   * Reads the non-secret "this browser has consented before" hint.
+   * This is a boolean, never a token — see the module doc comment.
+   */
+  readConsentHint(): boolean;
+  /** Persists (or clears) the consent hint. */
+  writeConsentHint(consented: boolean): void;
 }
+
+/** localStorage key for the consent hint. Holds `"1"` or nothing — never a token. */
+export const CONSENT_HINT_KEY = "feeder.auth.consented";
 
 export interface GoogleAuth {
   signIn(): Promise<void>;
   signOut(): Promise<void>;
+  /**
+   * Attempts to restore a session on page load WITHOUT any user gesture and
+   * WITHOUT rendering any Google UI. Resolves `true` if the app is now
+   * signed in, `false` otherwise — it never throws and never rejects, so a
+   * caller can fire it on mount and simply ignore a `false`.
+   *
+   * Returns `false` immediately, having made no Google call at all, when
+   * this browser has never completed a sign-in (no consent hint).
+   */
+  restore(): Promise<boolean>;
   /**
    * Returns a currently-valid access token, transparently refreshing if the
    * cached one is near expiry. Throws ReAuthRequiredError if the user has
@@ -78,6 +129,27 @@ function createRealGoogleAuthDeps(clientId: string): GoogleAuthDeps {
       await new Promise<void>((resolve) => oauth2.revoke(accessToken, () => resolve()));
     },
     now: () => Date.now(),
+    readConsentHint() {
+      // Storage can throw in private modes / blocked-cookie contexts. A
+      // missing hint is simply "not signed in before", never a crash.
+      try {
+        return window.localStorage.getItem(CONSENT_HINT_KEY) === "1";
+      } catch {
+        return false;
+      }
+    },
+    writeConsentHint(consented) {
+      try {
+        if (consented) {
+          window.localStorage.setItem(CONSENT_HINT_KEY, "1");
+        } else {
+          window.localStorage.removeItem(CONSENT_HINT_KEY);
+        }
+      } catch {
+        // Best-effort: failing to persist the hint costs one extra sign-in,
+        // which is strictly better than failing to sign in at all.
+      }
+    },
   };
 }
 
@@ -137,7 +209,35 @@ export function createGoogleAuth(clientId: string, deps: GoogleAuthDeps = create
     async signIn(): Promise<void> {
       const client = await ensureTokenClient();
       token = await requestToken(client);
+      deps.writeConsentHint(true);
       notify();
+    },
+
+    async restore(): Promise<boolean> {
+      // Already signed in (e.g. restore() raced a signIn()) — nothing to do.
+      if (token && token.expiresAt > deps.now()) return true;
+      // No prior consent from this browser: make NO Google call. This is the
+      // part of invariant 8 that still holds absolutely — a first-time
+      // visitor triggers zero Google traffic before a gesture.
+      if (!deps.readConsentHint()) return false;
+      try {
+        const client = await ensureTokenClient();
+        // `prompt: ""` renders no UI: it either silently succeeds against a
+        // live Google session or silently fails. It must never be upgraded
+        // to "consent"/"select_account" here — that would put an interactive
+        // dialog on page load, which is exactly what invariant 8 forbids.
+        token = await requestToken(client, { prompt: "" });
+      } catch {
+        // Session gone, consent withdrawn, third-party cookies blocked, or
+        // an iOS PWA with its own cookie jar. All of these mean the same
+        // thing to the caller: show the sign-in button. The hint is left in
+        // place — a failure here is usually transient, and the only cost of
+        // retrying next load is one silent request that renders nothing.
+        token = undefined;
+        return false;
+      }
+      notify();
+      return true;
     },
 
     async signOut(): Promise<void> {
@@ -148,6 +248,9 @@ export function createGoogleAuth(clientId: string, deps: GoogleAuthDeps = create
       // session behind the user's back afterwards - only a fresh signIn()
       // (a new user gesture) may create a new token client.
       tokenClient = undefined;
+      // Clear the consent hint too: an explicit "log me out" must not be
+      // silently undone by restore() on the very next page load.
+      deps.writeConsentHint(false);
       notify();
       if (current) {
         await deps.revoke(current.accessToken);

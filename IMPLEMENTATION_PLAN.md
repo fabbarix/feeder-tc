@@ -97,6 +97,16 @@ Success criteria:
 - Passes the shared `SheetsTransport` contract suite against msw mocks.
 - 429 with `Retry-After` retried with backoff; 401 triggers re-auth flow.
 - No Google API call before user gesture; token never persisted to localStorage.
+  **Amended 2026-08-21 (owner-approved, `wp-auth-restore`):** narrowed to "no
+  *interactive* Google UI before a user gesture". The token is still never
+  persisted — what is stored is a single non-secret boolean, "this browser has
+  consented before". With it set, `GoogleAuth.restore()` runs a `prompt: ""`
+  token request on load, which renders no UI and either succeeds or fails
+  invisibly. Without it, `restore()` makes **no Google call at all**, so a
+  first-time visitor still generates zero Google traffic before a gesture.
+  Reason: the token and token client both lived only in a closure, so every
+  page reload — and every cold start of the installed PWA — forced a full
+  consent round trip. See `src/sheets/auth.ts`'s module doc comment.
 
 BDD (mocked transport):
 ```gherkin
