@@ -321,7 +321,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     <a href="#home">Home</a><a href="#recipes">Recipes</a><a href="#recipe">Recipe</a>
     <a href="#pantry">Pantry</a><a href="#lot">Pantry item</a><a href="#plan">Plan</a>
     <a href="#shopping">Shopping</a><a href="#scan">Barcode scan</a>
-    <a href="#settings">Settings</a><a href="#controls">Controls</a>
+    <a href="#settings">Settings</a><a href="#editor">Recipe editor</a><a href="#controls">Controls</a>
   </div>
 </header>
 
@@ -996,6 +996,96 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
       <span class="field-label">Meal tags · multi-select chips</span>
       <div class="relrow" style="margin:0"><button class="fchip" aria-pressed="true">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
     </div>
+  </div>
+</section>
+
+
+<!-- ══ RECIPE EDITOR ══ -->
+<section id="editor">
+  <h2>Editing a recipe</h2>
+  <p class="sub">
+    This screen had no mock until now, which is why the built version accreted five
+    label styles and four field widths. One column of labelled fields is wrong here:
+    the form has three distinct concerns — identity, timing, and content — and they
+    should read as three cards, not one run-on list.
+  </p>
+  <div class="pair">
+    <div>
+      <p class="cap">Phone</p>
+      <div class="phone">
+        <div class="p-head"><span class="p-title">Edit recipe</span><span class="p-meta">Cancel</span></div>
+        <div class="p-body">
+          <span class="field-label">Name</span>
+          <div class="search" style="margin-bottom:14px"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+          <span class="field-label">Kind</span>
+          <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+          <span class="field-label">Meal tags</span>
+          <div class="relrow" style="margin-bottom:14px"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
+          <span class="field-label">Servings</span>
+          <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
+          <span class="field-label">Cook time</span>
+          <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">50 <span class="unit">min</span></span><button>+</button></div>
+          <button class="btn full">Save recipe</button>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="cap">Desktop — three cards, not one list</p>
+      <div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/stuffed-peppers/edit</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">Cancel</button><button class="btn sm">Save recipe</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Edit recipe</span></div>
+          <p class="dt-sub">Sam's Stuffed Peppers · bought · cooked 0 times</p>
+          <div class="dt-cols">
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Identity</div><div class="card-pad-lg">
+                <span class="field-label">Name</span>
+                <div class="search" style="margin:0 0 14px"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+                <span class="field-label">Meal tags</span>
+                <div class="relrow" style="margin:0"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
+              </div></div>
+              <div class="card"><div class="card-head">Steps</div><div class="card-pad-lg">
+                <div class="ilist" style="margin-bottom:12px">
+                  <div><span>1 · Pre-heat oven to 425</span><span class="q">✕</span></div>
+                  <div><span>2 · Cook covered in foil for 35 minutes</span><span class="q">✕</span></div>
+                  <div><span>3 · Cook uncovered for 15 minutes</span><span class="q">✕</span></div>
+                </div>
+                <button class="btn ghost sm">+ Add step</button>
+              </div></div>
+            </div>
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Kind &amp; rotation</div><div class="card-pad-lg">
+                <span class="field-label">Kind</span>
+                <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+                <span class="field-label">Household flag</span>
+                <div class="seg" style="width:100%"><button style="flex:1">Staple</button><button aria-pressed="true" style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
+              </div></div>
+              <div class="card"><div class="card-head">Timing &amp; servings</div><div class="card-pad-lg">
+                <span class="field-label">Servings</span>
+                <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
+                <span class="field-label">Prep time</span>
+                <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">0 <span class="unit">min</span></span><button>+</button></div>
+                <span class="field-label">Cook time</span>
+                <div class="qty"><button>−</button><span class="val">50 <span class="unit">min</span></span><button>+</button></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <strong>Rules this screen fixes.</strong> Every field label uses the same style —
+    no mixing sentence case with uppercase eyebrows. Every numeric field is the same
+    control (<code>QuantityInput</code> with steppers), so prep and cook time cannot
+    disagree about what a number input looks like. Related fields are grouped in
+    titled cards rather than run together. Save lives in the top bar, not floating in
+    the middle of the page. Cooked history belongs on the read view, not the editor.
   </div>
 </section>
 
