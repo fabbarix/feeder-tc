@@ -1,0 +1,1550 @@
+<title>Feeder Responsive System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Archivo:wght@400;500;600;700&display=swap">
+
+<style>
+:root{
+  --accent-hue:155;
+  --paper:oklch(0.985 0.006 var(--accent-hue));
+  --surface:oklch(1 0 0);
+  --surface-2:oklch(0.965 0.008 var(--accent-hue));
+  --line:oklch(0.90 0.010 var(--accent-hue));
+  --line-soft:oklch(0.945 0.008 var(--accent-hue));
+  --text:oklch(0.24 0.020 var(--accent-hue));
+  --text-dim:oklch(0.50 0.016 var(--accent-hue));
+  --text-faint:oklch(0.63 0.012 var(--accent-hue));
+  --accent:oklch(0.55 0.14 var(--accent-hue));
+  --accent-text:oklch(0.99 0.02 var(--accent-hue));
+  --accent-bg:oklch(0.95 0.05 var(--accent-hue));
+  --accent-line:oklch(0.80 0.09 var(--accent-hue));
+  --warn:oklch(0.72 0.15 72); --warn-bg:oklch(0.95 0.06 72);
+  --crit:oklch(0.58 0.19 27); --crit-bg:oklch(0.95 0.05 27);
+  --shadow-1:0 1px 2px oklch(0.24 0.02 var(--accent-hue)/0.06);
+  --shadow-2:0 4px 18px -5px oklch(0.24 0.02 var(--accent-hue)/0.16);
+  --r-sm:8px; --r-md:14px; --r-lg:22px;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --display:"Fraunces",Georgia,serif;
+  --ui:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:oklch(0.17 0.012 var(--accent-hue));
+  --surface:oklch(0.215 0.014 var(--accent-hue));
+  --surface-2:oklch(0.255 0.016 var(--accent-hue));
+  --line:oklch(0.33 0.016 var(--accent-hue));
+  --line-soft:oklch(0.27 0.014 var(--accent-hue));
+  --text:oklch(0.95 0.010 var(--accent-hue));
+  --text-dim:oklch(0.74 0.014 var(--accent-hue));
+  --text-faint:oklch(0.60 0.014 var(--accent-hue));
+  --accent:oklch(0.76 0.13 var(--accent-hue));
+  --accent-text:oklch(0.18 0.03 var(--accent-hue));
+  --accent-bg:oklch(0.30 0.06 var(--accent-hue));
+  --accent-line:oklch(0.45 0.08 var(--accent-hue));
+  --warn:oklch(0.82 0.14 78); --warn-bg:oklch(0.32 0.06 78);
+  --crit:oklch(0.72 0.17 27); --crit-bg:oklch(0.32 0.07 27);
+  --shadow-1:0 1px 2px oklch(0 0 0/0.4);
+  --shadow-2:0 6px 22px -6px oklch(0 0 0/0.55);
+}}
+:root[data-theme="dark"]{
+  --paper:oklch(0.17 0.012 var(--accent-hue));
+  --surface:oklch(0.215 0.014 var(--accent-hue));
+  --surface-2:oklch(0.255 0.016 var(--accent-hue));
+  --line:oklch(0.33 0.016 var(--accent-hue));
+  --line-soft:oklch(0.27 0.014 var(--accent-hue));
+  --text:oklch(0.95 0.010 var(--accent-hue));
+  --text-dim:oklch(0.74 0.014 var(--accent-hue));
+  --text-faint:oklch(0.60 0.014 var(--accent-hue));
+  --accent:oklch(0.76 0.13 var(--accent-hue));
+  --accent-text:oklch(0.18 0.03 var(--accent-hue));
+  --accent-bg:oklch(0.30 0.06 var(--accent-hue));
+  --accent-line:oklch(0.45 0.08 var(--accent-hue));
+  --warn:oklch(0.82 0.14 78); --warn-bg:oklch(0.32 0.06 78);
+  --crit:oklch(0.72 0.17 27); --crit-bg:oklch(0.32 0.07 27);
+  --shadow-1:0 1px 2px oklch(0 0 0/0.4);
+  --shadow-2:0 6px 22px -6px oklch(0 0 0/0.55);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--text);font:400 16px/1.55 var(--ui);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1760px;margin:0 auto;padding:0 24px 100px}
+header.top{padding:64px 0 32px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.eyebrow{font:600 12px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+h1{font:300 clamp(34px,5.5vw,58px)/1.05 var(--display);font-variation-settings:"opsz" 120;letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
+h1 em{font-style:italic;color:var(--accent)}
+.standfirst{font-size:18px;color:var(--text-dim);max-width:70ch;margin:0}
+.controls{display:flex;flex-wrap:wrap;gap:18px 30px;align-items:center;margin-top:30px;padding:16px 20px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--shadow-1);position:sticky;top:12px;z-index:20}
+.ctl-label{font:600 11px/1 var(--ui);letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint)}
+.hues{display:flex;gap:7px}
+.hue{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;transition:transform 160ms var(--ease),border-color 160ms var(--ease)}
+.hue:hover{transform:scale(1.16)}
+.hue[aria-pressed="true"]{border-color:var(--text);transform:scale(1.16)}
+.hue:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{font:500 13px/1 var(--ui);padding:7px 14px;border:0;border-radius:999px;background:transparent;color:var(--text-dim);cursor:pointer;transition:background 180ms var(--ease),color 180ms var(--ease)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-text)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+section{margin-top:70px;scroll-margin-top:96px}
+h2{font:400 clamp(24px,3.2vw,33px)/1.15 var(--display);font-variation-settings:"opsz" 60;letter-spacing:-.015em;margin:0 0 8px;text-wrap:balance}
+.sub{color:var(--text-dim);margin:0 0 26px;max-width:72ch;font-size:15.5px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.toc a{font:500 13px/1 var(--ui);text-decoration:none;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:8px 13px;transition:border-color 180ms var(--ease),color 180ms var(--ease)}
+.toc a:hover{border-color:var(--accent-line);color:var(--accent)}
+
+/* ---- three tiers, stacked (a fourth column doesn't fit beside the other
+   two at any sane width) — each frame is a literal, representative pixel
+   width for its tier, not a shrink-to-fit thumbnail. Phone keeps the
+   approved mock's exact 296px. Tablet is new: 900px, comfortably inside
+   768–1439 so the rules it demonstrates hold across the whole tier, not
+   just at this one sample width. Desktop is fluid up to 1680px — the
+   app's own real `.mainWide` cap — so resizing this browser window
+   demonstrates real desktop behaviour, not a frozen illustration. ---- */
+.tierstrip{display:flex;flex-direction:column;gap:28px}
+.tier-label{display:flex;align-items:baseline;gap:10px;margin:0 0 10px 2px}
+.tier-name{font:600 11px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}
+.tier-range{font:600 12px/1 var(--ui);color:var(--accent);font-variant-numeric:tabular-nums}
+.tier-note{font:400 12.5px/1.4 var(--ui);color:var(--text-faint);margin:0 0 0 2px;max-width:60ch}
+.tier-frame{overflow-x:auto;padding-bottom:2px}
+
+.phone{width:296px;background:var(--surface);border:1px solid var(--line);border-radius:26px;overflow:hidden;box-shadow:var(--shadow-2)}
+.p-head{padding:16px 16px 12px;border-bottom:1px solid var(--line-soft);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.p-title{font:500 20px/1.1 var(--display);font-variation-settings:"opsz" 40}
+.p-meta{font:500 12px/1 var(--ui);color:var(--text-faint)}
+.p-body{padding:10px;min-height:200px}
+.p-body.flush{padding:0}
+
+.tablet{width:900px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-2)}
+.browser{width:100%;max-width:1680px;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-2);background:var(--surface)}
+.browser-bar{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)}
+.dots{display:flex;gap:6px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+.urlbar{flex:1;font:500 11.5px/1 var(--ui);color:var(--text-faint);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 11px;max-width:280px}
+.dt-top{display:flex;align-items:center;gap:22px;padding:0 18px;border-bottom:1px solid var(--line-soft)}
+.brand{display:flex;align-items:center;gap:8px;font:600 15px/1 var(--ui);padding:13px 0;letter-spacing:-.01em}
+.brand-mark{width:23px;height:23px;border-radius:7px;background:var(--accent);display:grid;place-items:center;flex:none}
+.brand-mark svg{width:14px;height:14px;stroke:var(--accent-text);fill:none;stroke-width:2;stroke-linecap:round}
+.dt-nav{display:flex;gap:1px;margin-right:auto}
+.dt-nav button{position:relative;border:0;background:transparent;cursor:pointer;font:500 13.5px/1 var(--ui);color:var(--text-dim);padding:16px 11px;transition:color 180ms var(--ease)}
+.dt-nav button:hover{color:var(--text)}
+.dt-nav button[aria-current="page"]{color:var(--accent);font-weight:600}
+.dt-nav button[aria-current="page"]::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--accent);border-radius:2px 2px 0 0}
+.dt-actions{display:flex;align-items:center;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 12.5px/1 var(--ui);color:var(--text-dim);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;transition:border-color 180ms var(--ease),color 180ms var(--ease)}
+.chip:hover{border-color:var(--accent-line);color:var(--text)}
+.chip svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.avatar{width:29px;height:29px;border-radius:50%;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-line);display:grid;place-items:center;font:600 11.5px/1 var(--ui);cursor:pointer}
+.dt-body{padding:22px 18px 26px}
+.dt-head{display:flex;align-items:baseline;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.dt-h1{font:400 25px/1.1 var(--display);font-variation-settings:"opsz" 60;letter-spacing:-.015em}
+.dt-sub{color:var(--text-faint);font-size:13px;margin:2px 0 18px}
+.dt-cols{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:20px;align-items:start}
+@media (max-width:820px){.dt-cols{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.card-head{font:600 11px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);padding:13px 15px;border-bottom:1px solid var(--line-soft)}
+.card-pad{padding:7px}
+.card-pad-lg{padding:16px}
+.measure{max-width:680px}
+.measure-narrow{max-width:600px}
+
+/* rows */
+.rowgroup{font:600 10px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);padding:12px 8px 7px}
+.row{display:grid;grid-template-columns:26px 1fr auto;gap:11px;align-items:center;width:100%;text-align:left;padding:12px 9px;border:0;border-radius:var(--r-sm);background:transparent;color:inherit;cursor:pointer;font:inherit;transition:background 180ms var(--ease)}
+.row.norow{grid-template-columns:1fr auto}
+.row:hover{background:var(--surface-2)}
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tick{width:23px;height:23px;border-radius:8px;border:2px solid var(--line);position:relative;transition:background 220ms var(--ease),border-color 220ms var(--ease)}
+.tick svg{position:absolute;inset:3px;stroke:var(--accent-text);stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:24;stroke-dashoffset:24}
+.row[aria-pressed="true"] .tick{background:var(--accent);border-color:var(--accent)}
+.row[aria-pressed="true"] .tick svg{animation:draw 300ms var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.row-name{font:500 14.5px/1.25 var(--ui);transition:color 220ms var(--ease);display:block}
+.row-sub{font:400 12px/1.3 var(--ui);color:var(--text-faint);margin-top:2px;display:block}
+.row-qty{font:600 13.5px/1 var(--ui);font-variant-numeric:tabular-nums;color:var(--text-dim)}
+.row[aria-pressed="true"] .row-name{color:var(--text-faint);text-decoration:line-through;text-decoration-color:var(--accent-line)}
+.badge{font:600 10.5px/1 var(--ui);padding:5px 8px;border-radius:999px;white-space:nowrap}
+.badge.ok{background:var(--surface-2);color:var(--text-faint)}
+.badge.w{background:var(--warn-bg);color:var(--warn)}
+.badge.c{background:var(--crit-bg);color:var(--crit)}
+.badge.a{background:var(--accent-bg);color:var(--accent)}
+.meter{height:4px;border-radius:999px;background:var(--line-soft);overflow:hidden;margin-top:7px}
+.meter i{display:block;height:100%;border-radius:999px;background:var(--accent);animation:fill 900ms var(--ease) both}
+.meter.w i{background:var(--warn)}.meter.c i{background:var(--crit)}
+@keyframes fill{from{transform:scaleX(0);transform-origin:left}}
+.plot{padding:11px 9px;border-radius:var(--r-sm)}
+.plot:hover{background:var(--surface-2)}
+.plot-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+/* tab bar */
+.tabs{display:flex;border-top:1px solid var(--line-soft);background:var(--surface)}
+.tab{flex:1;display:grid;justify-items:center;gap:4px;padding:10px 3px 12px;border:0;background:transparent;cursor:pointer;position:relative;color:var(--text-faint);font:500 10px/1 var(--ui);transition:color 200ms var(--ease)}
+.tab svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform 260ms var(--ease)}
+.tab[aria-current="page"]{color:var(--accent)}
+.tab[aria-current="page"] svg{transform:translateY(-2px) scale(1.08)}
+.tab[aria-current="page"]::after{content:"";position:absolute;top:0;left:50%;width:24px;height:2.5px;background:var(--accent);border-radius:0 0 3px 3px;transform:translateX(-50%)}
+
+/* buttons */
+.btn{font:600 13.5px/1 var(--ui);padding:11px 17px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-text);cursor:pointer;transition:transform 160ms var(--ease),filter 160ms var(--ease)}
+.btn:hover{transform:translateY(-1px);filter:brightness(1.06)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.btn.ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--line)}
+.btn.sm{font-size:12.5px;padding:9px 13px}
+.btn.full{width:100%}
+.btn.danger{background:var(--crit-bg);color:var(--crit)}
+
+/* recipes / ingredients grids */
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:11px}
+.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:13px;cursor:pointer;transition:border-color 180ms var(--ease),transform 180ms var(--ease)}
+.rcard:hover{border-color:var(--accent-line);transform:translateY(-2px)}
+.rcard h4{font:500 15.5px/1.2 var(--ui);margin:0 0 5px}
+.rcard .rmeta{font:400 12px/1.3 var(--ui);color:var(--text-faint);display:flex;gap:9px;flex-wrap:wrap}
+.rcard .rtags{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+.tagpill{font:600 9.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:5px;background:var(--surface-2);color:var(--text-faint)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;padding:0 2px 12px}
+.fchip{font:500 12.5px/1 var(--ui);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-dim);cursor:pointer;transition:all 180ms var(--ease)}
+.fchip[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+.search{display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:10px 14px;margin-bottom:12px;max-width:320px}
+.search svg{width:15px;height:15px;stroke:var(--text-faint);fill:none;stroke-width:2;stroke-linecap:round;flex:none}
+.search span{font:400 13.5px/1 var(--ui);color:var(--text-faint)}
+
+/* ingredient catalogue — a browsable grid, like recipes, not a list (see
+   the #ingredients note: order carries no information here, so reflow is
+   free) */
+.igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px}
+.icard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 13px;display:flex;align-items:center;gap:11px}
+.icard .iicon{width:34px;height:34px;border-radius:9px;background:var(--surface-2);color:var(--text-dim);display:grid;place-items:center;flex:none}
+.icard .iicon svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.icard h4{font:500 14.5px/1.25 var(--ui);margin:0 0 2px}
+.icard .imeta{font:400 11.5px/1.3 var(--ui);color:var(--text-faint)}
+.irow{display:flex;align-items:center;gap:12px;padding:11px 9px;border-radius:var(--r-sm)}
+.irow:hover{background:var(--surface-2)}
+.irow .iicon{width:32px;height:32px;border-radius:9px;background:var(--surface-2);color:var(--text-dim);display:grid;place-items:center;flex:none}
+.irow .iicon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
+
+/* a segmented control that must fit ANY container (UI_DESIGN §5: ≤4 options
+   stay inline, never become a dropdown — but "inline" cannot mean
+   "allowed to overflow its own rail"). auto-fit collapses to fewer columns
+   as the box narrows: one row when there's room, an even 2×2 grid the
+   moment there isn't. Corners soften while wrapped — a 999px pill reads as
+   broken once it is two rows tall. */
+.seg.wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(72px,1fr));border-radius:var(--r-md)}
+.seg.wrap button{border-radius:var(--r-sm)}
+.wrapdemo{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;margin-top:10px}
+.wrapdemo>div{display:flex;flex-direction:column;gap:7px}
+.wrapdemo .capw{font:500 11.5px/1 var(--ui);color:var(--text-faint)}
+
+/* filters as a horizontal bar — the same rail content, laid out inline, for
+   the tier that has no room for a persistent side column */
+.filterbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 24px;padding:14px 15px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:16px}
+.filterbar .fb-group{display:flex;flex-direction:column;gap:7px}
+.filterbar .fb-group.grow{min-width:230px}
+
+/* ingredient/step lists */
+.ilist{display:grid;gap:1px;background:var(--line-soft);border-radius:var(--r-sm);overflow:hidden}
+.ilist>div{background:var(--surface);padding:10px 12px;display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.ilist .q{font-weight:600;font-variant-numeric:tabular-nums;color:var(--text-dim)}
+.ilist .have{color:var(--accent);font-size:11.5px;font-weight:600}
+ol.steps{margin:0;padding-left:20px;display:grid;gap:9px;font-size:14px;color:var(--text-dim)}
+ol.steps li::marker{color:var(--accent);font-weight:700}
+
+.field-label{font:600 12px/1 var(--ui);color:var(--text-dim);margin-bottom:7px;display:block}
+.qty{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--surface-2)}
+.qty button{width:44px;border:0;background:transparent;color:var(--text-dim);font-size:19px;cursor:pointer;transition:background 160ms var(--ease),color 160ms var(--ease)}
+.qty button:hover{background:var(--accent-bg);color:var(--accent)}
+.qty .val{flex:1;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:11px 12px;background:var(--surface);font:600 16px/1 var(--ui);font-variant-numeric:tabular-nums}
+.qty .unit{font:500 12.5px/1 var(--ui);color:var(--text-faint)}
+.relrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+
+/* settings */
+.srow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 15px;border-bottom:1px solid var(--line-soft)}
+.srow:last-child{border-bottom:0}
+.srow .sl{font:500 14px/1.3 var(--ui)}
+.srow .sd{font:400 12px/1.3 var(--ui);color:var(--text-faint);margin-top:2px}
+.daylay{display:flex;align-items:center;gap:9px;padding:9px 15px;border-bottom:1px solid var(--line-soft);font-size:13px}
+.daylay b{width:34px;font:600 11px/1 var(--ui);color:var(--text-faint);text-transform:uppercase}
+.slotchips{display:flex;gap:5px;flex-wrap:wrap}
+.slotchip{font:500 11px/1 var(--ui);padding:5px 9px;border-radius:6px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-line)}
+.slotchip.add{background:transparent;color:var(--text-faint);border:1px dashed var(--line)}
+
+/* home */
+.hero-stat{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:12px}
+.hero-stat.x4{grid-template-columns:repeat(4,1fr)}
+.hstat{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:13px}
+.hstat .n{font:600 24px/1 var(--ui);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.hstat .l{font:500 11.5px/1.3 var(--ui);color:var(--text-faint);margin-top:4px}
+.hstat.warn .n{color:var(--warn)}
+.greet{font:400 21px/1.2 var(--display);font-variation-settings:"opsz" 40;margin:0 0 3px}
+.greetsub{font-size:13px;color:var(--text-faint);margin:0 0 14px}
+
+/* week — desktop keeps seven columns; tablet gets four, banded into
+   weekdays/weekend (see the #plan note) */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.week4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.weekband{margin-bottom:14px}
+.weekband:last-child{margin-bottom:0}
+.weekband-label{font:600 9.5px/1 var(--ui);letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);margin:0 0 8px 1px}
+.day{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:8px;min-height:118px}
+.day-n{font:600 9.5px/1 var(--ui);letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px}
+.slot{font:500 11.5px/1.25 var(--ui);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px;margin-bottom:5px;cursor:pointer;transition:border-color 180ms var(--ease),transform 180ms var(--ease);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.slot:hover{border-color:var(--accent-line);transform:translateY(-1px)}
+.slot .t{font:600 9px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);display:block;margin-bottom:3px;width:100%}
+.slot.pin{border-color:var(--accent-line);background:var(--accent-bg)}
+.slot.left{border-style:dashed;color:var(--text-dim)}
+.slot.add{color:var(--text-faint);text-align:center;border-style:dashed;justify-content:center}
+.slot .sactions{display:flex;gap:4px;flex:none}
+/* mobile plan day cards */
+.mday{border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:9px;overflow:hidden}
+.mday-h{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:var(--surface-2);font:600 11px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint)}
+.mslot{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;border-top:1px solid var(--line-soft)}
+.mslot .mn{font:500 14px/1.2 var(--ui)}
+.mslot .mt{font:600 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);display:block;margin-bottom:3px}
+.iconbtn{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--surface-2);color:var(--text-dim);display:grid;place-items:center;cursor:pointer;flex:none;transition:all 170ms var(--ease)}
+.iconbtn:hover{border-color:var(--accent-line);color:var(--accent)}
+.iconbtn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.fab{position:absolute;right:14px;bottom:70px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:var(--accent-text);border:0;display:grid;place-items:center;cursor:pointer;box-shadow:var(--shadow-2);transition:transform 180ms var(--ease)}
+.fab:hover{transform:scale(1.07)}
+.fab svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.phone-rel{position:relative}
+
+.note{margin-top:24px;padding:18px 20px;border-radius:var(--r-md);background:var(--accent-bg);border:1px solid var(--accent-line);font-size:14.5px;max-width:96ch}
+.note strong{color:var(--accent)}
+.note code{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.92em}
+footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:var(--text-faint);font-size:14px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Responsive system · phone · tablet · desktop</div>
+  <h1>Feeder at <em>every width</em>, not just two</h1>
+  <p class="standfirst">
+    <code>design/mock-screens.html</code> approved phone and desktop. The owner then opened the live app on an
+    iPad at ~1378px and found it neither — two-column recipe cards with a clipped <code>STAPLE</code> tag, three
+    stacked full-width blocks above the Ingredients list, a Location filter that can't fit its own fourth option,
+    and a seven-day week squeezed to ~90px a day. Every one of those is the same root cause: the app has one
+    breakpoint (768px) and treats a tablet as a narrow desktop. This file adds the missing middle tier and shows
+    all ten screens through it. It extends the approved mock — same tokens, same components — it does not
+    replace it.
+  </p>
+  <div class="controls">
+    <span class="ctl-label">Accent</span>
+    <div class="hues" id="hues"></div>
+    <span class="ctl-label">Theme</span>
+    <div class="seg" id="theme">
+      <button data-t="light" aria-pressed="false">Light</button>
+      <button data-t="system" aria-pressed="true">System</button>
+      <button data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+  <div class="toc">
+    <a href="#tiers">The three tiers</a><a href="#home">Home</a><a href="#recipes">Recipes</a>
+    <a href="#ingredients">Ingredients</a><a href="#recipe">A recipe</a><a href="#pantry">Pantry</a>
+    <a href="#editor">Recipe editor</a><a href="#lot">Pantry item</a><a href="#plan">Plan</a>
+    <a href="#shopping">Shopping</a><a href="#settings">Settings</a>
+  </div>
+</header>
+
+<!-- ══ THE THREE TIERS ══ -->
+<section id="tiers">
+  <h2>The three tiers</h2>
+  <p class="sub">Breakpoints picked from what actually stops fitting, not from device names — an iPad is not a
+    small desktop and a phone-plus is not a small tablet.</p>
+  <div class="card" style="max-width:1100px">
+    <div class="card-head">Breakpoints</div>
+    <div class="card-pad-lg" style="display:grid;gap:18px">
+      <div>
+        <div style="font:600 15px/1 var(--ui);color:var(--accent);margin-bottom:5px">Phone · 0–767px <span style="color:var(--text-faint);font-weight:500">(unchanged)</span></div>
+        <p style="margin:0;color:var(--text-dim);font-size:14px;line-height:1.6">One-handed thumb reach is the primary input model here — <code>UI_DESIGN.md</code> §1's mobile-first
+        rule and §5's in-store shopping case both assume it. Bottom tab bar, FABs and bottom sheets are all
+        reach-optimised; a pointer-oriented top nav has nowhere to put six links plus a workbook switcher below
+        this width without wrapping. Nothing about this tier changes — the phone frames below are copied
+        unchanged from the approved mock.</p>
+      </div>
+      <div>
+        <div style="font:600 15px/1 var(--ui);color:var(--accent);margin-bottom:5px">Tablet · 768–1439px <span style="color:var(--text-faint);font-weight:500">(new)</span></div>
+        <p style="margin:0;color:var(--text-dim);font-size:14px;line-height:1.6">Wide enough for a persistent top nav — brand, six links and a workbook switcher need roughly 650px+ to lay
+        out on one line without wrapping — but not wide enough to show seven day columns, a 250–300px context
+        rail, <em>and</em> a multi-column card grid all at comfortable widths simultaneously. This is exactly the
+        band the app currently skips: every one of its 12 <code>min-width:768px</code> rules keeps firing,
+        unchanged, all the way to whatever comes next, so a tablet silently inherits the desktop layout. The
+        owner's 1378px iPad sits in the middle of this tier — comfortably clear of both edges, so the fixes below
+        aren't tuned to one specific device width.</p>
+      </div>
+      <div>
+        <div style="font:600 15px/1 var(--ui);color:var(--accent);margin-bottom:5px">Desktop · 1440px+ <span style="color:var(--text-faint);font-weight:500">(was ~1680px-tuned, now scales down to 1440)</span></div>
+        <p style="margin:0;color:var(--text-dim);font-size:14px;line-height:1.6">The point past which a full seven-column week (7 × ~170px comfortable + 6 gaps) fits beside a capped
+        250–300px rail without any column dropping below a legible width. It's deliberately <em>not</em> 1280 —
+        a 12.9" iPad Pro in landscape is 1366px, and a large tablet is still a touch-primary device held or
+        propped, not a desktop with a mouse and full peripheral vision. The line is about input model and layout
+        headroom, not raw pixels, and 1440 is comfortably past every current tablet's landscape width.</p>
+      </div>
+    </div>
+  </div>
+  <div class="note" style="margin-top:22px">
+    <strong>What's actually broken, precisely.</strong> Four things, all traced in the live CSS, not guessed:
+    (1) <code>AppShell.module.css</code>'s <code>.mainMeasure</code> caps content at 840px from 768px up — correct
+    for prose, wrong for Ingredients, which inherits it because it isn't in <code>AppShell.tsx</code>'s
+    <code>WIDE_ROUTES</code>, so its list sits in an 840px column with ~270px of dead margin on either side at
+    1378px. (2) <code>recipes.module.css</code>'s <code>.tagRow</code> sets <code>flex-wrap:nowrap;overflow:hidden</code>
+    — correct on <code>.cardMeta</code> right above it (the "one line, never two" rule), copied by mistake onto the
+    tag pills, which the approved mock deliberately wraps (<code>.rtags{flex-wrap:wrap}</code>). That's the literal
+    "STAPLE" → "STAPLI" clip. (3) <code>pantry.module.css</code>'s <code>.layout</code> splits
+    <code>minmax(0,2fr) minmax(220px,1fr)</code> — a <em>proportional</em> third of the viewport for the rail, so it
+    grows without bound as the viewport does, instead of a capped width. (4) <code>SegmentedControl.module.css</code>'s
+    <code>.group</code> is <code>inline-flex</code> with no wrap and no per-segment <code>flex-grow</code> — a fourth
+    option in a narrow rail has nowhere to go but overflow or crowd. None of these four need a new component; they
+    need the tablet-tier rules below.
+  </div>
+</section>
+
+<!-- ══ HOME ══ -->
+<section id="home">
+  <h2>Home</h2>
+  <p class="sub">No defect reported here — shown for completeness. Tablet gets the desktop's top nav a tier early,
+    but stays single column: the "use these first" card drops below the day cards rather than squeezing beside
+    them at a width that would leave each too narrow.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone phone-rel">
+        <div class="p-head"><span class="p-title">Feeder</span><span class="p-meta">Synced 2m ago</span></div>
+        <div class="p-body">
+          <p class="greet">Good evening, Fabio</p>
+          <p class="greetsub">Wednesday 26 August · household of 4</p>
+          <div class="hero-stat">
+            <div class="hstat"><div class="n">4</div><div class="l">to buy this week</div></div>
+            <div class="hstat warn"><div class="n">2</div><div class="l">expiring in 3 days</div></div>
+          </div>
+          <div class="rowgroup">Tonight</div>
+          <div class="row norow"><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 45 min · serves 4</span></span><span class="badge a">Cook</span></div>
+          <div class="rowgroup">Use these first</div>
+          <div class="row norow"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml</span></span><span class="badge c">2 days</span></div>
+          <div class="row norow"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g</span></span><span class="badge w">4 days</span></div>
+        </div>
+        <nav class="tabs">
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">Top nav arrives; content stays single column at a measure, no rail yet — three stacked
+        cards don't need 900px of width, and stretching them to fill it would just make the eye travel further
+        per row.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button aria-current="page">Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Good evening, Fabio</span><button class="btn sm">Generate next week</button></div>
+          <p class="dt-sub">Wednesday 26 August · household of 4 · synced 2 minutes ago</p>
+          <div class="measure" style="display:grid;gap:16px">
+            <div class="hero-stat x4">
+              <div class="hstat"><div class="n">4</div><div class="l">to buy this week</div></div>
+              <div class="hstat warn"><div class="n">2</div><div class="l">expiring in 3 days</div></div>
+              <div class="hstat"><div class="n">2</div><div class="l">planned tomorrow+</div></div>
+              <div class="hstat"><div class="n">1</div><div class="l">leftover portion set</div></div>
+            </div>
+            <div class="card"><div class="card-head">Tonight</div><div class="card-pad">
+              <div class="row norow"><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 20 min prep · 45 min cook · serves 4</span></span><button class="btn sm">Mark cooked</button></div>
+            </div></div>
+            <div class="card"><div class="card-head">Rest of the week</div><div class="card-pad">
+              <div class="row norow"><span><span class="row-name">Carbonara</span><span class="row-sub">Thursday dinner</span></span><span class="badge ok">Planned</span></div>
+              <div class="row norow"><span><span class="row-name">Store lasagna</span><span class="row-sub">Friday dinner · bought</span></span><span class="badge ok">Planned</span></div>
+            </div></div>
+            <div class="card"><div class="card-head">Use these first</div><div class="card-pad">
+              <div class="plot"><div class="plot-top"><span class="row-name">Milk</span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div>
+              <div class="plot"><div class="plot-top"><span class="row-name">Chicken breast</span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Unchanged from the approved mock — the two-column split (day cards + freshness rail) is
+        already correct here.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button aria-current="page">Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M4 10h16"/></svg>Torchetti household</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Good evening, Fabio</span><button class="btn sm">Generate next week</button></div>
+          <p class="dt-sub">Wednesday 26 August · household of 4 · synced 2 minutes ago</p>
+          <div class="dt-cols">
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Tonight</div><div class="card-pad">
+                <div class="row norow"><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 20 min prep · 45 min cook · serves 4</span></span><button class="btn sm">Mark cooked</button></div>
+              </div></div>
+              <div class="card"><div class="card-head">Rest of the week</div><div class="card-pad">
+                <div class="row norow"><span><span class="row-name">Carbonara</span><span class="row-sub">Thursday dinner</span></span><span class="badge ok">Planned</span></div>
+                <div class="row norow"><span><span class="row-name">Store lasagna</span><span class="row-sub">Friday dinner · bought</span></span><span class="badge ok">Planned</span></div>
+                <div class="row norow"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Saturday lunch · 4 portions</span></span><span class="badge a">Leftover</span></div>
+              </div></div>
+            </div>
+            <div class="card">
+              <div class="card-head">Use these first</div>
+              <div class="card-pad">
+                <div class="plot"><div class="plot-top"><span class="row-name">Milk</span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div>
+                <div class="plot"><div class="plot-top"><span class="row-name">Chicken breast</span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div>
+                <div class="plot"><div class="plot-top"><span class="row-name">Fresh basil</span><span class="badge w">5 days</span></div><div class="meter w"><i style="width:45%"></i></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ RECIPES ══ -->
+<section id="recipes">
+  <h2>Recipes</h2>
+  <p class="sub">Defect: only 2 cards across at 1378px, entire lower page empty. Fix: nothing new — <code>.rgrid</code>
+    already is <code>auto-fill/minmax(168px,1fr)</code> in both the mock and the app. The bug is that
+    <code>/recipes</code> is one of the few routes actually in <code>WIDE_ROUTES</code>, so this screen's only real
+    problem was the tag clip below. The tablet frame here uses the <em>exact same markup</em> as the desktop
+    frame — only the box is narrower — to prove the grid genuinely reflows on its own.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">Recipes</span><span class="p-meta">18</span></div>
+        <div class="p-body">
+          <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Search recipes</span></div>
+          <div class="filters">
+            <button class="fchip" aria-pressed="true">All</button>
+            <button class="fchip" aria-pressed="false">Dinner</button>
+            <button class="fchip" aria-pressed="false">Staples</button>
+            <button class="fchip" aria-pressed="false">Bought</button>
+          </div>
+          <div class="rgrid">
+            <div class="rcard"><h4>Chili</h4><div class="rmeta"><span>25 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
+            <div class="rcard"><h4>Carbonara</h4><div class="rmeta"><span>20 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
+            <div class="rcard"><h4>Store lasagna</h4><div class="rmeta"><span>50 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span></div></div>
+            <div class="rcard"><h4>Tomato salad</h4><div class="rmeta"><span>10 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Lunch</span></div></div>
+          </div>
+        </div>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">Same 900px-wide reflow the desktop frame below shows, just narrower — 4 columns instead
+        of 2, and the "Staple" tag wraps onto its own line instead of clipping mid-word.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="btn sm">New recipe</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Recipes</span></div>
+          <p class="dt-sub">18 recipes · 3 staples · 2 retired</p>
+          <div class="filters">
+            <button class="fchip" aria-pressed="true">All</button><button class="fchip">Breakfast</button>
+            <button class="fchip">Lunch</button><button class="fchip">Dinner</button><button class="fchip">Snack</button>
+            <button class="fchip">Staples</button><button class="fchip">Bought</button><button class="fchip">Retired</button>
+          </div>
+          <div class="rgrid">
+            <div class="rcard"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
+            <div class="rcard"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
+            <div class="rcard"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
+            <div class="rcard"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="btn sm">New recipe</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Recipes</span></div>
+          <p class="dt-sub">18 recipes · 3 staples · 2 retired</p>
+          <div class="filters">
+            <button class="fchip" aria-pressed="true">All</button><button class="fchip">Breakfast</button>
+            <button class="fchip">Lunch</button><button class="fchip">Dinner</button><button class="fchip">Snack</button>
+            <button class="fchip">Staples</button><button class="fchip">Bought</button><button class="fchip">Retired</button>
+          </div>
+          <div class="rgrid">
+            <div class="rcard"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
+            <div class="rcard"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
+            <div class="rcard"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
+            <div class="rcard"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div>
+            <div class="rcard"><h4>Tomato salad</h4><div class="rmeta"><span>10 prep</span><span>0 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Lunch</span></div></div>
+            <div class="rcard"><h4>Fish pie</h4><div class="rmeta"><span>25 prep</span><span>40 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note">
+    <strong>The tag clip's actual cause.</strong> <code>recipes.module.css</code>'s <code>.tagRow</code> carries
+    <code>flex-wrap:nowrap;overflow:hidden</code> — correct on <code>.cardMeta</code> directly above it (times must
+    stay one line), copied onto the tag pills by mistake. This mock's <code>.rtags</code> has always used
+    <code>flex-wrap:wrap</code> with no <code>overflow</code> at all; that's the one-line diff that fixes it.
+    Tag rows must wrap or truncate a whole word, never clip mid-word — never <code>overflow:hidden</code> without
+    either <code>text-overflow:ellipsis</code> on a genuinely single-line element, or (as here) just letting the
+    row grow.
+  </div>
+</section>
+
+<!-- ══ INGREDIENTS ══ -->
+<section id="ingredients">
+  <h2>Ingredients</h2>
+  <p class="sub">Had no mock at all until now — <code>UI_DESIGN.md</code> only ever specified Recipes, so this
+    screen accreted its own pattern: an uppercase "Search" eyebrow, a full-width field, "Add ingredient" as a
+    stranded paragraph link below it, then a "29 of 29" heading, then one ListRow per ingredient — four stacked
+    blocks before any content, all inside the 840px prose measure. Fix: treat it exactly like Recipes. It's a
+    section tab of Recipes (unifying with it isn't just cosmetic, it's the same object type — a flat, alphabetical,
+    unordered catalogue), so it gets the same page-action-top-right, the same compact search, and the same
+    reflowing grid instead of a single tall column.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone phone-rel">
+        <div class="p-head"><span class="p-title">Ingredients</span><span class="p-meta">29 of 29</span></div>
+        <div class="p-body">
+          <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Find an ingredient…</span></div>
+          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Minced beef</span><span class="row-sub">g · fridge · 5d (opened 2d)</span></span></div>
+          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Tinned tomatoes</span><span class="row-sub">piece · pantry · 730d</span></span></div>
+          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Onion</span><span class="row-sub">piece · pantry · 30d</span></span></div>
+          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Rice</span><span class="row-sub">g · pantry · 730d</span></span></div>
+          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Fresh basil</span><span class="row-sub">g · fridge · 7d</span></span></div>
+        </div>
+        <button class="fab" aria-label="Add ingredient"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">Section tabs (Recipes/Ingredients) as a 2-option segmented control under the page
+        title — the same primitive already used for the household vote and recipe kind, not a new tab component.
+        "29 of 29" moves into the subtitle line, matching Recipes' "18 recipes · 3 staples" pattern. The list
+        becomes a card grid: 3 columns at 900px, because unlike Pantry or Shopping this list has no scan order to
+        preserve — it's alphabetical, browsed, not worked through top to bottom.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/ingredients</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head">
+            <span style="display:flex;align-items:center;gap:16px"><span class="dt-h1">Ingredients</span><div class="seg"><button>Recipes</button><button aria-pressed="true">Ingredients</button></div></span>
+            <button class="btn sm">Add ingredient</button>
+          </div>
+          <p class="dt-sub">29 of 29 ingredients</p>
+          <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Find an ingredient…</span></div>
+          <div class="igrid">
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Minced beef</h4><span class="imeta">g · fridge · 5d (opened 2d)</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Tinned tomatoes</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Onion</h4><span class="imeta">piece · pantry · 30d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Rice</h4><span class="imeta">g · pantry · 730d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Fresh basil</h4><span class="imeta">g · fridge · 7d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Kidney beans</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Same markup as the tablet frame, wider box — the grid earns more columns for free.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/ingredients</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head">
+            <span style="display:flex;align-items:center;gap:16px"><span class="dt-h1">Ingredients</span><div class="seg"><button>Recipes</button><button aria-pressed="true">Ingredients</button></div></span>
+            <button class="btn sm">Add ingredient</button>
+          </div>
+          <p class="dt-sub">29 of 29 ingredients</p>
+          <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Find an ingredient…</span></div>
+          <div class="igrid">
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Minced beef</h4><span class="imeta">g · fridge · 5d (opened 2d)</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Tinned tomatoes</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Onion</h4><span class="imeta">piece · pantry · 30d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Rice</h4><span class="imeta">g · pantry · 730d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Fresh basil</h4><span class="imeta">g · fridge · 7d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Kidney beans</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Cumin</h4><span class="imeta">g · pantry · 1095d</span></span></div>
+            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Olive oil</h4><span class="imeta">ml · pantry · 545d</span></span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note">
+    <strong>Why this unifies with Recipes rather than staying bespoke.</strong> Both are flat, unordered,
+    browsable catalogues — the opposite of Pantry and Shopping, which are grouped by urgency or aisle and where
+    row order carries real information. A page action top-right, a compact search pill, and a reflowing grid are
+    the right shape for "browse a list of things and open one"; three stacked full-width blocks were never a
+    deliberate pattern, they were just what was left after nobody had a mock to build to.
+  </div>
+</section>
+
+<!-- ══ RECIPE DETAIL ══ -->
+<section id="recipe">
+  <h2>A recipe</h2>
+  <p class="sub">No defect reported. Tablet collapses the rail below the reading content instead of squeezing a
+    250px column beside it — household flag and servings are secondary controls, not reference material you need
+    while reading the method, so there's no cost to reading them after ingredients/method rather than beside.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">Chili</span><span class="p-meta">Staple</span></div>
+        <div class="p-body">
+          <div style="display:flex;gap:7px;margin-bottom:13px"><span class="tagpill">Dinner</span><span class="tagpill">15 prep</span><span class="tagpill">25 cook</span></div>
+          <span class="field-label">Household flag</span>
+          <div class="seg" style="width:100%;margin-bottom:14px"><button aria-pressed="true" style="flex:1">Staple</button><button aria-pressed="false" style="flex:1">Rotation</button><button aria-pressed="false" style="flex:1">Retired</button></div>
+          <span class="field-label">Servings</span>
+          <div class="qty" style="margin-bottom:14px"><button aria-label="Fewer">−</button><span class="val">8 <span class="unit">servings</span></span><button aria-label="More">+</button></div>
+          <span class="field-label">Ingredients · scaled ×2</span>
+          <div class="ilist" style="margin-bottom:14px">
+            <div><span>Minced beef</span><span class="q">1000 g</span></div>
+            <div><span>Tinned tomatoes</span><span class="q">4 piece</span></div>
+            <div><span>Onion <span class="have">· 3 in pantry</span></span><span class="q">2 piece</span></div>
+            <div><span>Kidney beans</span><span class="q">2 piece</span></div>
+          </div>
+          <button class="btn full">Mark cooked</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">Single column, capped to a 680px reading measure — ingredients and method are prose-like
+        content, so they get the same treatment §13 already mandates for text.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/chili</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">Edit</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Chili</span><button class="btn sm">Mark cooked</button></div>
+          <p class="dt-sub">Cooked 3 times · last on 4 August · 15 min prep · 25 min cook</p>
+          <div class="measure" style="display:grid;gap:16px">
+            <div class="card"><div class="card-head">Ingredients · scaled to 8 servings</div><div class="card-pad-lg">
+              <div class="ilist">
+                <div><span>Minced beef</span><span class="q">1000 g</span></div>
+                <div><span>Tinned tomatoes</span><span class="q">4 piece</span></div>
+                <div><span>Onion <span class="have">· 3 in pantry</span></span><span class="q">2 piece</span></div>
+                <div><span>Kidney beans</span><span class="q">2 piece</span></div>
+              </div>
+            </div></div>
+            <div class="card"><div class="card-head">Method</div><div class="card-pad-lg">
+              <ol class="steps">
+                <li>Brown the mince in a wide pan over high heat.</li>
+                <li>Add onion and cumin, cook until soft.</li>
+                <li>Add tomatoes and beans, simmer 20 minutes.</li>
+              </ol>
+            </div></div>
+            <div class="card"><div class="card-head">Household flag</div><div class="card-pad-lg">
+              <div class="seg" style="width:100%"><button aria-pressed="true" style="flex:1">Staple</button><button style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
+            </div></div>
+            <div class="card"><div class="card-head">Servings</div><div class="card-pad-lg">
+              <div class="qty"><button aria-label="Fewer">−</button><span class="val">8 <span class="unit">servings</span></span><button aria-label="More">+</button></div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Unchanged — the 250px rail is already a capped pixel width here, not a proportion, so it
+        never balloons the way Pantry's did.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/chili</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">Edit</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Chili</span><button class="btn sm">Mark cooked</button></div>
+          <p class="dt-sub">Cooked 3 times · last on 4 August · 15 min prep · 25 min cook</p>
+          <div class="dt-cols">
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Ingredients · scaled to 8 servings</div><div class="card-pad-lg">
+                <div class="ilist">
+                  <div><span>Minced beef</span><span class="q">1000 g</span></div>
+                  <div><span>Tinned tomatoes</span><span class="q">4 piece</span></div>
+                  <div><span>Onion <span class="have">· 3 in pantry</span></span><span class="q">2 piece</span></div>
+                  <div><span>Kidney beans</span><span class="q">2 piece</span></div>
+                  <div><span>Cumin</span><span class="q">10 g</span></div>
+                </div>
+              </div></div>
+              <div class="card"><div class="card-head">Method</div><div class="card-pad-lg">
+                <ol class="steps">
+                  <li>Brown the mince in a wide pan over high heat.</li>
+                  <li>Add onion and cumin, cook until soft.</li>
+                  <li>Add tomatoes and beans, simmer 20 minutes.</li>
+                  <li>Season and rest 5 minutes before serving.</li>
+                </ol>
+              </div></div>
+            </div>
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Household flag</div><div class="card-pad-lg">
+                <div class="seg" style="width:100%"><button aria-pressed="true" style="flex:1">Staple</button><button style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
+              </div></div>
+              <div class="card"><div class="card-head">Servings</div><div class="card-pad-lg">
+                <div class="qty"><button aria-label="Fewer">−</button><span class="val">8 <span class="unit">servings</span></span><button aria-label="More">+</button></div>
+                <p style="font-size:12.5px;color:var(--text-faint);margin:10px 0 0">Base 4 · surplus becomes a leftover lot when cooked.</p>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ PANTRY ══ -->
+<section id="pantry">
+  <h2>Pantry</h2>
+  <p class="sub">Defects: the Location segmented control overflows to "FREE" instead of "FREEZER", and the main
+    column shows one row beside hundreds of empty pixels next to a rail that's simultaneously too narrow to fit
+    its own control. Cause: <code>pantry.module.css</code>'s <code>.layout</code> splits
+    <code>minmax(0,2fr) minmax(220px,1fr)</code> — a <em>proportional</em> third of the viewport, so the rail
+    grows unbounded with the window instead of being capped, while <code>SegmentedControl</code> has no wrap
+    behaviour at all. Fix below: at tablet the rail becomes a horizontal bar above the list (freeing full width for
+    the one thing that needs it — the list itself, which stays a single ordered column, unchanged); at desktop the
+    rail returns but capped to a fixed range, never a fraction.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone phone-rel">
+        <div class="p-head"><span class="p-title">Pantry</span><span class="p-meta">2 expiring</span></div>
+        <div class="p-body">
+          <div class="filters"><button class="fchip" aria-pressed="true">All</button><button class="fchip">Fridge</button><button class="fchip">Freezer</button><button class="fchip">Pantry</button></div>
+          <div class="rowgroup">Expiring soon</div>
+          <div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tue</span></span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div>
+          <div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g</span></span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div>
+          <div class="rowgroup">Fresh</div>
+          <div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots</span></span><span class="badge ok">2 years</span></div><div class="meter"><i style="width:92%"></i></div></div>
+          <div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Fridge · 4 portions</span></span><span class="badge ok">3 days</span></div><div class="meter"><i style="width:62%"></i></div></div>
+        </div>
+        <button class="fab" aria-label="Add stock"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">The Filters rail becomes a horizontal bar — same two controls, laid out inline — so the
+        list gets the tablet's full width instead of two-thirds of it. Location is the same 4-option
+        <code>.seg</code>, now with <code>.wrap</code>: plenty of room here, so it renders as one row, exactly like
+        it always has.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button aria-current="page">Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="btn sm">Add stock</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Pantry</span></div>
+          <p class="dt-sub">36 lots · 2 expiring within 4 days · 1 data warning</p>
+          <div class="filterbar">
+            <div class="fb-group"><span class="field-label" style="margin:0">Location</span><div class="seg wrap"><button aria-pressed="true">All</button><button>Pantry</button><button>Fridge</button><button>Freezer</button></div></div>
+            <div class="fb-group grow"><span class="field-label" style="margin:0">Show</span><div class="filters" style="padding:0"><button class="fchip" aria-pressed="true">Expiring</button><button class="fchip">Opened</button><button class="fchip">Leftovers</button></div></div>
+          </div>
+          <div class="card"><div class="card-head">All stock</div><div class="card-pad">
+            <div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tuesday</span></span><span class="badge c">Expires 28 Aug</span></div><div class="meter c"><i style="width:14%"></i></div></div>
+            <div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g · bought 24 Aug</span></span><span class="badge w">Expires 30 Aug</span></div><div class="meter w"><i style="width:33%"></i></div></div>
+            <div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots, FIFO</span></span><span class="badge ok">Expires Aug 2028</span></div><div class="meter"><i style="width:92%"></i></div></div>
+            <div class="plot"><div class="plot-top"><span><span class="row-name">Frozen peas</span><span class="row-sub">Freezer · 750 g</span></span><span class="badge ok">Expires May 2027</span></div><div class="meter"><i style="width:86%"></i></div></div>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">The rail returns, but capped at a fixed 260px — never a fraction of the viewport — so it
+        can't balloon on an ultrawide monitor the way the proportional <code>2fr:1fr</code> split does today. The
+        list itself is unchanged from the approved mock: still one ordered column, because urgency order is the
+        point.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button aria-current="page">Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="btn sm">Add stock</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Pantry</span></div>
+          <p class="dt-sub">36 lots · 2 expiring within 4 days · 1 data warning</p>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start">
+            <div class="card"><div class="card-head">All stock</div><div class="card-pad">
+              <div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tuesday</span></span><span class="badge c">Expires 28 Aug</span></div><div class="meter c"><i style="width:14%"></i></div></div>
+              <div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g · bought 24 Aug</span></span><span class="badge w">Expires 30 Aug</span></div><div class="meter w"><i style="width:33%"></i></div></div>
+              <div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots, FIFO</span></span><span class="badge ok">Expires Aug 2028</span></div><div class="meter"><i style="width:92%"></i></div></div>
+              <div class="plot"><div class="plot-top"><span><span class="row-name">Frozen peas</span><span class="row-sub">Freezer · 750 g</span></span><span class="badge ok">Expires May 2027</span></div><div class="meter"><i style="width:86%"></i></div></div>
+              <div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Fridge · 4 portions · cooked 25 Aug</span></span><span class="badge ok">Expires 29 Aug</span></div><div class="meter"><i style="width:62%"></i></div></div>
+            </div></div>
+            <div class="card"><div class="card-head">Filters</div><div class="card-pad-lg">
+              <span class="field-label">Location</span>
+              <div class="seg wrap" style="margin-bottom:14px"><button aria-pressed="true">All</button><button>Pantry</button><button>Fridge</button><button>Freezer</button></div>
+              <span class="field-label">Show</span>
+              <div class="filters" style="padding:0"><button class="fchip" aria-pressed="true">Expiring</button><button class="fchip">Opened</button><button class="fchip">Leftovers</button></div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note">
+    <strong>The segmented control fix, made concrete.</strong> One class, <code>.seg.wrap</code>
+    (<code>grid-template-columns:repeat(auto-fit,minmax(72px,1fr))</code> instead of a fixed-row
+    <code>inline-flex</code>), applied to every ≤4-option control — not just this one. It costs nothing when
+    there's room: at any width wide enough for four ~72px+ segments, <code>auto-fit</code> resolves to a single
+    row, pixel-identical to today. It only changes behaviour exactly where the current control breaks: a rail too
+    narrow for four full labels. This isn't the sheet from <code>UI_DESIGN.md</code> §5 — that's still reserved for
+    truly large sets — it's making "inline, no overlay" actually mean "always fits," which the threshold already
+    implied but the component never enforced. Two live proofs, same class, different container width:
+    <div class="wrapdemo">
+      <div><span class="capw">230px container (wraps)</span><div style="width:230px"><div class="seg wrap"><button aria-pressed="true">All</button><button>Pantry</button><button>Fridge</button><button>Freezer</button></div></div></div>
+      <div><span class="capw">420px container (fits in one row)</span><div style="width:420px"><div class="seg wrap"><button aria-pressed="true">All</button><button>Pantry</button><button>Fridge</button><button>Freezer</button></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ RECIPE EDITOR ══ -->
+<section id="editor">
+  <h2>Editing a recipe</h2>
+  <p class="sub">No defect reported. Same rail-drops-below-content rule as the read view: three cards stack in one
+    column at tablet instead of splitting 2-up.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">Edit recipe</span><span class="p-meta">Cancel</span></div>
+        <div class="p-body">
+          <span class="field-label">Name</span>
+          <div class="search" style="margin-bottom:14px;max-width:none"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+          <span class="field-label">Kind</span>
+          <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+          <span class="field-label">Meal tags</span>
+          <div class="relrow" style="margin-bottom:14px"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
+          <span class="field-label">Servings</span>
+          <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
+          <button class="btn full">Save recipe</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/stuffed-peppers/edit</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">Cancel</button><button class="btn sm">Save recipe</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Edit recipe</span></div>
+          <p class="dt-sub">Sam's Stuffed Peppers · bought · cooked 0 times</p>
+          <div class="measure-narrow" style="display:grid;gap:16px">
+            <div class="card"><div class="card-head">Identity</div><div class="card-pad-lg">
+              <span class="field-label">Name</span>
+              <div class="search" style="margin:0 0 14px;max-width:none"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+              <span class="field-label">Meal tags</span>
+              <div class="relrow" style="margin:0"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
+            </div></div>
+            <div class="card"><div class="card-head">Kind &amp; rotation</div><div class="card-pad-lg">
+              <span class="field-label">Kind</span>
+              <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+              <span class="field-label">Household flag</span>
+              <div class="seg" style="width:100%"><button style="flex:1">Staple</button><button aria-pressed="true" style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
+            </div></div>
+            <div class="card"><div class="card-head">Timing &amp; servings</div><div class="card-pad-lg">
+              <span class="field-label">Servings</span>
+              <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
+              <span class="field-label">Cook time</span>
+              <div class="qty"><button>−</button><span class="val">50 <span class="unit">min</span></span><button>+</button></div>
+            </div></div>
+            <div class="card"><div class="card-head">Steps</div><div class="card-pad-lg">
+              <div class="ilist" style="margin-bottom:12px">
+                <div><span>1 · Pre-heat oven to 425</span><span class="q">✕</span></div>
+                <div><span>2 · Cook covered in foil for 35 minutes</span><span class="q">✕</span></div>
+              </div>
+              <button class="btn ghost sm">+ Add step</button>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/stuffed-peppers/edit</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">Cancel</button><button class="btn sm">Save recipe</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Edit recipe</span></div>
+          <p class="dt-sub">Sam's Stuffed Peppers · bought · cooked 0 times</p>
+          <div class="dt-cols">
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Identity</div><div class="card-pad-lg">
+                <span class="field-label">Name</span>
+                <div class="search" style="margin:0 0 14px;max-width:none"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+                <span class="field-label">Meal tags</span>
+                <div class="relrow" style="margin:0"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
+              </div></div>
+              <div class="card"><div class="card-head">Steps</div><div class="card-pad-lg">
+                <div class="ilist" style="margin-bottom:12px">
+                  <div><span>1 · Pre-heat oven to 425</span><span class="q">✕</span></div>
+                  <div><span>2 · Cook covered in foil for 35 minutes</span><span class="q">✕</span></div>
+                  <div><span>3 · Cook uncovered for 15 minutes</span><span class="q">✕</span></div>
+                </div>
+                <button class="btn ghost sm">+ Add step</button>
+              </div></div>
+            </div>
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Kind &amp; rotation</div><div class="card-pad-lg">
+                <span class="field-label">Kind</span>
+                <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+                <span class="field-label">Household flag</span>
+                <div class="seg" style="width:100%"><button style="flex:1">Staple</button><button aria-pressed="true" style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
+              </div></div>
+              <div class="card"><div class="card-head">Timing &amp; servings</div><div class="card-pad-lg">
+                <span class="field-label">Servings</span>
+                <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
+                <span class="field-label">Prep time</span>
+                <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">0 <span class="unit">min</span></span><button>+</button></div>
+                <span class="field-label">Cook time</span>
+                <div class="qty"><button>−</button><span class="val">50 <span class="unit">min</span></span><button>+</button></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ PANTRY ITEM ══ -->
+<section id="lot">
+  <h2>A pantry item</h2>
+  <p class="sub">No defect reported — the app's <code>.pantryItemCols</code> already uses a fixed 290px rail, not a
+    proportion, so it doesn't share Pantry's list bug. Tablet stacks the rail below and turns the 2×2 action
+    button grid into a wrapped row, since there's width to spare for that now.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">Rice</span><span class="p-meta">1000 g · pantry</span></div>
+        <div class="p-body">
+          <div class="rowgroup">Lots · oldest used first</div>
+          <div class="plot" style="border:1px solid var(--accent-line);border-radius:var(--r-sm);margin-bottom:8px">
+            <div class="plot-top"><span><span class="row-name">600 g</span><span class="row-sub">Bought 2 Aug · pantry</span></span><span class="badge a">Next out</span></div>
+            <div class="meter"><i style="width:88%"></i></div>
+          </div>
+          <div class="plot" style="border:1px solid var(--line);border-radius:var(--r-sm)">
+            <div class="plot-top"><span><span class="row-name">400 g</span><span class="row-sub">Bought 19 Aug · pantry</span></span><span class="badge ok">Aug 2028</span></div>
+            <div class="meter"><i style="width:96%"></i></div>
+          </div>
+          <span class="field-label" style="margin-top:16px">Record</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+            <button class="btn ghost sm">Use some</button>
+            <button class="btn ghost sm">Open lot</button>
+            <button class="btn ghost sm">Move</button>
+            <button class="btn ghost sm">Correct</button>
+            <button class="btn danger sm" style="grid-column:1/-1">Mark spoiled</button>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry/rice</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button aria-current="page">Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Rice</span><button class="btn sm">Add a lot</button></div>
+          <p class="dt-sub">Canonical unit: gram · pantry default · shelf life 730 days</p>
+          <div class="measure" style="display:grid;gap:16px">
+            <div class="card"><div class="card-head">Lots · FIFO order</div><div class="card-pad">
+              <div class="plot"><div class="plot-top"><span><span class="row-name">600 g</span><span class="row-sub">Bought 2 Aug · pantry · expires Aug 2027</span></span><span class="badge a">Next out</span></div><div class="meter"><i style="width:88%"></i></div></div>
+              <div class="plot"><div class="plot-top"><span><span class="row-name">400 g</span><span class="row-sub">Bought 19 Aug · pantry · expires Aug 2028</span></span><span class="badge ok">Queued</span></div><div class="meter"><i style="width:96%"></i></div></div>
+            </div></div>
+            <div class="card"><div class="card-head">Record an event</div><div class="card-pad-lg">
+              <div style="display:flex;flex-wrap:wrap;gap:8px">
+                <button class="btn ghost sm">Use some</button><button class="btn ghost sm">Open a lot</button>
+                <button class="btn ghost sm">Move location</button><button class="btn ghost sm">Correct quantity or expiry</button>
+                <button class="btn danger sm">Mark spoiled</button>
+              </div>
+            </div></div>
+            <div class="card"><div class="card-head">History</div><div class="card-pad-lg" style="font-size:13px;color:var(--text-dim);display:grid;gap:8px">
+              <div>19 Aug · purchased 400 g</div><div>12 Aug · used 300 g — Carbonara</div><div>2 Aug · purchased 1000 g</div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry/rice</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button aria-current="page">Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Rice</span><button class="btn sm">Add a lot</button></div>
+          <p class="dt-sub">Canonical unit: gram · pantry default · shelf life 730 days</p>
+          <div class="dt-cols">
+            <div class="card"><div class="card-head">Lots · FIFO order</div><div class="card-pad">
+              <div class="plot"><div class="plot-top"><span><span class="row-name">600 g</span><span class="row-sub">Bought 2 Aug · pantry · expires Aug 2027</span></span><span class="badge a">Next out</span></div><div class="meter"><i style="width:88%"></i></div></div>
+              <div class="plot"><div class="plot-top"><span><span class="row-name">400 g</span><span class="row-sub">Bought 19 Aug · pantry · expires Aug 2028</span></span><span class="badge ok">Queued</span></div><div class="meter"><i style="width:96%"></i></div></div>
+            </div></div>
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Record an event</div><div class="card-pad-lg">
+                <div style="display:grid;gap:7px">
+                  <button class="btn ghost sm">Use some</button><button class="btn ghost sm">Open a lot</button>
+                  <button class="btn ghost sm">Move location</button><button class="btn ghost sm">Correct quantity or expiry</button>
+                  <button class="btn danger sm">Mark spoiled</button>
+                </div>
+              </div></div>
+              <div class="card"><div class="card-head">History</div><div class="card-pad-lg" style="font-size:13px;color:var(--text-dim);display:grid;gap:8px">
+                <div>19 Aug · purchased 400 g</div><div>12 Aug · used 300 g — Carbonara</div><div>2 Aug · purchased 1000 g</div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note"><strong>History is a read, never an edit.</strong> Every action here appends an event; corrections are new <code>adjust</code> events. That's invariant 1, and it's why the UI offers "Correct" rather than "Edit" — unchanged from the approved mock at every tier.</div>
+</section>
+
+<!-- ══ PLAN ══ -->
+<section id="plan">
+  <h2>Plan</h2>
+  <p class="sub">The single most important call in this package. Defect: seven columns crammed into ~1340px gives
+    ~90px a day — "Pick a meal" wraps twice, "Sam's Stuffed Peppers" wraps three times, and reroll/pin stack
+    vertically under Cook for lack of width. Cause: <code>plan.module.css</code>'s <code>.week</code> switches
+    straight from the mobile day-list to <code>repeat(7,minmax(0,1fr))</code> at 768px and never changes again —
+    and the app's real overhead compounds it, since Plan sits inside <code>.mainWide</code> (1680px cap, correct)
+    but the week itself has always assumed desktop-scale width. Fix: seven columns is a desktop luxury, not a
+    tablet one — tablet gets four.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">This week</span><span class="p-meta">24–30 Aug</span></div>
+        <div class="p-body">
+          <div style="display:flex;gap:7px;margin-bottom:12px"><button class="btn sm" style="flex:1">Generate week</button><button class="btn ghost sm">‹</button><button class="btn ghost sm">›</button></div>
+          <div class="mday">
+            <div class="mday-h"><span>Mon 24</span><span>2 slots</span></div>
+            <div class="mslot"><span><span class="mt">Lunch</span><span class="mn">Tomato salad</span></span><div style="display:flex;gap:5px"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button></div></div>
+            <div class="mslot"><span><span class="mt">Dinner · pinned</span><span class="mn">Chili</span></span><div style="display:flex;gap:5px"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" style="border-color:var(--accent-line);color:var(--accent)" aria-label="Unpin"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button></div></div>
+          </div>
+          <div class="mday">
+            <div class="mday-h"><span>Tue 25</span><span>1 slot</span></div>
+            <div class="mslot"><span><span class="mt">Dinner · leftover</span><span class="mn">Leftover: Chili</span></span><span class="badge a">4 portions</span></div>
+          </div>
+          <div class="mday">
+            <div class="mday-h"><span>Wed 26</span><span>1 slot</span></div>
+            <div class="mslot"><span><span class="mt">Dinner · tonight</span><span class="mn">Roast chicken</span></span><button class="btn sm">Cook</button></div>
+          </div>
+          <div class="mday">
+            <div class="mday-h"><span>Thu 27</span><span>empty</span></div>
+            <div class="mslot"><span><span class="mt">Dinner</span><span class="mn" style="color:var(--text-faint)">Pick a meal</span></span><button class="iconbtn" aria-label="Add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">Four columns, banded into weekdays and weekend — not an arbitrary wrap. The two bands
+        use the identical 4-track grid, so Fri/Sat/Sun cards are the same width as Mon–Thu's, not stretched wider
+        to fill the fourth slot. At the tier's narrow end (768px) each column is still ~176px; at its wide end
+        (near the owner's 1378px iPad) it's ~280px — comfortably above the ~150px a slot needs for "Sam's Stuffed
+        Peppers" to sit on one or two lines, never three. Icon buttons stay inline beside the meal name at every
+        width in this tier.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/plan</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button aria-current="page">Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">‹</button><button class="chip">›</button><button class="btn sm">Generate week</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Week of 24 August</span></div>
+          <p class="dt-sub">Household of 4 · 2 staples placed · 1 slot empty</p>
+          <div class="weekband">
+            <div class="weekband-label">Mon – Thu</div>
+            <div class="week4">
+              <div class="day"><div class="day-n">Mon 24</div><div class="slot"><span class="t">Lunch</span>Tomato salad</div><div class="slot pin"><span class="t">Dinner · pinned</span>Chili<span class="sactions"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24" width="15" height="15"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button></span></div></div>
+              <div class="day"><div class="day-n">Tue 25</div><div class="slot left"><span class="t">Dinner</span>Leftover: Chili</div></div>
+              <div class="day"><div class="day-n">Wed 26</div><div class="slot"><span class="t">Dinner · tonight</span>Roast chicken<span class="sactions"><button class="btn sm" style="padding:5px 10px">Cook</button></span></div></div>
+              <div class="day"><div class="day-n">Thu 27</div><div class="slot add">+ Dinner</div></div>
+            </div>
+          </div>
+          <div class="weekband">
+            <div class="weekband-label">Fri – Sun</div>
+            <div class="week4">
+              <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna</div></div>
+              <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili</div><div class="slot"><span class="t">Dinner</span>Fish pie</div></div>
+              <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast</div></div>
+              <div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Unchanged — this is the tier the seven-column week was always designed for.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/plan</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button aria-current="page">Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="btn sm">Generate week</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Week of 24 August</span></div>
+          <p class="dt-sub">Household of 4 · 2 staples placed · 1 slot empty · Carbonara excluded (cooked 1 week ago)</p>
+          <div class="week">
+            <div class="day"><div class="day-n">Mon 24</div><div class="slot"><span class="t">Lunch</span>Tomato salad</div><div class="slot pin"><span class="t">Dinner · pinned</span>Chili</div></div>
+            <div class="day"><div class="day-n">Tue 25</div><div class="slot left"><span class="t">Dinner</span>Leftover: Chili</div></div>
+            <div class="day"><div class="day-n">Wed 26</div><div class="slot"><span class="t">Dinner · tonight</span>Roast chicken</div></div>
+            <div class="day"><div class="day-n">Thu 27</div><div class="slot add">+ Dinner</div></div>
+            <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna</div></div>
+            <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili</div><div class="slot"><span class="t">Dinner</span>Fish pie</div></div>
+            <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast</div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note">
+    <strong>Why four columns, not an auto-fill scroll strip or a horizontal swipe.</strong> Three options were on
+    the table. <b>A scrollable strip</b> (phone's day-card pattern, just wider) hides most of the week behind a
+    swipe — exactly the "whole week visible" property that <code>UI_DESIGN.md</code> §13 says justifies desktop in
+    the first place, lost one tier early. <b>Auto-fill/minmax</b> (the same mechanism fixing Recipes and
+    Ingredients) sounds consistent, but on a 7-item grid it produces an orphan: 5 or 6 columns fit, leaving one
+    lonely card alone on its own row. A week reads as a calendar; a calendar with a stray Sunday off by itself
+    reads as broken, not responsive. <b>Four columns, banded</b> avoids both: the whole week is still visible (two
+    short scans instead of one), no orphaned cell, and "weekdays" / "weekend" is a grouping that's already
+    meaningful in a meal planner, not an arbitrary split invented to make the math work.
+  </div>
+</section>
+
+<!-- ══ SHOPPING ══ -->
+<section id="shopping">
+  <h2>Shopping</h2>
+  <p class="sub">No defect reported, but a deliberate tier difference worth stating: the checklist stays a single
+    column at every width, on purpose, and the FAB becomes a page action once there's a header bar to put it in.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone phone-rel">
+        <div class="p-head"><span class="p-title">Shopping</span><span class="p-meta">4 left</span></div>
+        <div class="p-body">
+          <div class="filters"><button class="fchip" aria-pressed="true">This week</button><button class="fchip">Next week</button><button class="fchip">2 weeks</button><button class="fchip">4 weeks</button></div>
+          <div class="rowgroup">Produce</div>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Tomatoes</span><span class="row-sub">Mon dinner · Thu lunch</span></span><span class="row-qty">5 piece</span></button>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Fresh basil</span><span class="row-sub">Mon dinner</span></span><span class="row-qty">30 g</span></button>
+          <div class="rowgroup">Dry goods</div>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Rice</span><span class="row-sub">Wed dinner</span></span><span class="row-qty">400 g</span></button>
+          <button class="row" aria-pressed="true"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Olive oil</span><span class="row-sub">bought 1000 ml · 500 ml to pantry</span></span><span class="row-qty">500 ml</span></button>
+        </div>
+        <button class="fab" aria-label="Scan a barcode"><svg viewBox="0 0 24 24"><path d="M3 7V5.5A2.5 2.5 0 0 1 5.5 3H7"/><path d="M17 3h1.5A2.5 2.5 0 0 1 21 5.5V7"/><path d="M21 17v1.5a2.5 2.5 0 0 1-2.5 2.5H17"/><path d="M7 21H5.5A2.5 2.5 0 0 1 3 18.5V17"/><path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/></svg></button>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">Top nav means "Scan a barcode" becomes a page action, not a thumb-reach FAB — but only
+        here. On phone it stays a FAB deliberately: <code>UI_DESIGN.md</code> §1 invariant 5 calls out in-store,
+        one-handed use explicitly, and a tablet propped in a trolley is still held, not sat at a desk. The list
+        itself is unchanged: a checklist worked through item by item doesn't reflow into a grid at any width, and
+        the "why is this on my list" rail (which does need real width) simply doesn't exist yet at this tier —
+        it appears only at desktop, where there's room without touching the list.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/shopping</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button aria-current="page">Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip"><svg viewBox="0 0 24 24"><path d="M3 7V5.5A2.5 2.5 0 0 1 5.5 3H7"/><path d="M17 3h1.5A2.5 2.5 0 0 1 21 5.5V7"/><path d="M21 17v1.5a2.5 2.5 0 0 1-2.5 2.5H17"/><path d="M7 21H5.5A2.5 2.5 0 0 1 3 18.5V17"/><path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/></svg>Scan</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Shopping</span></div>
+          <p class="dt-sub">Week of 24 August · 4 items left · 6 covered by the pantry</p>
+          <div class="filters"><button class="fchip" aria-pressed="true">This week</button><button class="fchip">Next week</button><button class="fchip">2 weeks</button><button class="fchip">4 weeks</button></div>
+          <div class="card measure"><div class="card-head">To buy</div><div class="card-pad">
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Tomatoes</span><span class="row-sub">Monday dinner · Thursday lunch</span></span><span class="row-qty">5 piece</span></button>
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Fresh basil</span><span class="row-sub">Monday dinner</span></span><span class="row-qty">30 g</span></button>
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Rice</span><span class="row-sub">Wednesday dinner · pantry has 0 g</span></span><span class="row-qty">400 g</span></button>
+            <button class="row" aria-pressed="true"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Olive oil</span><span class="row-sub">bought 1000 ml · 500 ml to pantry</span></span><span class="row-qty">500 ml</span></button>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Unchanged — width buys the "why" rail here, not more list columns.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/shopping</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button aria-current="page">Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip"><svg viewBox="0 0 24 24"><path d="M3 7V5.5A2.5 2.5 0 0 1 5.5 3H7"/><path d="M17 3h1.5A2.5 2.5 0 0 1 21 5.5V7"/><path d="M21 17v1.5a2.5 2.5 0 0 1-2.5 2.5H17"/><path d="M7 21H5.5A2.5 2.5 0 0 1 3 18.5V17"/><path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/></svg>Scan</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Shopping</span></div>
+          <p class="dt-sub">Week of 24 August · 4 items left · 6 covered by the pantry</p>
+          <div class="filters"><button class="fchip" aria-pressed="true">This week</button><button class="fchip">Next week</button><button class="fchip">2 weeks</button><button class="fchip">4 weeks</button><button class="fchip">Custom range…</button></div>
+          <div class="dt-cols">
+            <div class="card"><div class="card-head">To buy</div><div class="card-pad">
+              <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Tomatoes</span><span class="row-sub">Monday dinner · Thursday lunch</span></span><span class="row-qty">5 piece</span></button>
+              <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Fresh basil</span><span class="row-sub">Monday dinner</span></span><span class="row-qty">30 g</span></button>
+              <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Rice</span><span class="row-sub">Wednesday dinner · pantry has 0 g</span></span><span class="row-qty">400 g</span></button>
+              <button class="row" aria-pressed="true"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Olive oil</span><span class="row-sub">bought 1000 ml · 500 ml to pantry</span></span><span class="row-qty">500 ml</span></button>
+            </div></div>
+            <div class="card">
+              <div style="padding:16px;border-bottom:1px solid var(--line-soft)">
+                <div style="font:600 26px/1 var(--ui);font-variant-numeric:tabular-nums">4</div>
+                <div style="font:500 12px/1.3 var(--ui);color:var(--text-faint);margin-top:5px">items still to buy</div>
+              </div>
+              <div style="padding:16px;font-size:13px;color:var(--text-dim);line-height:1.5">
+                <b style="color:var(--text)">Why 5 tomatoes?</b><br>Monday dinner needs 2, Thursday lunch needs 3, and no viable lot expires on or after those dates.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ SETTINGS ══ -->
+<section id="settings">
+  <h2>Settings</h2>
+  <p class="sub">No defect reported. Tablet reads as one narrow, capped column of grouped cards — a control list
+    gains nothing from stretching to 900px, so it doesn't.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">Settings</span></div>
+        <div class="p-body flush">
+          <div class="srow"><span><span class="sl">Household size</span><span class="sd">Scales every recipe</span></span></div>
+          <div style="padding:0 15px 14px"><div class="qty"><button>−</button><span class="val">4 <span class="unit">people</span></span><button>+</button></div></div>
+          <div class="srow"><span><span class="sl">Don't repeat within</span><span class="sd">Generator exclusion window</span></span></div>
+          <div style="padding:0 15px 14px"><div class="qty"><button>−</button><span class="val">3 <span class="unit">weeks</span></span><button>+</button></div></div>
+          <div class="srow"><span class="sl">Theme</span></div>
+          <div style="padding:0 15px 14px"><div class="seg" style="width:100%"><button style="flex:1">Light</button><button aria-pressed="true" style="flex:1">System</button><button style="flex:1">Dark</button></div></div>
+          <div class="srow"><span class="sl">Accent</span></div>
+          <div style="padding:0 15px 16px"><div class="hues" data-mini></div></div>
+          <div class="srow"><span><span class="sl">Torchetti household</span><span class="sd">Switch or open another workbook</span></span><button class="chip">Switch</button></div>
+          <div class="srow"><span><span class="sl">fabbari@gmail.com</span><span class="sd">Signed in with Google</span></span><button class="chip">Sign out</button></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/settings</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button aria-current="page">Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Settings</span></div>
+          <p class="dt-sub">Stored in the workbook · shared with everyone in the household</p>
+          <div class="measure-narrow" style="display:grid;gap:16px">
+            <div class="card"><div class="card-head">Household</div><div class="card-pad-lg">
+              <span class="field-label">Size</span>
+              <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">people</span></span><button>+</button></div>
+              <span class="field-label">Don't repeat within</span>
+              <div class="qty"><button>−</button><span class="val">3 <span class="unit">weeks</span></span><button>+</button></div>
+            </div></div>
+            <div class="card"><div class="card-head">Appearance · this device only</div><div class="card-pad-lg">
+              <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Light</button><button aria-pressed="true" style="flex:1">System</button><button style="flex:1">Dark</button></div>
+              <div class="hues" data-mini></div>
+            </div></div>
+            <div class="card"><div class="card-head">Meal slots per day</div>
+              <div class="daylay"><b>Mon</b><div class="slotchips"><span class="slotchip">Lunch</span><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+              <div class="daylay"><b>Tue</b><div class="slotchips"><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+              <div class="daylay"><b>Sat</b><div class="slotchips"><span class="slotchip">Breakfast</span><span class="slotchip">Lunch</span><span class="slotchip">Dinner</span></div></div>
+            </div>
+            <div class="card"><div class="card-pad">
+              <div class="srow" style="border:0"><span><span class="sl">Torchetti household</span><span class="sd">Switch or open another workbook</span></span><button class="chip">Switch</button></div>
+              <div class="srow" style="border:0"><span><span class="sl">fabbari@gmail.com</span><span class="sd">Signed in with Google</span></span><button class="chip">Sign out</button></div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/settings</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button aria-current="page">Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Settings</span></div>
+          <p class="dt-sub">Stored in the workbook · shared with everyone in the household</p>
+          <div class="dt-cols">
+            <div class="card"><div class="card-head">Meal slots per day</div>
+              <div class="daylay"><b>Mon</b><div class="slotchips"><span class="slotchip">Lunch</span><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+              <div class="daylay"><b>Tue</b><div class="slotchips"><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+              <div class="daylay"><b>Wed</b><div class="slotchips"><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+              <div class="daylay"><b>Thu</b><div class="slotchips"><span class="slotchip">Lunch</span><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+              <div class="daylay"><b>Fri</b><div class="slotchips"><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+              <div class="daylay"><b>Sat</b><div class="slotchips"><span class="slotchip">Breakfast</span><span class="slotchip">Lunch</span><span class="slotchip">Dinner</span></div></div>
+              <div class="daylay"><b>Sun</b><div class="slotchips"><span class="slotchip">Breakfast</span><span class="slotchip">Dinner</span><span class="slotchip add">+ add</span></div></div>
+            </div>
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Household</div><div class="card-pad-lg">
+                <span class="field-label">Size</span>
+                <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">people</span></span><button>+</button></div>
+                <span class="field-label">Don't repeat within</span>
+                <div class="qty"><button>−</button><span class="val">3 <span class="unit">weeks</span></span><button>+</button></div>
+              </div></div>
+              <div class="card"><div class="card-head">Appearance · this device only</div><div class="card-pad-lg">
+                <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Light</button><button aria-pressed="true" style="flex:1">System</button><button style="flex:1">Dark</button></div>
+                <div class="hues" data-mini></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  Feeder · responsive system · every colour derives from the accent hue selected above, exactly as the app will.
+  Extends <code>mock-screens.html</code> — same tokens, same components, three tiers instead of two. Mock data
+  throughout: seeded catalogue, FIFO lots, one bought meal, one leftover.
+</footer>
+</div>
+
+<script>
+const HUES=[155,190,235,275,320,25,55,95];
+function buildHues(el,mini){
+  HUES.forEach(h=>{
+    const b=document.createElement("button");
+    b.className="hue"; if(mini) b.style.width=b.style.height="20px";
+    b.style.background=`oklch(0.62 0.15 ${h})`;
+    b.setAttribute("aria-pressed",h===155?"true":"false");
+    b.setAttribute("aria-label",`Accent hue ${h}`);
+    b.onclick=()=>{
+      document.documentElement.style.setProperty("--accent-hue",h);
+      document.querySelectorAll(".hue").forEach(c=>c.setAttribute("aria-pressed","false"));
+      document.querySelectorAll(".hue").forEach(c=>{
+        if(getComputedStyle(c).backgroundColor===getComputedStyle(b).backgroundColor)
+          c.setAttribute("aria-pressed","true");
+      });
+    };
+    el.appendChild(b);
+  });
+}
+buildHues(document.getElementById("hues"),false);
+document.querySelectorAll(".hues[data-mini]").forEach(el=>buildHues(el,true));
+
+const themeEl=document.getElementById("theme");
+themeEl.addEventListener("click",e=>{
+  const btn=e.target.closest("button[data-t]"); if(!btn)return;
+  [...themeEl.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+  btn.setAttribute("aria-pressed","true");
+  const t=btn.dataset.t;
+  if(t==="system")document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme",t);
+});
+
+document.addEventListener("click",e=>{
+  const row=e.target.closest(".row[aria-pressed]");
+  if(row){row.setAttribute("aria-pressed",row.getAttribute("aria-pressed")==="true"?"false":"true");return;}
+  const seg=e.target.closest(".seg");
+  if(seg&&seg.id!=="theme"){
+    const b=e.target.closest("button"); if(!b)return;
+    [...seg.children].forEach(c=>c.setAttribute("aria-pressed","false"));
+    b.setAttribute("aria-pressed","true"); return;
+  }
+  const f=e.target.closest(".fchip");
+  if(f){
+    const grp=f.parentElement;
+    const multi=grp.querySelectorAll('[aria-pressed="true"]').length>1||f.textContent.trim().length>9;
+    if(!multi)[...grp.children].forEach(c=>c.setAttribute&&c.setAttribute("aria-pressed","false"));
+    f.setAttribute("aria-pressed",f.getAttribute("aria-pressed")==="true"?"false":"true");
+    return;
+  }
+  const nav=e.target.closest(".dt-nav");
+  if(nav){const b=e.target.closest("button");if(!b)return;
+    [...nav.children].forEach(c=>c.removeAttribute("aria-current"));
+    b.setAttribute("aria-current","page");}
+});
+</script>
