@@ -105,7 +105,21 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 | 2026-08-20 | Stage 1 | **All 7 packages merged**, plus WP-11. Integration required resolving one real conflict: five PRs had independently fixed the same latent `tsconfig.test.json` TS6307 gap two incompatible ways (three used a project reference needing `noEmit:false` + declaration emit; two added `"src"` to `include`). Took the include fix as canonical and reverted the other three. Also unioned three engine barrels in `src/domain/index.ts` and regenerated the lockfile via `npm install`. main green: 688 tests + 26 E2E. |
 | 2026-08-20 | — | **Stage 1 fan-out dispatched:** WP-10, 12, 13, 14, 15, 16, 17 in seven worktrees, each with its own `E2E_PORT` to keep concurrent Playwright runs from colliding on 5273. |
 
-## Unauthorized / unrouted proposals
+## Routed contract changes — owner-requested 2026-08-21, pending design approval
+
+- **`Recipe` gains an image**, and **`RecipeStep` gains a short description, a markdown
+  detail body, a duration, and an image.** Requested directly by the owner while
+  reviewing the responsive mocks. Needs two new sheets (`RecipePhotos`,
+  `RecipeStepPhotos` or one keyed photo sheet) plus additive fields on frozen types.
+  **The earlier `RecipeStep` audit is now commissioned rather than unrouted** — its
+  catalogue of call sites (`bootstrap.ts`, `spreadsheet.ts` `satisfies`-enforced,
+  `codecs/index.ts` `Record`-enforced, `spreadsheet.test.ts`,
+  `features/wp-11-workbook-bootstrap.steps.ts`) is directly reusable.
+  Sequence: design approval → contract-change task → implementation. Photo storage
+  reuses the settled rules in `DESIGN_PRODUCTS.md` §5 (50,000-char cell ≈ 36.6 KB,
+  32 KB budget at 512 px WebP, own sheet, lazy per-item fetch).
+
+## Superseded — previously unrouted proposals
 
 - **Widening `RecipeStep` to `title`/`description`/`durationMinutes`, and adding a
   `RecipePhotos` sheet.** A read-only audit of the call sites was done against `main`
