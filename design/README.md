@@ -5,8 +5,9 @@
 | File | What it is |
 |---|---|
 | `mock-screens.html` | The approved screen catalogue: Home, Recipes, a recipe, Pantry, a pantry item, Plan, Shopping, barcode scan, Settings, and the control gallery — each shown phone **and** desktop. |
+| `mock-responsive.html` | **Extends the catalogue above with a genuine tablet tier.** Same ten screens (plus a new Ingredients screen the catalogue never had), each shown at phone (≤767px), tablet (768–1439px) and desktop (≥1440px). Built after the owner tested the live app on an iPad (~1378px) and found it treated as a narrow desktop — see the file's own `#tiers` section for the breakpoint rationale and a defect-by-defect fix list (the clipped `STAPLE` tag, the overflowing 4-option Location filter, the seven-column week at ~90px/day, Ingredients' stacked full-width blocks). |
 | `mock-direction.html` | The interface direction: diagnosis of the old shell, the elevation/motion/colour system, and the desktop rationale. |
-| `mock-reference.css` | Tokens and layout rules extracted verbatim from `mock-screens.html`, so you can diff values without reading the whole page. |
+| `mock-reference.css` | Tokens and layout rules extracted verbatim from `mock-screens.html`, so you can diff values without reading the whole page. `mock-responsive.html` uses the identical token block — nothing there has changed. |
 
 ## Why these exist
 
