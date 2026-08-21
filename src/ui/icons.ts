@@ -67,4 +67,12 @@ export {
   FolderOpen,
   // The workbook chip (§12/§13 header) — the active spreadsheet, at a glance.
   Table,
+  // Photos (WP-PHOTO UI — DESIGN_PHOTOS.md): `Camera` is the shared add/
+  // replace affordance (src/ui/photo/**); `Timer` labels a resting duration
+  // badge and the "Start timer" button; `Pause` is the running timer's pause
+  // control (`X` above already covers "cancel") — both on RecipeDetail.tsx's
+  // method timer.
+  Camera,
+  Timer,
+  Pause,
 } from "@phosphor-icons/react";

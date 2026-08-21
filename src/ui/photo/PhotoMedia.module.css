@@ -1,0 +1,75 @@
+/* The shared photo primitive (PhotoMedia.tsx) — DESIGN_PHOTOS.md §5's
+   display cap, mock-responsive.html's `.media`/`.rcard-media`/`.ithumb`/
+   `.rphoto`/`.rstepimg` family, ported 1:1 by CLASS INTENT (this app's
+   tokens, not the mock's literal `--r-md` etc.). px throughout — this app's
+   root font-size is 18px, so `rem` here would run ~15% oversized versus the
+   mock (UI_DESIGN.md, RecipeEditor.tsx's own note). */
+
+.media {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.empty svg {
+  opacity: 0.65;
+}
+
+/* Grid card thumbnail (recipes/ingredients grid) — 80px square, leading. */
+.grid {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+}
+
+/* List row thumbnail (ingredients list, pantry rows, Home's non-Tonight
+   rows) — 52px, the "48-64px in a list row" guidance's lower bound. */
+.list {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+}
+
+/* Home's Tonight row only — the single most prominent thing on the
+   dashboard earns a slightly larger 64px thumbnail (DESIGN_PHOTOS.md §5's
+   own note: "prominence is position and weight", never past what
+   recognition needs). */
+.listLg {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+}
+
+/* Recipe detail inset (`.rphoto`) — a CONTAINED inset, never a hero: capped
+   320px, 4:3. Only ever rendered when a photo actually exists (RecipeDetail
+   renders no slot at all otherwise — mock-responsive.html's own "no photo,
+   no inset" note), so this size never shows the empty/loading states in
+   practice, but keeps them for completeness/consistency with every other
+   size here. */
+.detail {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-md);
+}
+
+/* Step image (`.rstepimg`) — capped 240px, smaller still: a clarifying
+   detail, not a feature photo. */
+.step {
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+}
