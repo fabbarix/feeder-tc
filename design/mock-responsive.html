@@ -192,11 +192,39 @@ h2{font:400 clamp(24px,3.2vw,33px)/1.15 var(--display);font-variation-settings:"
 
 /* recipes / ingredients grids */
 .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:11px}
-.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:13px;cursor:pointer;transition:border-color 180ms var(--ease),transform 180ms var(--ease)}
+.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;cursor:pointer;transition:border-color 180ms var(--ease),transform 180ms var(--ease)}
 .rcard:hover{border-color:var(--accent-line);transform:translateY(-2px)}
+.rcard-body{padding:13px}
 .rcard h4{font:500 15.5px/1.2 var(--ui);margin:0 0 5px}
 .rcard .rmeta{font:400 12px/1.3 var(--ui);color:var(--text-faint);display:flex;gap:9px;flex-wrap:wrap}
-.rcard .rtags{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap}
+.rcard .rtags{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap;align-items:center}
+.tagpill.more{background:transparent;color:var(--text-faint)}
+
+/* recipe media — the grid strip (.rcard-media, 2:1) and the detail hero
+   (.rhero, 16:9) share one base (.media) and three states: an actual photo,
+   a calm "no photo yet" placeholder, and a fetch-in-flight skeleton. See
+   the #recipes note for why the placeholder is a first-class state, not a
+   grey box, and why the grid always reserves this space while the detail
+   view does not. */
+.media{position:relative;overflow:hidden;background:var(--surface-2)}
+.media img{width:100%;height:100%;object-fit:cover;display:block}
+.media.empty{display:grid;place-items:center;color:var(--text-faint)}
+.media.empty svg{stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.6}
+.media.loading{background:linear-gradient(100deg,var(--surface-2) 30%,var(--line-soft) 45%,var(--surface-2) 60%);background-size:220% 100%;animation:shimmer 1.4s ease-in-out infinite}
+.media.photo{background:linear-gradient(135deg,oklch(0.64 0.09 48),oklch(0.5 0.1 24))}
+@keyframes shimmer{0%{background-position:120% 0}100%{background-position:-20% 0}}
+.rcard-media{aspect-ratio:2/1}
+.rcard-media.empty svg{width:22px;height:22px}
+.rhero{aspect-ratio:16/9;border-radius:var(--r-md);margin-bottom:14px}
+.rhero.empty svg{width:34px;height:34px}
+
+/* editor: add / replace / remove */
+.photo-add{aspect-ratio:2.3/1;border:1.5px dashed var(--line);border-radius:var(--r-sm);background:transparent;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-faint);cursor:pointer;transition:border-color 180ms var(--ease),color 180ms var(--ease)}
+.photo-add:hover{border-color:var(--accent-line);color:var(--accent)}
+.photo-add svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.photo-add span{font:600 12px/1 var(--ui)}
+.photo-filled{border-radius:var(--r-sm);aspect-ratio:2.3/1}
+.photo-actions{display:flex;gap:7px;margin-top:9px}
 .tagpill{font:600 9.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:5px;background:var(--surface-2);color:var(--text-faint)}
 .filters{display:flex;gap:6px;flex-wrap:wrap;padding:0 2px 12px}
 .fchip{font:500 12.5px/1 var(--ui);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-dim);cursor:pointer;transition:all 180ms var(--ease)}
@@ -528,10 +556,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <button class="fchip" aria-pressed="false">Bought</button>
           </div>
           <div class="rgrid">
-            <div class="rcard"><h4>Chili</h4><div class="rmeta"><span>25 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
-            <div class="rcard"><h4>Carbonara</h4><div class="rmeta"><span>20 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
-            <div class="rcard"><h4>Store lasagna</h4><div class="rmeta"><span>50 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span></div></div>
-            <div class="rcard"><h4>Tomato salad</h4><div class="rmeta"><span>10 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Lunch</span></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>25 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span><span class="tagpill more">+1</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Carbonara</h4><div class="rmeta"><span>20 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media loading" aria-label="Photo loading"></div><div class="rcard-body"><h4>Store lasagna</h4><div class="rmeta"><span>50 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Tomato salad</h4><div class="rmeta"><span>10 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Lunch</span></div></div></div>
           </div>
         </div>
         <nav class="tabs">
@@ -546,7 +574,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
       <p class="tier-note">Same 900px-wide reflow the desktop frame below shows, just narrower — 4 columns instead
-        of 2, and the "Staple" tag wraps onto its own line instead of clipping mid-word.</p>
+        of 2, and the "Staple" tag wraps onto its own line instead of clipping mid-word. Photo, no-photo and
+        loading states are all visible in this one row — see the note below the grid.</p>
       <div class="tier-frame"><div class="tablet">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes</div></div>
         <div class="dt-top">
@@ -563,10 +592,21 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <button class="fchip">Staples</button><button class="fchip">Bought</button><button class="fchip">Retired</button>
           </div>
           <div class="rgrid">
-            <div class="rcard"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
-            <div class="rcard"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
-            <div class="rcard"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
-            <div class="rcard"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media loading" aria-label="Photo loading"></div><div class="rcard-body"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div></div>
+          </div>
+          <div class="note" style="margin-top:16px">
+            <strong>Most recipes will not have a photo — the placeholder is designed for that, not as a
+            fallback.</strong> Four cards, three states: <b>Chili</b> and <b>Roast chicken</b> have a saved photo;
+            <b>Carbonara</b> never had one and shows a calm cooking-pot glyph on a neutral panel — the same
+            <code>--surface-2</code> tone used everywhere else nothing is wrong, never an accent or warning colour,
+            because a missing photo isn't an exception, it's the default; <b>Store lasagna</b>'s photo exists but
+            hasn't arrived yet (see the loading note below). Every card reserves the identical 2:1 box regardless
+            of state, so a grid that's mostly text-only still lines up edge to edge — nothing here depends on which
+            cards happen to have a photo. Chili's third tag also demonstrates the cap: past two tags, the row shows
+            <code>+N</code> rather than wrapping to a third line and making that one card taller than its neighbours.
           </div>
         </div>
       </div></div>
@@ -589,17 +629,35 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <button class="fchip">Staples</button><button class="fchip">Bought</button><button class="fchip">Retired</button>
           </div>
           <div class="rgrid">
-            <div class="rcard"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
-            <div class="rcard"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
-            <div class="rcard"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div>
-            <div class="rcard"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div>
-            <div class="rcard"><h4>Tomato salad</h4><div class="rmeta"><span>10 prep</span><span>0 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Lunch</span></div></div>
-            <div class="rcard"><h4>Fish pie</h4><div class="rmeta"><span>25 prep</span><span>40 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media loading" aria-label="Photo loading"></div><div class="rcard-body"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Tomato salad</h4><div class="rmeta"><span>10 prep</span><span>0 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Lunch</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Fish pie</h4><div class="rmeta"><span>25 prep</span><span>40 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div></div>
           </div>
         </div>
       </div></div>
     </div>
 
+  </div>
+  <div class="note">
+    <strong>Storage and loading, per <code>DESIGN_PRODUCTS.md</code> §5 — reused, not reinvented.</strong> A photo
+    is a 512px WebP capped to a 32KB byte budget (encoder steps quality 85→35 at 512px, then downscales to 448 →
+    384 → 320px if it still doesn't fit, same ladder already settled for product photos), because a Google Sheets
+    cell holds 50,000 characters and base64 inflation puts the real ceiling at ~36.6KB — a hard limit, not a
+    preference, so there's no case for a bigger budget just because this hero renders larger on the detail page
+    than a product thumbnail does. Photos live in their own <code>RecipePhotos</code> sheet, same reasoning as
+    <code>ProductPhotos</code>: <code>readAll()</code> pulls a whole sheet, and a photo column on the Recipes sheet
+    itself would drag all 18 images down the wire just to list recipes. <b>The grid never fetches a photo it isn't
+    showing.</b> Recipes render immediately from the text-only list; a card whose recipe has a photo shows
+    <code>Skeleton</code> in the media box until that one photo is fetched — lazily, only once the card is on
+    screen — then crossfades in (opacity, 220ms, the kit's own State-tier motion). A card whose recipe has no photo
+    never issues a fetch at all. One stored resolution serves both the ~200px grid card and the larger detail hero;
+    generating a second "thumbnail" size would mean a second sheet column for a cosmetic gain that isn't worth the
+    contract complexity. <em>Dependency: this assumes the Recipes sheet carries a cheap <code>hasPhoto</code>
+    signal so the list can decide skeleton-vs-placeholder without touching <code>RecipePhotos</code> at all — flagged
+    for the coordinator's contract change, not decided here.</em>
   </div>
   <div class="note">
     <strong>The tag clip's actual cause.</strong> <code>recipes.module.css</code>'s <code>.tagRow</code> carries
@@ -730,6 +788,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
       <div class="tier-frame"><div class="phone">
         <div class="p-head"><span class="p-title">Chili</span><span class="p-meta">Staple</span></div>
         <div class="p-body">
+          <div class="media rhero photo"></div>
           <div style="display:flex;gap:7px;margin-bottom:13px"><span class="tagpill">Dinner</span><span class="tagpill">15 prep</span><span class="tagpill">25 cook</span></div>
           <span class="field-label">Household flag</span>
           <div class="seg" style="width:100%;margin-bottom:14px"><button aria-pressed="true" style="flex:1">Staple</button><button aria-pressed="false" style="flex:1">Rotation</button><button aria-pressed="false" style="flex:1">Retired</button></div>
@@ -749,7 +808,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
       <p class="tier-note">Single column, capped to a 680px reading measure — ingredients and method are prose-like
-        content, so they get the same treatment §13 already mandates for text.</p>
+        content, so they get the same treatment §13 already mandates for text. The hero sits above that measure,
+        full width of the tablet frame, since a photo isn't prose and benefits from the extra room.</p>
       <div class="tier-frame"><div class="tablet">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/chili</div></div>
         <div class="dt-top">
@@ -760,6 +820,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         <div class="dt-body">
           <div class="dt-head"><span class="dt-h1">Chili</span><button class="btn sm">Mark cooked</button></div>
           <p class="dt-sub">Cooked 3 times · last on 4 August · 15 min prep · 25 min cook</p>
+          <div class="media rhero photo"></div>
           <div class="measure" style="display:grid;gap:16px">
             <div class="card"><div class="card-head">Ingredients · scaled to 8 servings</div><div class="card-pad-lg">
               <div class="ilist">
@@ -800,6 +861,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         <div class="dt-body">
           <div class="dt-head"><span class="dt-h1">Chili</span><button class="btn sm">Mark cooked</button></div>
           <p class="dt-sub">Cooked 3 times · last on 4 August · 15 min prep · 25 min cook</p>
+          <div class="media rhero photo"></div>
           <div class="dt-cols">
             <div style="display:grid;gap:16px">
               <div class="card"><div class="card-head">Ingredients · scaled to 8 servings</div><div class="card-pad-lg">
@@ -834,6 +896,15 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
       </div></div>
     </div>
 
+  </div>
+  <div class="note">
+    <strong>The detail view doesn't reserve hero space when there's no photo — the grid always does.</strong>
+    Different rule, same reasoning as the grid's placeholder, argued from what each screen actually needs: a card
+    grid has neighbours to line up against, so every card claims the same 2:1 box whether or not a photo fills it.
+    A single recipe page has no row to stay level with — if Chili had no photo, this page would simply start at the
+    tag row, exactly as it does today, rather than opening on an empty glyph panel that offers nothing to a reader
+    who is looking at a recipe, not editing one. The "add a photo" affordance belongs on the editor (next section),
+    not as a dead placeholder on a page whose job is to be read.
   </div>
 </section>
 
@@ -966,6 +1037,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         <div class="p-body">
           <span class="field-label">Name</span>
           <div class="search" style="margin-bottom:14px;max-width:none"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+          <span class="field-label">Photo</span>
+          <div style="margin-bottom:14px"><button class="photo-add" type="button"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add a photo</span></button></div>
           <span class="field-label">Kind</span>
           <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
           <span class="field-label">Meal tags</span>
@@ -992,6 +1065,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <div class="card"><div class="card-head">Identity</div><div class="card-pad-lg">
               <span class="field-label">Name</span>
               <div class="search" style="margin:0 0 14px;max-width:none"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+              <span class="field-label">Photo</span>
+              <div style="margin-bottom:14px"><button class="photo-add" type="button"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add a photo</span></button></div>
               <span class="field-label">Meal tags</span>
               <div class="relrow" style="margin:0"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
             </div></div>
@@ -1035,6 +1110,11 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               <div class="card"><div class="card-head">Identity</div><div class="card-pad-lg">
                 <span class="field-label">Name</span>
                 <div class="search" style="margin:0 0 14px;max-width:none"><span style="color:var(--text)">Sam's Stuffed Peppers</span></div>
+                <span class="field-label">Photo</span>
+                <div style="margin-bottom:14px">
+                  <div class="media photo-filled photo"></div>
+                  <div class="photo-actions"><button class="btn ghost sm">Replace photo</button><button class="btn ghost sm" style="color:var(--crit)">Remove</button></div>
+                </div>
                 <span class="field-label">Meal tags</span>
                 <div class="relrow" style="margin:0"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
               </div></div>
@@ -1068,6 +1148,18 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
       </div></div>
     </div>
 
+  </div>
+  <div class="note">
+    <strong>Add, replace, remove — three states, always visible, never hover-only.</strong> Empty state (phone,
+    tablet) is a dashed-border tap target — the same idiom already used for "+ add" slot chips in Settings and the
+    empty Plan slot, so a household that's never seen this control before still recognises it as "add something
+    here." Once a photo exists (desktop), <b>Replace</b> and <b>Remove</b> sit below the thumbnail as ordinary
+    buttons, not a hover overlay — Plan's reroll/pin icons already established that hover-only controls fail on
+    touch, and an iPad in the tablet tier is touch-first. The Photo field sits in the Identity card, right after
+    Name and before Meal tags: identity is what a recipe is called, what it looks like, and how it's tagged, and a
+    photo belongs with the other two rather than sharing a card with prep-time steppers. Not shown: the crop step
+    between picking a file and this state — that's the encoder's 512px/32KB budget being enforced, and it's a
+    behavioural detail for whoever builds the upload flow, not a layout one.
   </div>
 </section>
 
