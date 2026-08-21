@@ -1,0 +1,9 @@
+/* Neutral, not accent-coloured (UI_DESIGN.md §13 "only exceptions get
+   colour") — a sparkline is a shape cue, not a warning/success signal, so it
+   stays the same muted tone regardless of whether the series is rising or
+   falling. The adjacent trend text is what carries direction. */
+.root {
+  display: block;
+  color: var(--text-muted);
+  flex: none;
+}
