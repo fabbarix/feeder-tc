@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import {
   ConfirmDialog,
@@ -232,6 +232,14 @@ export function PantryItem() {
               </p>
             </div>
             <div className={detailStyles.headActions}>
+              {/* M6 (DESIGN_PRODUCTS.md §1.4) — the price-history view has no
+                  nav entry of its own (it isn't a primary-nav section), so
+                  it's reached from the ingredient's own page, same as the
+                  scan route's known-product flow links to the product-level
+                  page (Scan.tsx). */}
+              <Link to={`/products/prices/ingredient/${ingredient.id}`} className={detailStyles.editLink}>
+                Price history
+              </Link>
               <button type="button" className={styles.actionButton} onClick={openAddLotDialog}>
                 Add a lot
               </button>
