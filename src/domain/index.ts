@@ -21,3 +21,4 @@ export { computeNeeds } from "./shopping-needs.ts";
 export { allocateShoppingList } from "./shopping-allocate.ts";
 export { checkOffShoppingItem } from "./shopping-checkoff.ts";
 export { computeShoppingList, type ShoppingEngineInputs } from "./shopping.ts";
+export { buildPriceObservation, type BuildPriceObservationInput } from "./price-observation.ts";

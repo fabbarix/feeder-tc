@@ -70,6 +70,15 @@ const Pantry = lazy(() => import("./routes/Pantry.tsx").then((m) => ({ default: 
 const PantryItem = lazy(() => import("./routes/PantryItem.tsx").then((m) => ({ default: m.PantryItem })));
 const Plan = lazy(() => import("./routes/Plan.tsx").then((m) => ({ default: m.Plan })));
 const Settings = lazy(() => import("./routes/Settings.tsx").then((m) => ({ default: m.Settings })));
+// M6 (DESIGN_PRODUCTS.md §1): the scanner + product editor. Lazy for the same
+// reason as every route below, PLUS a harder requirement — its own decoder
+// (src/scan/useBarcodeScanner.ts) must lazily `import()` a WASM fallback
+// (src/scan/wasm-decoder.ts) only when BarcodeDetector is absent, and that
+// fallback must never even be a candidate for the INITIAL chunk. Keeping the
+// whole Scan route out of the eager shell bundle is the first of two layers
+// of code-splitting that guarantees that (see wasm-decoder.ts's own header
+// for the second).
+const Scan = lazy(() => import("./routes/scan/Scan.tsx").then((m) => ({ default: m.Scan })));
 
 /** Suspense fallback for a lazily-loaded route — matches the multi-`Skeleton` loading shape every route's own data-loading state already uses (e.g. Shopping.tsx, Plan.tsx). */
 function RouteFallback() {
@@ -377,6 +386,7 @@ const router = createBrowserRouter(
         { path: "pantry/:ingredientId", element: lazyRoute(<PantryItem />) },
         { path: "plan", element: lazyRoute(<Plan />) },
         { path: "settings", element: lazyRoute(<Settings />) },
+        { path: "scan", element: lazyRoute(<Scan />) },
       ],
     },
   ],
