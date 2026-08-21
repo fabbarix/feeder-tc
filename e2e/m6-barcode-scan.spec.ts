@@ -128,7 +128,7 @@ async function readPriceObservations(page: Page): Promise<readonly { barcode?: s
 }
 
 /**
- * Reads the raw `InventoryEvents` `purchase` rows for one ingredient, plus
+ * Reads the `InventoryEvents` `purchase` rows for one ingredient, plus
  * every `ShoppingItems` row for it — used by the "scan the same barcode
  * twice" test to prove there is no double-decrement/double-count: two
  * scans must produce two independent (additive-only, invariant 1) purchase
@@ -136,6 +136,19 @@ async function readPriceObservations(page: Page): Promise<readonly { barcode?: s
  * (insert-or-replace by key, same as every other `upsert` in this
  * codebase — a second check-off overwrites the first's `checked`/
  * `boughtQuantity`, it does not add a second row).
+ *
+ * IMPORTANT — this reads the raw workbook directly, bypassing the app's own
+ * outbox entirely. `recordPurchase` (useScanFlow.ts) deliberately fires its
+ * `flushNow()` call WITHOUT awaiting it (invariant 9 / UI_DESIGN.md §8: the
+ * UI returns to the scanning screen immediately, "pending sync" is normal,
+ * not an error state to block on) — so a call to this helper made the
+ * instant the manual-entry field reappears can race the still-in-flight
+ * flush for the most recent scan. The caller of this helper is responsible
+ * for waiting for eventual consistency (`expect.poll`), never asserting on
+ * its result immediately — see the "scanning the same known barcode twice"
+ * test for exactly that pattern. (Diagnosed via temporary instrumentation
+ * during the PR #32/#33 double-scan investigation: the raw sheet always had
+ * both rows; only this read's SNAPSHOT, taken too early, ever missed one.)
  */
 async function readRiceWorkbookState(
   page: Page,
@@ -354,6 +367,22 @@ test("Scan: scanning the same known barcode twice credits the list once and adds
   await expect(page.getByRole("heading", { name: /add riso gallo arborio 1 kg to pantry/i })).toBeVisible();
   await page.getByRole("button", { name: "Add to pantry" }).click();
   await expect(page.getByLabel("Enter barcode manually")).toBeVisible();
+
+  // `recordPurchase` fires its flush FIRE-AND-FORGET (UI_DESIGN.md §8 —
+  // "pending" is a normal state, the UI does not block on it), so the
+  // manual-entry field reappearing above only proves the LOCAL outbox
+  // write landed, not that it has reached the workbook yet. Asserting on
+  // the raw workbook immediately after would race that in-flight flush —
+  // diagnosed via temporary instrumentation during this investigation: the
+  // raw sheet always ends up with both rows, just not always by the
+  // instant the UI transition completes. `expect.poll` waits for the real,
+  // eventually-consistent outcome instead of assuming it is already there.
+  await expect
+    .poll(async () => (await readRiceWorkbookState(page)).purchaseCount, {
+      message: "both purchase events should eventually reach InventoryEvents",
+      timeout: 5000,
+    })
+    .toBe(2);
 
   const state = await readRiceWorkbookState(page);
   // Two scans -> two independent, additive purchase events (two lots) —

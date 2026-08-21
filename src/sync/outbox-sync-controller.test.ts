@@ -119,6 +119,73 @@ describe("createOutboxSyncController", () => {
     expect(await outbox.pending()).toEqual([]);
   });
 
+  it("an event enqueued WHILE a flush is in-flight is not stranded — a coalesced rerun still picks it up", async () => {
+    // Regression: M6 barcode scan (PR #32) scans the same barcode twice in
+    // quick succession, calling flushNow() after each. flushOutbox()
+    // snapshots outbox.pending() ONCE at the top (flush.ts) and never
+    // re-reads it — so an event enqueued after that snapshot was taken
+    // (evt-2 below) is invisible to the CURRENTLY in-flight flush. The old
+    // `flushing` guard then silently swallowed the second flushNow() call
+    // (returning {flushed: [], remaining} without ever re-running
+    // flushOutbox), so evt-2 sat in the outbox, unflushed, with nothing
+    // left to trigger another attempt — reproduced 5/10 times on real
+    // timing in e2e/m6-barcode-scan.spec.ts's double-scan test.
+    const outbox = createFakeOutbox();
+    await outbox.enqueue(useEvent("evt-1"));
+    const workbookStore = createFakeWorkbookStore();
+    const connectivity = createManualConnectivityMonitor(true);
+
+    const gate = deferred<void>();
+    let appendCalls = 0;
+    const realAppend = workbookStore.inventoryEvents.append.bind(workbookStore.inventoryEvents);
+    const gatedStore: WorkbookStore = {
+      ...workbookStore,
+      inventoryEvents: {
+        ...workbookStore.inventoryEvents,
+        append: async (event) => {
+          appendCalls += 1;
+          await gate.promise;
+          await realAppend(event);
+        },
+      },
+    };
+
+    const results: number[] = [];
+    const controller = createOutboxSyncController({
+      outbox,
+      workbookStore: gatedStore,
+      connectivity,
+      onResult: (r) => results.push(r.remaining),
+    });
+
+    // Start flushing evt-1 — this call reads outbox.pending() == [evt-1] and
+    // is now blocked on `gate` inside the (single) append.
+    const first = controller.flushNow();
+
+    // While that flush is still in-flight, a second write arrives and
+    // enqueues evt-2, then asks to flush it — exactly the scan route's
+    // "confirm purchase -> enqueue -> flushNow()" sequence, called twice in
+    // a row.
+    await outbox.enqueue(useEvent("evt-2"));
+    const second = controller.flushNow();
+
+    gate.resolve();
+    await Promise.all([first, second]);
+
+    // The coalesced rerun (triggered by the second flushNow() call arriving
+    // mid-flush) must still process evt-2 once the first flush completes —
+    // it must never be silently stranded in the outbox.
+    await vi.waitFor(async () => {
+      expect(await outbox.pending()).toEqual([]);
+    });
+    expect(appendCalls).toBe(2);
+    const flushedEvents = await workbookStore.inventoryEvents.readFrom(0);
+    expect(flushedEvents.rows.map((r) => r.id)).toEqual([makeEventId("evt-1"), makeEventId("evt-2")]);
+    // Two real passes: the original flush (evt-1) and the coalesced rerun
+    // (evt-2) — onResult must fire for both, not just the first.
+    expect(results.length).toBeGreaterThanOrEqual(2);
+  });
+
   it("onResult is invoked with the flush outcome", async () => {
     const outbox = createFakeOutbox();
     const workbookStore = createFakeWorkbookStore();
