@@ -4,7 +4,7 @@ Coordinator-maintained. One line per work package. Updated at every dispatch and
 
 **States:** `pending` · `in-progress` · `in-review` · `merged` · `blocked` · `parked`
 
-Last updated: 2026-08-20
+Last updated: 2026-08-21
 
 ## Stage 0 — Foundations (sequential)
 
@@ -36,10 +36,46 @@ Last updated: 2026-08-20
 | WP | Title | State | Branch | Notes |
 |----|-------|-------|--------|-------|
 | WP-20 | M1 Catalog + Recipes UI | **merged** | `wp-20` (PR #18) | Real auth wiring, catalog + recipe CRUD, header rebuild. |
-| WP-21 | M2 Pantry UI | in-progress | `wp-21` | Dispatched, E2E_PORT=5510. |
-| WP-22 | M3 Planner UI | pending | — | needs WP-13, WP-21 |
-| WP-23 | M4 Shopping UI | pending | — | needs WP-14, WP-22 |
-| WP-24 | M5 PWA + offline | in-progress | `wp24-sw` (PR #16, **merged**), `wp24-ui` | SW merged. UI half (banner, outbox status, update prompt) dispatched, E2E_PORT=5520. |
+| WP-21 | M2 Pantry UI | **merged** | `wp-21` (PR #22) | Merged 2026-08-20. Structurally reworked later by WP-VC4. |
+| WP-22 | M3 Planner UI | **merged** | `wp-22` (PR #26) | Merged 2026-08-21. Week grid, reroll/pin/manual pick/scale, mark-cooked. |
+| WP-23 | M4 Shopping UI | **merged** | `wp-23` (PR #24) | Merged 2026-08-20. |
+| WP-24 | M5 PWA + offline | **merged** | `wp24-sw` (PR #16), `wp24-ui` (PR #20) | Both halves merged 2026-08-20. |
+
+### Visual conformance (unplanned — added after the mock landed)
+
+| WP | Title | State | Branch | Notes |
+|----|-------|-------|--------|-------|
+| WP-VC | Match the approved mock | **merged** | `wp-vc` (PR #23) | Merged 2026-08-20. |
+| WP-VC2 | Home dashboard + read-only recipe view | **merged** | `wp-vc2` (PR #25) | Merged 2026-08-21. |
+| WP-VC3 | Pill SegmentedControl, shopping categories, route code-splitting | **merged** | `wp-vc3` (PR #27) | Merged 2026-08-21. |
+| WP-VC4 | Pantry aggregation, real tabs, recipe editor cards | **merged** | `wp-vc4` (PR #28) | Merged 2026-08-21. Fixed the Pantry IA that shipped structurally wrong. |
+
+## In flight
+
+| Package | State | Branch / PR | Notes |
+|---------|-------|-------------|-------|
+| WP-RESPONSIVE (design only) | **merged** | `wp-responsive` (PR #29) | **Owner approved and merged 2026-08-21** (squash, `5ef96ba`). Mock only — no app code, no production behaviour change. Coordinator-verified by grep, not by agent summary: 11 `<h2>` sections (10 screens + the tiers explainer), 3 tiers, week nav, month view, Leftovers flows, `[img][info]` thumbnails. The two handover "loose ends" were **false alarms** — all 9 `hero` hits are prose explaining its removal plus an unrelated `.hero-stat` class, and the single `>Show<` is the changelog line documenting the rename. `design/mock-responsive.html` is now the target on `main` for every implementation package. |
+| WP-PHOTO | **approved, merge BLOCKED** | `wp-photos` (PR #30) | Delivered 2026-08-21. CI green on `b8fd55d` — both checks **PASSED** (`SUCCESS`), re-verified after the coordinator's changelog commit. 940 tests / 162 E2E. Agent correctly did **not** merge its own PR. Owner approved the contract deviation and the merge; **the squash-merge was refused by the environment's permission classifier**, not by any review finding. Nothing is wrong with the branch — it needs the owner to merge it, or to grant the permission. Coordinator verification below. |
+
+### PR #30 — coordinator verification (measured, not taken from the agent's summary)
+
+**Confirmed good:**
+- **Legacy `RecipeStep` rows decode with zero migration.** Verified by reading the codec, not the claim: `decodeRecipeStep` reads `description` at **column index 2**, exactly where the old required `text` cell sat, so an old 3-cell row `[recipe_id, step_number, text]` decodes unchanged. A missing `id` cell is minted deterministically as `legacy:${recipeId}:${stepNumber}`, so repeated reads and separate clients agree on which step a `Photo` belongs to.
+- **`ProductPhotos` is gone from live code.** Grepped `src/`, `features/`, `e2e/`: every surviving mention is a comment or doc, no call sites.
+
+**Resolved at review (owner decisions, 2026-08-21):**
+- **Owner approved the non-additive deviation**, and chose to **keep** the
+  `text` → `description` rename rather than carry two names for the same
+  always-visible instruction line. Item 1 below stands as the record of *what*
+  was bent and why, not as an open question.
+- **Item 2 fixed by the coordinator** on `wp-photos` (`b8fd55d`) — the WP-PHOTO
+  entry is now in `src/domain/README.md`, and the M6-A entry above it carries a
+  "superseded in part" note so it no longer reads as current.
+
+**Findings, kept as the permanent record of what this change did:**
+1. **This is NOT additive-only — the invariant is genuinely bent, by design.** `WorkbookSheetName` loses `"ProductPhotos"`; `RecipeStep.text` is *renamed* to `description`; `RecipeStep.id` is added as **required**; `ProductPhoto`, `MAX_PRODUCT_PHOTO_DATA_URL_LENGTH` and `WorkbookStore.productPhotos` are removed. The *rows* still decode, but the *types* are reshaped. The one-`Photos`-sheet consolidation in `DESIGN_PHOTOS.md` makes some of this unavoidable, and the agent flagged it openly rather than hiding it — but the frozen-contract rule says additive-only, so this needs the owner to say the design intent overrides the letter of the invariant. **The `text` → `description` rename is the piece least forced by the design** and could be kept additive if preferred.
+2. ~~**The contract changelog was not updated.**~~ **Fixed before merge** (`b8fd55d`). `src/domain/README.md` is where WP-02 and M6-A recorded their contract changes; WP-PHOTO shipped without an entry, and the M6-A entry still described the now-removed `ProductPhotos` member and `productPhotos` namespace as current. Both corrected — it is the one file whose job is to prevent exactly this drift.
+3. **Orphaned tab.** A pre-existing workbook keeps its now-unreferenced `ProductPhotos` tab. Benign — no UI ever wrote to it (M6 barcode UI is unbuilt) — but it will sit there unread.
 
 ## Stage 3 — Hardening & release
 
@@ -80,16 +116,38 @@ Last updated: 2026-08-20
 
 ## Proposed scope — awaiting owner decisions
 
+- **Purchasability · pack sizes, whole units and bought meals** — raised by the owner
+  2026-08-21 from a live defect (`0.5 Store Bought Lasagna`), designed in
+  `DESIGN_PURCHASING.md`. **Proposed, not approved.**
+  - **Wider than the reported symptom.** There is no rounding anywhere in the
+    shopping engine (the only `Math.*` call is a `Math.min` for FIFO), and **26 of
+    the 104 seeded ingredients are `unit: "piece"`** — so `0.5 Onion` is live today
+    for a quarter of the catalogue, not just for bought meals.
+  - Root cause: `computeNeeds` (`shopping-needs.ts:88`) scales by a raw float and
+    nothing downstream converts a requirement into something purchasable.
+  - Model: separate **need** (stays fractional — rounding it would corrupt pantry
+    depletion) from **buy** (never fractional); surplus becomes stock on check-off,
+    which `DESIGN.md` §5 already specifies. Round **once**, after aggregation *and*
+    after FIFO stock subtraction.
+  - Fixes the whole seeded catalogue with **zero data entry** by deriving defaults
+    from the existing `unit` field; pack sizes are progressive enhancement.
+  - Bought meals need *recipe-level* whole-unit scaling, not just a whole-unit
+    ingredient — and that feeds the already-approved Leftovers flows from PR #29.
+  - Contract change would be **additive-only**, unlike WP-PHOTO. No new sheet.
+  - **Open: §9.1 (tomatoes — one canonical unit per ingredient forces a choice)**
+    and whether to mock the screens before dispatching. Both still unanswered.
+
 - **M6 · Products, barcodes and prices** — specified by the owner 2026-08-20, captured
-  in `DESIGN_PRODUCTS.md`. **Not buildable yet:** three decisions open, two of which
-  reverse settled decisions.
-  1. **Units** — the request asks for `kg`/`oz`/`lb`/`number`, but invariant 3 bans
-     conversion and `Unit` is deliberately `g|ml|piece|portion`. Proposed: entry-time
-     conversion only, canonical units in the workbook. Needs explicit approval.
-  2. **Cost tracking** — `DESIGN.md` §6 lists it as a v1 non-goal. Price history
-     reverses that; `DESIGN.md` must be amended, and currency named.
-  3. **Photos** — cannot live in a cell (invariant 6). Proposed: Drive file id, using
-     the `drive.file` scope we already hold. Or defer photos.
+  in `DESIGN_PRODUCTS.md`. **All three blocking decisions are now settled** (2026-08-21);
+  M6 is buildable, scheduled after WP-31.
+  1. **Units** — ✅ approved: entry-time conversion only, canonical units stored,
+     display converted. `src/domain/units.ts` is the sole sanctioned module
+     (lint-enforced). Invariant 3 amended accordingly.
+  2. **Cost tracking** — ✅ approved and **in scope**, reversing the `DESIGN.md` §6
+     non-goal. Single currency, set in Settings, default `$`.
+  3. **Photos** — ✅ settled in `DESIGN_PHOTOS.md`: not Drive file ids but base64 in a
+     cell, 512 px WebP within a 32 KB budget, **one** `Photos` sheet, lazy per-visible
+     fetch, no heroes, `[img][info]` thumbnails. Being implemented now as WP-PHOTO.
 - **M7 · Shop detection** — explicitly deferred by the owner. `PriceObservations.source`
   is specified now so adding shops later needs no rewrite of price history.
 
@@ -104,8 +162,11 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 | 2026-08-20 | WP-03 | Merged (PRs #2, #4, squash). Owner-requested path routing + custom domain, taken before the Stage 1 fan-out because it was a config change then and would have touched every UI package later. Found and fixed a passing-but-wrong E2E test: Playwright `goto()` with a leading slash resolves against the origin and dropped the base path. Site live at `https://feeder.torchetti.us`. |
 | 2026-08-20 | Stage 1 | **All 7 packages merged**, plus WP-11. Integration required resolving one real conflict: five PRs had independently fixed the same latent `tsconfig.test.json` TS6307 gap two incompatible ways (three used a project reference needing `noEmit:false` + declaration emit; two added `"src"` to `include`). Took the include fix as canonical and reverted the other three. Also unioned three engine barrels in `src/domain/index.ts` and regenerated the lockfile via `npm install`. main green: 688 tests + 26 E2E. |
 | 2026-08-20 | — | **Stage 1 fan-out dispatched:** WP-10, 12, 13, 14, 15, 16, 17 in seven worktrees, each with its own `E2E_PORT` to keep concurrent Playwright runs from colliding on 5273. |
+| 2026-08-20/21 | Stage 2 | **All feature packages merged**: WP-21 (#22), WP-23 (#24), WP-22 (#26), WP-24 both halves (#16, #20). |
+| 2026-08-20/21 | WP-VC…VC4 | **Four unplanned visual-conformance passes merged** (#23, #25, #27, #28). Root cause worth remembering: WP-21's Pantry was built *before* the mock existed in the repo and "matches the mock" was self-reported from a screenshot — it shipped structurally wrong (one row per lot, no detail route) and VC4 had to rework it. Lesson now standing policy: require DOM structural diffs, not screenshots, and design the screen before dispatching it. |
+| 2026-08-21 | — | **Coordinator audit on handover.** Re-verified state by measurement rather than from the handover prose, and found four of its claims stale: (1) it reported two agents in flight — the design agent had already finished, leaving PR #29 as completed work awaiting the owner's gate; (2) both of PR #29's flagged "loose ends" were false alarms (see In flight); (3) the review Artifact was described as needing a republish but was **already current** — byte-parity confirmed against the live page, so nothing was published; (4) three known-debt items (LICENSE, `.env.local.example`, stale "nine" comments) were already resolved. Bundle figure corrected from 529/160 kB to a measured 634.56/194.66 kB. |
 
-## Routed contract changes — owner-requested 2026-08-21, pending design approval
+## Routed contract changes — owner-requested 2026-08-21, now in implementation
 
 - **`Recipe` gains an image**, and **`RecipeStep` gains a short description, a markdown
   detail body, a duration, and an image.** Requested directly by the owner while
@@ -118,6 +179,9 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
   Sequence: design approval → contract-change task → implementation. Photo storage
   reuses the settled rules in `DESIGN_PRODUCTS.md` §5 (50,000-char cell ≈ 36.6 KB,
   32 KB budget at 512 px WebP, own sheet, lazy per-item fetch).
+  **Status 2026-08-21:** design settled in `DESIGN_PHOTOS.md` — resolved to **one**
+  `Photos` sheet rather than the two speculated above — and dispatched as WP-PHOTO on
+  `wp-photos`, in progress. See In flight for the legacy-decode review gate.
 
 ## Superseded — previously unrouted proposals
 
@@ -137,29 +201,39 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 
 ## Known debt
 
-- **Stale sheet-count comments.** `WorkbookSheetName` has **twelve** members since
-  M6-A, but comments in `src/sheets/mocks/handlers.ts` (~lines 17, 120) and
-  `features/wp-11-workbook-bootstrap.steps.ts` (~86-88) still say "nine".
-  `bootstrap.ts` was corrected in PR #19. Cosmetic, but it misleads: grep for
-  "nine"/"twelve" when adding a sheet.
+- ~~**Stale sheet-count comments.**~~ **Resolved — verified 2026-08-21.**
+  `WorkbookSheetName` has twelve members. `features/wp-11-workbook-bootstrap.steps.ts`
+  no longer mentions "nine" at all, and the one remaining hit in
+  `src/sheets/mocks/handlers.ts:121` is a deliberate note explaining that the count is
+  *not* hardcoded. Nothing to fix. (WP-PHOTO will make it thirteen.)
+
+- ~~**No `LICENSE` file.**~~ **Resolved** — `LICENSE` present, `package.json` declares
+  `"license": "MIT"`.
+- ~~**No `.env.local.example`.**~~ **Resolved** — the file exists.
 
 - **The app white-screens if `VITE_GOOGLE_*` is unset.** WP-20's shell constructs the
   Google wiring at first render and `src/env.ts` throws on first read of a missing
   value, so a build without them renders nothing rather than showing a sign-in screen
   that does not need them until clicked. Production always supplies them; a fork that
   forgets gets a blank page instead of a useful error. WP-31 polish item.
-- **Bundle is 529 kB raw / 160 kB gzip**, past Vite's 500 kB warning. Wants route-level
-  code-splitting before release — the recipe editor and catalog need not be in the
-  initial chunk.
-
-- **No `LICENSE` file**, but `package.json` declares `"license": "ISC"`. The repo is
-  public, so it currently has no effective licence. Owner decision — ISC, MIT, or
-  none — then add the file or drop the field.
-- **No `.env.local.example`.** The README names the two variables directly instead,
-  but a template would be friendlier for a fork.
+- **Bundle: code-splitting landed in WP-VC3 but bought ~13%.** Measured on `main`
+  2026-08-21: initial load is `index` 323.49 kB (97.83 kB gzip) **plus** `components`
+  311.07 kB (96.83 kB gzip) = **634.56 kB raw / 194.66 kB gzip**, because the shared
+  kit chunk is `modulepreload`ed and therefore not actually deferred. The 17 route
+  chunks total only ~99.7 kB raw (~13.6%). Splitting routes was the easy half; the
+  remaining win is in `components`, not in more route boundaries. WP-31 item.
 
 - **TypeScript pinned to `^6.0.3`**, not current 7.x: `typescript-eslint@8.67` declares
   peer `<6.1.0`. Revisit as a dedicated dependency-bump task once the ecosystem
   catches up — must not drift in via a feature branch.
 - **Picker API key referrer allowlist still contains `http://localhost:5173/*`.**
   Needed for development; worth dropping from the production key at WP-31.
+
+- **WP-VC4 leftovers.** Three gaps carried out of PR #28: the pantry toolbar has two
+  buttons where the mock has one; multi-lot Open/Move/Spoil has no E2E coverage; and
+  the "Add a lot" dialog duplicates `AddLotForm` rather than reusing it. Fold into the
+  Photos-UI or responsive implementation package that next owns those routes.
+
+- **Stale worktree `/opt/mrwho/Projects/feeder-wt/wp-11`** (branch `wp-11`, merged as
+  PR #13). Safe to `git worktree remove` — but not while any descendant agent might
+  still be using it; the WP-PHOTO agent is live as of this writing.
