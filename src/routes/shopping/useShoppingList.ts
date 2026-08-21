@@ -49,6 +49,7 @@ import {
   computeNeeds,
   computeShoppingList,
   createApplyNewEvents,
+  withPurchaseOverride,
 } from "../../domain/index.ts";
 import type {
   ApplyNewEvents,
@@ -72,6 +73,7 @@ import type {
   Snapshot,
   StorageLocation,
 } from "../../domain/index.ts";
+
 import {
   createBrowserConnectivityMonitor,
   createLocalStorageOutbox,
@@ -136,6 +138,15 @@ export interface ShoppingListState {
   readonly retryFlush: () => void;
   readonly checkOff: (line: ShoppingListLine, input: CheckOffInput) => Promise<void>;
   readonly uncheck: (line: ShoppingListLine) => Promise<void>;
+  /**
+   * Persists (`override` given) or clears (`undefined`) this ingredient's
+   * `ShoppingItem.purchaseOverride` for the current range (§6 scenario 9).
+   * Deliberately independent of `checked` — adjusting the buy amount is not
+   * a check-off — and survives a plan recompute because it lives in the
+   * persisted `ShoppingItems` row, which a recompute never touches (see
+   * `lines`'s merge via `withPurchaseOverride`).
+   */
+  readonly setPurchaseOverride: (line: ShoppingListLine, override: Quantity | undefined) => Promise<void>;
 }
 
 const EMPTY_LOTS: readonly Lot[] = [];
@@ -293,9 +304,27 @@ export function useShoppingList(range: DateRange): ShoppingListState {
     [ingredients],
   );
 
+  // WP-PURCHASING (DESIGN_PURCHASING.md §6 scenario 9 / §7): a household's
+  // explicit buy-amount choice, keyed like `checkedByIngredient`, merged
+  // onto the freshly-computed line below rather than read by the (pure,
+  // I/O-free) engine itself. This is exactly what makes an override survive
+  // a plan recompute — it comes from a persisted row untouched by whatever
+  // changed `neededQuantity`, not from anything the recompute could discard.
+  const overrideByIngredient = useMemo(() => {
+    const map = new Map<IngredientId, Quantity>();
+    for (const item of shoppingItems) {
+      if (item.rangeStart === range.start && item.rangeEnd === range.end && item.purchaseOverride) {
+        map.set(item.ingredientId, item.purchaseOverride);
+      }
+    }
+    return map;
+  }, [shoppingItems, range]);
+
   const lines = useMemo<readonly ShoppingListLine[]>(() => {
     if (!settings) return [];
-    const computed = computeShoppingList({ range, planSlots, recipes, recipeIngredients, settings, lots });
+    const computed = computeShoppingList({ range, planSlots, recipes, recipeIngredients, settings, lots, ingredients }).map(
+      (line) => withPurchaseOverride(line, overrideByIngredient.get(line.ingredientId)),
+    );
     const computedKeys = new Set(computed.map(keyForLine));
     // Sticky lines (see the module doc comment): a just-checked-off line
     // that the engine no longer returns (now fully covered) stays visible,
@@ -305,7 +334,7 @@ export function useShoppingList(range: DateRange): ShoppingListState {
         line.rangeStart === range.start && line.rangeEnd === range.end && !computedKeys.has(keyForLine(line)),
     );
     return [...computed, ...sticky];
-  }, [range, planSlots, recipes, recipeIngredients, settings, lots, stickyLines]);
+  }, [range, planSlots, recipes, recipeIngredients, settings, lots, ingredients, overrideByIngredient, stickyLines]);
 
   const totalNeededIngredientCount = useMemo(() => {
     if (!settings) return 0;
@@ -376,9 +405,28 @@ export function useShoppingList(range: DateRange): ShoppingListState {
         neededQuantity: line.neededQuantity,
         checked: true,
         boughtQuantity: event.quantity,
+        ...(line.suggestedPurchase !== undefined ? { suggestedPurchase: line.suggestedPurchase } : {}),
+        ...(line.purchaseOverride !== undefined ? { purchaseOverride: line.purchaseOverride } : {}),
       });
     },
     [engine, clock, rng, showToast, persistShoppingItem],
+  );
+
+  const setPurchaseOverride = useCallback(
+    async (line: ShoppingListLine, override: Quantity | undefined): Promise<void> => {
+      const existing = checkedByIngredient.get(line.ingredientId);
+      await persistShoppingItem({
+        ingredientId: line.ingredientId,
+        rangeStart: line.rangeStart,
+        rangeEnd: line.rangeEnd,
+        neededQuantity: line.neededQuantity,
+        checked: existing?.checked ?? false,
+        ...(existing?.boughtQuantity !== undefined ? { boughtQuantity: existing.boughtQuantity } : {}),
+        ...(line.suggestedPurchase !== undefined ? { suggestedPurchase: line.suggestedPurchase } : {}),
+        ...(override !== undefined ? { purchaseOverride: override } : {}),
+      });
+    },
+    [checkedByIngredient, persistShoppingItem],
   );
 
   const uncheck = useCallback(
@@ -430,5 +478,6 @@ export function useShoppingList(range: DateRange): ShoppingListState {
     retryFlush,
     checkOff,
     uncheck,
+    setPurchaseOverride,
   };
 }

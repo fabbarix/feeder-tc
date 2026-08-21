@@ -31,6 +31,12 @@ describe("Ingredients codec — category column (WP-VC3)", () => {
       "default_location",
       "category",
       "has_photo",
+      "purchase_mode",
+      "pack_size_amount",
+      "pack_size_unit",
+      "round_to",
+      "grams_per_ml",
+      "grams_per_piece",
     ]);
   });
 
@@ -96,5 +102,54 @@ describe("Ingredients codec — has_photo column (WP-PHOTO)", () => {
       const ingredient: Ingredient = { ...BASE, hasPhoto };
       expect(decodeIngredient(encodeIngredient(ingredient))).toEqual(ingredient);
     }
+  });
+});
+
+describe("Ingredients codec — purchasability columns (WP-PURCHASING)", () => {
+  it("a legacy row with none of the new columns decodes every new field to undefined, not a thrown error", () => {
+    // Pre-WP-PURCHASING shape: eight cells (through has_photo), nothing
+    // beyond that because these columns didn't exist yet.
+    const legacyRow = ["tomato", "Tomato", "piece", 7, 2, "pantry", "produce", true];
+    const decoded = decodeIngredient(legacyRow);
+    expect(decoded.purchaseMode).toBeUndefined();
+    expect(decoded.packSize).toBeUndefined();
+    expect(decoded.roundTo).toBeUndefined();
+    expect(decoded.gramsPerMl).toBeUndefined();
+    expect(decoded.gramsPerPiece).toBeUndefined();
+    expect(decoded).toEqual({ ...BASE, category: "produce", hasPhoto: true });
+  });
+
+  it("encodes and decodes a whole-mode ingredient with a pack size — round trip is identity", () => {
+    const ingredient: Ingredient = {
+      ...BASE,
+      unit: "g",
+      purchaseMode: "whole",
+      packSize: { amount: 250, unit: "g" },
+    };
+    const row = encodeIngredient(ingredient);
+    expect(decodeIngredient(row)).toEqual(ingredient);
+  });
+
+  it("encodes and decodes a loose-mode ingredient with roundTo — round trip is identity", () => {
+    const ingredient: Ingredient = { ...BASE, unit: "g", purchaseMode: "loose", roundTo: 50 };
+    expect(decodeIngredient(encodeIngredient(ingredient))).toEqual(ingredient);
+  });
+
+  it("encodes and decodes gramsPerMl/gramsPerPiece — round trip is identity", () => {
+    const ingredient: Ingredient = { ...BASE, unit: "g", gramsPerMl: 0.5417, gramsPerPiece: 120 };
+    expect(decodeIngredient(encodeIngredient(ingredient))).toEqual(ingredient);
+  });
+
+  it("an unrecognised purchase_mode value decodes to undefined rather than throwing", () => {
+    const row = ["tomato", "Tomato", "piece", 7, 2, "pantry", "", "", "not-a-mode"];
+    expect(() => decodeIngredient(row)).not.toThrow();
+    expect(decodeIngredient(row).purchaseMode).toBeUndefined();
+  });
+
+  it("a pack_size cell with a unit mismatching the ingredient's own unit is dropped rather than trusted blindly", () => {
+    // pack_size_unit "ml" while the ingredient's canonical unit is "piece" —
+    // invariant 3's spirit (one canonical unit) extends to this column too.
+    const row = ["onion", "Onion", "piece", 30, 5, "pantry", "", "", "whole", 1, "ml"];
+    expect(decodeIngredient(row).packSize).toBeUndefined();
   });
 });

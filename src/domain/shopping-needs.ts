@@ -8,6 +8,7 @@
 import type { PlanSlot, Recipe, RecipeId, RecipeIngredient, Settings } from "./types.ts";
 import { makeQuantity } from "./types.ts";
 import { isOnOrAfter } from "./dates.ts";
+import { isIndivisible, scaleIndivisible } from "./purchasing.ts";
 import type { DateRange, ShoppingNeed } from "./shopping-types.ts";
 
 function withinRange(date: PlanSlot["date"], range: DateRange): boolean {
@@ -18,12 +19,24 @@ function withinRange(date: PlanSlot["date"], range: DateRange): boolean {
  * Scale factor for a slot's recipe: the per-slot `scaleServings` override
  * wins over `Settings.householdSize` (DESIGN.md §2 "Servings, scaling &
  * leftovers"); the recipe's own `baseServings` is the denominator.
+ *
+ * WP-PURCHASING (DESIGN_PURCHASING.md §4): for an indivisible recipe (a
+ * bought meal, or `indivisible: true`), the raw fractional factor is exactly
+ * the bug — a lasagna serving 4 scaled to a household of 2 must need ONE
+ * whole lasagna, not half of one. `scaleIndivisible`'s whole-unit count
+ * (never the raw `targetServings / baseServings`) is used as the factor
+ * instead, so the ingredient line for a bought meal's single product
+ * ingredient already comes out as a whole, purchasable amount before it
+ * ever reaches the shopping engine's general rounding stage.
  */
 function scaleFactor(recipe: Recipe, scaleServings: number | undefined, settings: Settings): number {
   if (recipe.baseServings <= 0) {
     throw new Error(`Recipe ${recipe.id} has non-positive baseServings (${recipe.baseServings})`);
   }
   const targetServings = scaleServings ?? settings.householdSize;
+  if (isIndivisible(recipe)) {
+    return scaleIndivisible(recipe, targetServings).units;
+  }
   return targetServings / recipe.baseServings;
 }
 

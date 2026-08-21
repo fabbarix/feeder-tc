@@ -101,6 +101,9 @@ const isoDateArb = fc.integer({ min: 0, max: 3650 }).map(isoDateAt);
 
 const CATEGORY_ARB = fc.constantFrom<IngredientCategory>(...INGREDIENT_CATEGORIES);
 
+// WP-PURCHASING — pack size shares the ingredient's OWN unit (decodeIngredient
+// drops a mismatch, see ingredients.test.ts), so it's generated from `unit`
+// rather than independently.
 const ingredientArb: fc.Arbitrary<Ingredient> = fc
   .record({
     id: idArb.map(makeIngredientId),
@@ -113,8 +116,22 @@ const ingredientArb: fc.Arbitrary<Ingredient> = fc
     // cell decodes back to undefined (no default substituted), so
     // round-trip identity holds whether or not this is present.
     category: fc.option(CATEGORY_ARB, { nil: undefined }),
+    purchaseMode: fc.option(fc.constantFrom<"whole" | "loose">("whole", "loose"), { nil: undefined }),
+    packSizeAmount: fc.option(fc.integer({ min: 1, max: 10_000 }), { nil: undefined }),
+    roundTo: fc.option(fc.integer({ min: 1, max: 1000 }), { nil: undefined }),
+    gramsPerMl: fc.option(fc.float({ min: Math.fround(0.01), max: 5, noNaN: true }), { nil: undefined }),
+    gramsPerPiece: fc.option(fc.integer({ min: 1, max: 5000 }), { nil: undefined }),
   })
-  .map(({ category, ...rest }) => ({ ...rest, ...(category !== undefined ? { category } : {}) }));
+  .map(({ category, purchaseMode, packSizeAmount, roundTo, gramsPerMl, gramsPerPiece, unit, ...rest }) => ({
+    ...rest,
+    unit,
+    ...(category !== undefined ? { category } : {}),
+    ...(purchaseMode !== undefined ? { purchaseMode } : {}),
+    ...(packSizeAmount !== undefined ? { packSize: makeQuantity(packSizeAmount, unit) } : {}),
+    ...(roundTo !== undefined ? { roundTo } : {}),
+    ...(gramsPerMl !== undefined ? { gramsPerMl } : {}),
+    ...(gramsPerPiece !== undefined ? { gramsPerPiece } : {}),
+  }));
 
 describe("Ingredient codec", () => {
   it("encode -> decode is identity", () => {
@@ -136,11 +153,18 @@ const recipeBaseArb = fc.record({
   cookMinutes: fc.integer({ min: 0, max: 600 }),
   mealTags: fc.array(MEAL_TAG_ARB, { maxLength: 4 }),
   status: fc.constantFrom<RecipeStatus>("staple", "in-rotation", "retired"),
+  // WP-PURCHASING — optional, like has_photo.
+  indivisible: fc.option(fc.boolean(), { nil: undefined }),
 });
 
 const recipeArb: fc.Arbitrary<Recipe> = recipeBaseArb.chain((base) => {
-  const prepMinutesArb = base.kind === "bought" ? fc.constant(0) : fc.integer({ min: 0, max: 180 });
-  return prepMinutesArb.map((prepMinutes) => ({ ...base, prepMinutes }));
+  const { indivisible, ...rest } = base;
+  const prepMinutesArb = rest.kind === "bought" ? fc.constant(0) : fc.integer({ min: 0, max: 180 });
+  return prepMinutesArb.map((prepMinutes) => ({
+    ...rest,
+    prepMinutes,
+    ...(indivisible !== undefined ? { indivisible } : {}),
+  }));
 });
 
 describe("Recipe codec", () => {
@@ -151,20 +175,34 @@ describe("Recipe codec", () => {
       }),
     );
   });
+
+  it("WP-PURCHASING: a legacy row with no indivisible cell decodes it to undefined", () => {
+    // Pre-WP-PURCHASING shape: nine cells (through has_photo).
+    const legacyRow = ["chili", "Chili", "cooked", 4, 15, 30, "dinner", "in-rotation", ""];
+    const decoded = decodeRecipe(legacyRow);
+    expect(decoded.indivisible).toBeUndefined();
+  });
 });
 
 // --- RecipeIngredients ------------------------------------------------------
 
-const recipeIngredientArb: fc.Arbitrary<RecipeIngredient> = fc.record({
-  recipeId: idArb.map(makeRecipeId),
-  ingredientId: idArb.map(makeIngredientId),
-  amount: fc.integer({ min: 1, max: 100_000 }),
-  unit: UNIT_ARB,
-}).map(({ recipeId, ingredientId, amount, unit }) => ({
-  recipeId,
-  ingredientId,
-  quantity: makeQuantity(amount, unit),
-}));
+const recipeIngredientArb: fc.Arbitrary<RecipeIngredient> = fc
+  .record({
+    recipeId: idArb.map(makeRecipeId),
+    ingredientId: idArb.map(makeIngredientId),
+    amount: fc.integer({ min: 1, max: 100_000 }),
+    unit: UNIT_ARB,
+    // WP-PURCHASING — provenance-only display pair, optional.
+    displayQuantity: fc.option(fc.integer({ min: 1, max: 1000 }), { nil: undefined }),
+    displayUnit: fc.option(fc.constantFrom<EntryUnit>(...ENTRY_UNITS), { nil: undefined }),
+  })
+  .map(({ recipeId, ingredientId, amount, unit, displayQuantity, displayUnit }) => ({
+    recipeId,
+    ingredientId,
+    quantity: makeQuantity(amount, unit),
+    ...(displayQuantity !== undefined ? { displayQuantity } : {}),
+    ...(displayUnit !== undefined ? { displayUnit } : {}),
+  }));
 
 describe("RecipeIngredient codec", () => {
   it("encode -> decode is identity when the ingredient's canonical unit matches", () => {
@@ -174,6 +212,15 @@ describe("RecipeIngredient codec", () => {
         expect(decoded).toEqual(line);
       }),
     );
+  });
+
+  it("WP-PURCHASING: a legacy row with no display columns decodes displayQuantity/displayUnit to undefined", () => {
+    // Pre-WP-PURCHASING shape: four cells.
+    const legacyRow = ["chili", "mince", 450, "g"];
+    const decoded = decodeRecipeIngredient(legacyRow, () => "g");
+    expect(decoded.displayQuantity).toBeUndefined();
+    expect(decoded.displayUnit).toBeUndefined();
+    expect(decoded.quantity).toEqual(makeQuantity(450, "g"));
   });
 });
 
@@ -396,6 +443,9 @@ const shoppingItemArb: fc.Arbitrary<ShoppingItem> = fc
     neededUnit: UNIT_ARB,
     checked: fc.boolean(),
     bought: fc.option(fc.record({ amount: fc.integer({ min: 1, max: 100_000 }), unit: UNIT_ARB }), { nil: undefined }),
+    // WP-PURCHASING — optional, like boughtQuantity.
+    suggested: fc.option(fc.record({ amount: fc.integer({ min: 1, max: 100_000 }), unit: UNIT_ARB }), { nil: undefined }),
+    override: fc.option(fc.record({ amount: fc.integer({ min: 1, max: 100_000 }), unit: UNIT_ARB }), { nil: undefined }),
   })
   .map((s) => ({
     ingredientId: s.ingredientId,
@@ -404,6 +454,8 @@ const shoppingItemArb: fc.Arbitrary<ShoppingItem> = fc
     neededQuantity: makeQuantity(s.neededAmount, s.neededUnit),
     checked: s.checked,
     ...(s.bought !== undefined ? { boughtQuantity: makeQuantity(s.bought.amount, s.bought.unit) } : {}),
+    ...(s.suggested !== undefined ? { suggestedPurchase: makeQuantity(s.suggested.amount, s.suggested.unit) } : {}),
+    ...(s.override !== undefined ? { purchaseOverride: makeQuantity(s.override.amount, s.override.unit) } : {}),
   }));
 
 describe("ShoppingItem codec", () => {
@@ -413,6 +465,15 @@ describe("ShoppingItem codec", () => {
         expect(decodeShoppingItem(encodeShoppingItem(item))).toEqual(item);
       }),
     );
+  });
+
+  it("WP-PURCHASING: a legacy row with no suggested/override columns decodes both to undefined", () => {
+    // Pre-WP-PURCHASING shape: eight cells (through bought_unit).
+    const legacyRow = ["tomato", "2026-08-24", "2026-08-30", 200, "g", true, 500, "g"];
+    const decoded = decodeShoppingItem(legacyRow);
+    expect(decoded.suggestedPurchase).toBeUndefined();
+    expect(decoded.purchaseOverride).toBeUndefined();
+    expect(decoded.boughtQuantity).toEqual(makeQuantity(500, "g"));
   });
 });
 

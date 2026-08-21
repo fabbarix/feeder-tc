@@ -21,4 +21,14 @@ export { computeNeeds } from "./shopping-needs.ts";
 export { allocateShoppingList } from "./shopping-allocate.ts";
 export { checkOffShoppingItem } from "./shopping-checkoff.ts";
 export { computeShoppingList, type ShoppingEngineInputs } from "./shopping.ts";
+export {
+  defaultPurchaseMode,
+  isIndivisible,
+  scaleIndivisible,
+  suggestPurchase,
+  withPurchaseOverride,
+  type IndivisibleScaling,
+  type PurchaseMode,
+  type PurchaseSuggestion,
+} from "./purchasing.ts";
 export { buildPriceObservation, type BuildPriceObservationInput } from "./price-observation.ts";

@@ -71,6 +71,25 @@ export interface ShoppingListLine {
    * Friday's remainder is attributed.
    */
   readonly sources: readonly ShoppingNeedSource[];
+  /**
+   * WP-PURCHASING (DESIGN_PURCHASING.md §2.1/§7), additive. The purchasable
+   * amount `allocateShoppingList` suggests for `neededQuantity`, computed
+   * exactly once — on this already-aggregated, post-FIFO shortfall, never
+   * per-meal and never before stock subtraction (§2.1 is explicit this is
+   * the easiest step to get wrong). `undefined` only if the caller didn't
+   * supply a catalog for the ingredient (defensive — every real caller
+   * does), in which case the UI should fall back to `neededQuantity`.
+   */
+  readonly suggestedPurchase?: Quantity;
+  /**
+   * The household's explicit buy-amount choice for this ingredient+range,
+   * if one exists in persisted `ShoppingItem.purchaseOverride` — merged in
+   * by the caller (`src/domain/purchasing.ts`'s `withPurchaseOverride`),
+   * not computed by `allocateShoppingList` itself (the engine has no I/O
+   * and cannot see persisted rows). Wins over `suggestedPurchase` for
+   * display and for what a check-off pre-fills.
+   */
+  readonly purchaseOverride?: Quantity;
 }
 
 /**

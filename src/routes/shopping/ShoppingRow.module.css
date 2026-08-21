@@ -26,3 +26,48 @@
   color: var(--text-muted);
   margin: 0;
 }
+
+/* WP-PURCHASING (DESIGN_PURCHASING.md §6) — buy-primary rows: the trailing
+   quantity is now a real tap target (the adjust stepper), styled as
+   unobtrusive text rather than a visible button, matching the mock's plain
+   `.row-qty`. */
+.adjustButton {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* "· adjusted" — reuses Pantry's existing small-accent-label idiom (§6: "a
+   rounded or overridden line must never read as an error state" — no
+   --warn/--crit anywhere here). */
+.adjusted {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.why {
+  margin: -6px 0 4px;
+  padding-left: 15px;
+}
+
+.whySummary {
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.whySummary::-webkit-details-marker {
+  display: none;
+}
+
+.whyText {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 4px 0 0;
+}

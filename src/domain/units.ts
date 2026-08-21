@@ -49,6 +49,19 @@ export interface EnteredQuantity {
   readonly unit: EntryUnit;
 }
 
+/**
+ * Density info for the two cross-dimension conversions DESIGN_PURCHASING.md
+ * §10.1 documents (volume->mass, count->mass) — both owned by
+ * `Ingredient.gramsPerMl`/`gramsPerPiece` (§10.1a/§10.3). Optional on every
+ * call: when absent, a cross-dimension entry is rejected exactly as it
+ * always was (see `convertEntryToCanonical`'s doc comment) rather than
+ * guessed.
+ */
+export interface ConversionDensity {
+  readonly gramsPerMl?: number;
+  readonly gramsPerPiece?: number;
+}
+
 /** Every `EntryUnit`, converted to its canonical-scale amount (grams for mass, millilitres for volume, itself for count) plus which dimension it belongs to. Exhaustive over `EntryUnit` — a new entry unit is a compile error here until handled. */
 function toCanonicalScale(entered: EnteredQuantity): { readonly amount: number; readonly dimension: Dimension } {
   switch (entered.unit) {
@@ -69,6 +82,17 @@ function toCanonicalScale(entered: EnteredQuantity): { readonly amount: number; 
       return { amount: entered.amount * 29.5735295625, dimension: "volume" };
     case "piece":
       return { amount: entered.amount, dimension: "count" };
+    // DESIGN_PURCHASING.md §10.2 — the US legal set, decided 2026-08-21:
+    // 1 cup = 240 ml, 1 tbsp = 15 ml, 1 tsp = 5 ml (internally consistent:
+    // 1 cup = 16 tbsp = 48 tsp). Mass<->volume needs no per-ingredient data
+    // (§10.1) — only *entering* a volume against a mass-canonical ingredient
+    // (e.g. "1 cup flour" -> g) needs a density, handled below.
+    case "cup":
+      return { amount: entered.amount * 240, dimension: "volume" };
+    case "tbsp":
+      return { amount: entered.amount * 15, dimension: "volume" };
+    case "tsp":
+      return { amount: entered.amount * 5, dimension: "volume" };
   }
 }
 
@@ -84,8 +108,23 @@ function toCanonicalScale(entered: EnteredQuantity): { readonly amount: number; 
  *    ingredient, or vice versa — "500 g" can never satisfy an ingredient
  *    whose canonical unit is `ml`),
  *  - a canonical unit with no entry-time equivalent (`portion`).
+ *
+ * `density` (DESIGN_PURCHASING.md §10.1/§10.3, optional, added by
+ * WP-PURCHASING) enables exactly the two cross-dimension conversions §10.1's
+ * table calls out as needing per-ingredient data: entering a volume unit
+ * (cup/tbsp/tsp/ml/l/fl oz) against a mass-canonical ingredient using
+ * `gramsPerMl`, and entering `piece` against a mass-canonical ingredient
+ * using `gramsPerPiece` ("2 onions" -> grams, once an ingredient re-units to
+ * grams — §9.1). Omitting `density` (or the specific field it would need)
+ * preserves the exact prior behaviour — a hard "mass and volume are not
+ * interchangeable" rejection — never a guess (§10.1: "a default density of
+ * 1.0 would overstate flour by ~80%").
  */
-export function convertEntryToCanonical(entered: EnteredQuantity, canonicalUnit: Unit): Quantity {
+export function convertEntryToCanonical(
+  entered: EnteredQuantity,
+  canonicalUnit: Unit,
+  density?: ConversionDensity,
+): Quantity {
   if (!Number.isFinite(entered.amount) || entered.amount <= 0) {
     throw new Error(`Entered amount must be a positive finite number, got ${entered.amount}`);
   }
@@ -98,11 +137,18 @@ export function convertEntryToCanonical(entered: EnteredQuantity, canonicalUnit:
   }
 
   const { amount, dimension } = toCanonicalScale(entered);
-  if (dimension !== canonicalDimension) {
-    throw new Error(
-      `Cannot convert "${entered.unit}" (${dimension}) into canonical unit "${canonicalUnit}" (${canonicalDimension}) — mass and volume are not interchangeable.`,
-    );
+  if (dimension === canonicalDimension) {
+    return makeQuantity(amount, canonicalUnit);
   }
 
-  return makeQuantity(amount, canonicalUnit);
+  if (canonicalDimension === "mass" && dimension === "volume" && density?.gramsPerMl !== undefined) {
+    return makeQuantity(amount * density.gramsPerMl, canonicalUnit);
+  }
+  if (canonicalDimension === "mass" && dimension === "count" && density?.gramsPerPiece !== undefined) {
+    return makeQuantity(amount * density.gramsPerPiece, canonicalUnit);
+  }
+
+  throw new Error(
+    `Cannot convert "${entered.unit}" (${dimension}) into canonical unit "${canonicalUnit}" (${canonicalDimension}) — mass and volume are not interchangeable.`,
+  );
 }

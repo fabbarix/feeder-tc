@@ -8,18 +8,32 @@ import {
   type RecipeIngredient,
   type Unit,
 } from "../../domain/types.ts";
-import { cellNumber, cellString } from "./common.ts";
-import { isUnit, UNITS } from "./enums.ts";
+import { cellNumber, cellOptionalNumber, cellOptionalString, cellString } from "./common.ts";
+import { isEntryUnit, isUnit, UNITS } from "./enums.ts";
 
 export const RECIPE_INGREDIENTS_HEADER: CellRow = [
   "recipe_id",
   "ingredient_id",
   "quantity_amount",
   "quantity_unit",
+  // WP-PURCHASING (DESIGN_PURCHASING.md §10.3), appended at the end
+  // (additive — see types.ts's RecipeIngredient.displayQuantity/displayUnit
+  // doc comment): provenance only, never read by any engine. A legacy row
+  // has no cells here at all; decodeRecipeIngredient below treats that the
+  // same as explicitly blank — both undefined, never a thrown error.
+  "display_quantity",
+  "display_unit",
 ];
 
 export function encodeRecipeIngredient(line: RecipeIngredient): CellRow {
-  return [line.recipeId, line.ingredientId, line.quantity.amount, line.quantity.unit];
+  return [
+    line.recipeId,
+    line.ingredientId,
+    line.quantity.amount,
+    line.quantity.unit,
+    line.displayQuantity ?? "",
+    line.displayUnit ?? "",
+  ];
 }
 
 /**
@@ -54,5 +68,20 @@ export function decodeRecipeIngredient(
       `unit mismatch: ingredient "${ingredientId}"'s canonical unit is "${canonical}", but this line specifies "${unitRaw}" (invariant 3: one canonical unit per ingredient, no conversions)`,
     );
   }
-  return { recipeId, ingredientId, quantity: makeQuantity(amount, unitRaw) };
+
+  // WP-PURCHASING display columns — provenance only (see this file's header
+  // comment); an unrecognised/malformed display_unit is dropped rather than
+  // quarantining the whole (structurally valid) row, same treatment
+  // `Ingredients.category` gets.
+  const displayQuantity = cellOptionalNumber(row, 4, "display_quantity");
+  const displayUnitRaw = cellOptionalString(row, 5);
+  const displayUnit = displayUnitRaw !== undefined && isEntryUnit(displayUnitRaw) ? displayUnitRaw : undefined;
+
+  return {
+    recipeId,
+    ingredientId,
+    quantity: makeQuantity(amount, unitRaw),
+    ...(displayQuantity !== undefined ? { displayQuantity } : {}),
+    ...(displayUnit !== undefined ? { displayUnit } : {}),
+  };
 }
