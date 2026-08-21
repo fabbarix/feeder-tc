@@ -59,6 +59,12 @@ export function useSettings(): UseSettingsResult {
       try {
         await store.settings.write(next);
         setSettings(next);
+        // Clears a stale "no Settings row yet" load error (Settings.tsx's
+        // "Set up defaults" action) once a write actually creates that row —
+        // otherwise the route's render logic, which treats that specific
+        // error as "still missing", would keep showing the empty state
+        // alongside the now-populated editor below it.
+        setError(undefined);
       } catch (err) {
         showToast({ variant: "error", title: "Couldn't save settings", description: messageOf(err) });
       } finally {

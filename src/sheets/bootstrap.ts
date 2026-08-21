@@ -8,7 +8,6 @@
  * the BDD scenario "Creating a fresh workbook"
  * (features/wp-11-workbook-bootstrap.feature).
  */
-import { seedCatalog } from "../data/seed-catalog.ts";
 import type { CellRow, SheetsTransport, WorkbookStore } from "../domain/contracts.ts";
 import type { Settings, WorkbookSheetName } from "../domain/types.ts";
 import {
@@ -119,6 +118,18 @@ export async function bootstrapWorkbook(transport: SheetsTransport, store: Workb
  * store, same as before.
  */
 async function seedIngredients(transport: SheetsTransport): Promise<void> {
+  // Dynamic, not a module-level `import` (WP-31 bundle investigation,
+  // STATUS.md "Known debt"): `WORKBOOK_SHEET_NAMES` above is imported by
+  // `migrate.ts` for the schema self-heal that runs on EVERY workbook open
+  // (App.tsx's `ensureWorkbookSchema` effect), which in turn is imported
+  // eagerly by `src/sheets/index.ts`. A module-level import of the ~100-row,
+  // ~18 kB `seedCatalog` here dragged that whole catalog into the app's
+  // eager initial chunk for every session, even though it is only ever
+  // needed once, from THIS function, on the rare "Create new meal planner"
+  // action. Fetching it lazily at that point costs one extra request behind
+  // a click that already shows a "Setting up your workbook…" toast — free
+  // to defer, unlike anything on the first-paint path.
+  const { seedCatalog } = await import("../data/seed-catalog.ts");
   const lastCol = columnLetter(INGREDIENTS_HEADER.length);
   const existingRows = await transport.readRange(`Ingredients!A2:${lastCol}`);
 

@@ -12,7 +12,32 @@ import {
   withSlotRemoved,
 } from "./settings/slot-layout.ts";
 import type { MealTag, Weekday } from "../domain/index.ts";
+// Deliberately `bootstrap.ts` directly, not the `sheets/index.ts` barrel:
+// this lazy route (App.tsx) importing the SAME barrel App.tsx already
+// imports eagerly made Rollup fold several otherwise route-lazy chunks
+// (the barcode WASM decoder, purchasing, several icon chunks...) into the
+// EAGER entry — measured 8 modulepreloaded chunks before, 16 after, a
+// dependency this file has no actual use for. Reaching straight into the
+// one sibling module that owns the one constant this route needs avoids
+// coupling to the sheets layer's entire surface (auth, transport, picker,
+// registry, migrate) and keeps this chunk boundary exactly what it was.
+import { DEFAULT_SETTINGS } from "../sheets/bootstrap.ts";
 import styles from "./settings/settings.module.css";
+import forms from "./forms.module.css";
+
+/**
+ * `decodeSettings` (sheets/codecs/settings.ts) throws this EXACT string when
+ * the `Settings` sheet has no "general" row — a workbook old enough to
+ * predate this feature, or one PR #36's schema self-heal only just gave the
+ * tab and its header back to, without a data row (there is no single
+ * sensible default to backfill silently). Matched here, rather than
+ * reworking the codec to return `undefined` instead of throwing, to keep
+ * this a copy/recovery-UI fix (WP-31 scope) rather than a data-layer
+ * behaviour change: everywhere else that calls `store.settings.read()`
+ * still gets today's "throw on a missing row" contract unchanged.
+ */
+const NO_SETTINGS_ROW_ERROR =
+  'Settings sheet has no valid "general" row — the workbook was not bootstrapped correctly.';
 
 /**
  * Household settings (WP-22): meal-slot layout per day, household size, and
@@ -22,6 +47,7 @@ import styles from "./settings/settings.module.css";
  */
 export function Settings() {
   const { loading, error, settings, saving, retry, save } = useSettings();
+  const missingSettingsRow = error === NO_SETTINGS_ROW_ERROR;
 
   function updateHouseholdSize(size: number): void {
     if (!settings) return;
@@ -45,6 +71,17 @@ export function Settings() {
     void save({ ...settings, slotLayout: layoutFromSlotsByDay(byDay) });
   }
 
+  /**
+   * Writes `DEFAULT_SETTINGS` — the same defaults `bootstrapWorkbook` gives
+   * every NEW workbook (`sheets/bootstrap.ts`) — from a button the user
+   * presses, so a workbook missing its `Settings` row becomes a one-click
+   * fix instead of a dead-end error naming a problem with no stated
+   * remedy. The household can edit every value immediately afterwards.
+   */
+  function setUpDefaults(): void {
+    void save(DEFAULT_SETTINGS);
+  }
+
   const byDay = settings ? slotsByDay(settings.slotLayout) : undefined;
 
   return (
@@ -58,19 +95,24 @@ export function Settings() {
         </>
       ) : null}
 
-      {!loading && error ? (
+      {!loading && error && !missingSettingsRow ? (
         <ErrorState title="Couldn't load settings" description={error} onRetry={retry} />
       ) : null}
 
-      {!loading && !error && !settings ? (
+      {!loading && (missingSettingsRow || (!error && !settings)) ? (
         <EmptyState
           icon={GearSix}
-          title="Household settings are coming soon"
-          description="Household size, meal-slot layout and the repeat window will live here."
+          title="This workbook has no settings saved yet"
+          description="That's normal for a workbook created before this feature existed — set up sensible defaults (2 people, breakfast/lunch/dinner every day) and adjust them right after."
+          action={
+            <button type="button" className={forms.addButton} onClick={setUpDefaults}>
+              Set up defaults
+            </button>
+          }
         />
       ) : null}
 
-      {!loading && !error && settings && byDay ? (
+      {!loading && settings && byDay ? (
         <div className={styles.layout}>
           <div className={styles.card}>
             <div className={styles.cardHead}>Meal slots per day</div>

@@ -7,7 +7,8 @@ import { useToast } from "./ui/components/Toast/useToast.ts";
 import { Skeleton } from "./ui/components/Skeleton.tsx";
 import { Home } from "./routes/Home";
 import { Shopping } from "./routes/Shopping";
-import { env } from "./env.ts";
+import { env, missingEnvVars } from "./env.ts";
+import { ConfigMissingScreen } from "./ui/ConfigMissingScreen.tsx";
 import { systemClock, createSeededRng, type Outbox } from "./domain/index.ts";
 import {
   createGoogleAuth,
@@ -452,6 +453,25 @@ const router = createBrowserRouter(
 );
 
 export function App() {
+  // Checked BEFORE anything below is constructed — `missingEnvVars` never
+  // throws (unlike `env.googleClientId`/`env.googleApiKey`), so this is the
+  // one env read safe to do unconditionally on every render. A non-empty
+  // result means `ShellContainer`'s `useState(createGoogleWiring)` would hit
+  // one of those throwing getters on its first render, which — uncaught,
+  // mid-render — unmounts the whole tree to a blank page (see
+  // `ConfigMissingScreen`'s doc comment, and STATUS.md "Known debt"). Render
+  // an informative screen instead, and never construct the router/shell at
+  // all: nothing below this branch needs the missing vars, so nothing below
+  // it runs.
+  const missing = missingEnvVars();
+  if (missing.length > 0) {
+    return (
+      <ThemeProvider>
+        <ConfigMissingScreen missing={missing} />
+      </ThemeProvider>
+    );
+  }
+
   // ToastProvider wraps the router (not just AppShell) so a toast fired from
   // any route survives navigation and errors — see
   // src/ui/components/Toast/ToastProvider.tsx. ThemeProvider wraps
