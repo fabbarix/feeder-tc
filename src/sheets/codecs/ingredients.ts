@@ -1,8 +1,8 @@
 /** `Ingredients` sheet codec (WP-11) — DESIGN.md §3 / §2 "Ingredients". */
 import type { CellRow } from "../../domain/contracts.ts";
 import { makeIngredientId, type Ingredient } from "../../domain/types.ts";
-import { cellEnum, cellNumber, cellString } from "./common.ts";
-import { STORAGE_LOCATIONS, UNITS } from "./enums.ts";
+import { cellEnum, cellNumber, cellOptionalString, cellString } from "./common.ts";
+import { isIngredientCategory, STORAGE_LOCATIONS, UNITS } from "./enums.ts";
 
 export const INGREDIENTS_HEADER: CellRow = [
   "id",
@@ -11,6 +11,12 @@ export const INGREDIENTS_HEADER: CellRow = [
   "shelf_life_days",
   "opened_shelf_life_days",
   "default_location",
+  // WP-VC3, appended at the end (additive — see types.ts's Ingredient.category
+  // doc comment): a workbook created before this change has rows with no
+  // cell here at all, not just a blank one. decodeIngredient below must
+  // treat that the same as an explicitly blank cell — undefined, never a
+  // thrown error/quarantined row.
+  "category",
 ];
 
 export function encodeIngredient(ingredient: Ingredient): CellRow {
@@ -21,6 +27,7 @@ export function encodeIngredient(ingredient: Ingredient): CellRow {
     ingredient.shelfLifeDays,
     ingredient.openedShelfLifeDays,
     ingredient.defaultLocation,
+    ingredient.category ?? "",
   ];
 }
 
@@ -30,6 +37,14 @@ export function encodeIngredient(ingredient: Ingredient): CellRow {
  * "reject mixed-unit writes at the codec layer" is enforced here at the
  * source: every other sheet that references an ingredient (RecipeIngredients)
  * cross-checks against whatever unit this row decodes to.
+ *
+ * `category` (index 6) is deliberately the most lenient cell on this row:
+ * missing (legacy row, `row[6] === undefined`), blank (`""`), AND an
+ * unrecognised string (a hand-typed typo) all decode to `undefined` rather
+ * than throwing — this column is shopping-list grouping metadata, not a
+ * structural fact the way `unit`/`default_location` are, so a bad value
+ * here must never quarantine the whole ingredient row (a real user's
+ * pre-WP-VC3 workbook has to keep loading).
  */
 export function decodeIngredient(row: CellRow): Ingredient {
   const id = makeIngredientId(cellString(row, 0, "id"));
@@ -44,5 +59,15 @@ export function decodeIngredient(row: CellRow): Ingredient {
   if (openedShelfLifeDays < 0) {
     throw new Error(`opened_shelf_life_days must not be negative, got ${openedShelfLifeDays}`);
   }
-  return { id, name, unit, shelfLifeDays, openedShelfLifeDays, defaultLocation };
+  const categoryRaw = cellOptionalString(row, 6);
+  const category = categoryRaw !== undefined && isIngredientCategory(categoryRaw) ? categoryRaw : undefined;
+  return {
+    id,
+    name,
+    unit,
+    shelfLifeDays,
+    openedShelfLifeDays,
+    defaultLocation,
+    ...(category !== undefined ? { category } : {}),
+  };
 }

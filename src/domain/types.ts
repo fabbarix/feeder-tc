@@ -218,6 +218,25 @@ export type WorkbookSheetName =
 
 export type StorageLocation = "pantry" | "fridge" | "freezer";
 
+/**
+ * Shopping-list grouping (WP-VC3 — coordinator-approved contract change,
+ * additive only). Matches the seed catalog's own comment groups
+ * (`src/data/seed-catalog.ts`, previously comment-only): produce, dairy &
+ * eggs, meat & fish, dry goods, tinned/jarred, frozen, condiments, baking,
+ * herbs & spices, drinks.
+ */
+export type IngredientCategory =
+  | "produce"
+  | "dairy-eggs"
+  | "meat-fish"
+  | "dry-goods"
+  | "tinned-jarred"
+  | "frozen"
+  | "condiments"
+  | "baking"
+  | "herbs-spices"
+  | "drinks";
+
 export type Weekday =
   | "monday"
   | "tuesday"
@@ -244,6 +263,17 @@ export interface Ingredient {
   /** Shelf life, in days, once a lot of this ingredient has been opened. */
   readonly openedShelfLifeDays: number;
   readonly defaultLocation: StorageLocation;
+  /**
+   * Shopping-list grouping (WP-VC3, additive — same `?` pattern as
+   * `Settings.currency` from M6-A). Optional so every `Ingredient` literal
+   * written before this change (fakes, contract tests, fixtures) keeps
+   * compiling without it. Absent means "uncategorised" — the shopping list
+   * groups those under an "Other" section rather than omitting them, and a
+   * legacy workbook row with no `category` cell decodes to `undefined`
+   * here, never a quarantined row (see `decodeIngredient`,
+   * src/sheets/codecs/ingredients.ts).
+   */
+  readonly category?: IngredientCategory;
 }
 
 // ---------------------------------------------------------------------------

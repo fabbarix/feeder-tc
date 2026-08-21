@@ -1,6 +1,7 @@
 /** Shared allowed-value lists for the codec `cellEnum`/validity checks below (WP-11, extended M6-A). */
 import type {
   EntryUnit,
+  IngredientCategory,
   MealTag,
   PlanSlotState,
   RecipeKind,
@@ -11,6 +12,19 @@ import type {
 } from "../../domain/types.ts";
 
 export const UNITS: readonly Unit[] = ["g", "ml", "piece", "portion"];
+/** WP-VC3 — Ingredient.category's allowed values, matching the seed catalog's groups. */
+export const INGREDIENT_CATEGORIES: readonly IngredientCategory[] = [
+  "produce",
+  "dairy-eggs",
+  "meat-fish",
+  "dry-goods",
+  "tinned-jarred",
+  "frozen",
+  "condiments",
+  "baking",
+  "herbs-spices",
+  "drinks",
+];
 /** M6-A — DESIGN_PRODUCTS.md §3: the units the `Products` sheet's `display_unit` column may hold (provenance only, never used in arithmetic — see src/domain/units.ts). */
 export const ENTRY_UNITS: readonly EntryUnit[] = ["kg", "g", "lb", "oz", "l", "ml", "fl oz", "piece"];
 export const STORAGE_LOCATIONS: readonly StorageLocation[] = ["pantry", "fridge", "freezer"];
@@ -40,4 +54,8 @@ export function isWeekday(value: string): value is Weekday {
 
 export function isMealTag(value: string): value is MealTag {
   return (MEAL_TAGS as readonly string[]).includes(value);
+}
+
+export function isIngredientCategory(value: string): value is IngredientCategory {
+  return (INGREDIENT_CATEGORIES as readonly string[]).includes(value);
 }

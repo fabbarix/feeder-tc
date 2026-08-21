@@ -1,19 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactElement } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { AppShell, type ShellUser } from "./ui/AppShell";
 import { ThemeProvider } from "./ui/theme/ThemeProvider";
 import { ToastProvider } from "./ui/components/Toast/ToastProvider";
 import { useToast } from "./ui/components/Toast/useToast.ts";
+import { Skeleton } from "./ui/components/Skeleton.tsx";
 import { Home } from "./routes/Home";
-import { Recipes } from "./routes/Recipes";
-import { RecipeDetail } from "./routes/RecipeDetail.tsx";
-import { RecipeEditor } from "./routes/RecipeEditor.tsx";
-import { Ingredients } from "./routes/Ingredients.tsx";
-import { IngredientEditor } from "./routes/IngredientEditor.tsx";
-import { Pantry } from "./routes/Pantry";
-import { Plan } from "./routes/Plan";
 import { Shopping } from "./routes/Shopping";
-import { Settings } from "./routes/Settings";
 import { env } from "./env.ts";
 import { systemClock, createSeededRng, type Outbox } from "./domain/index.ts";
 import {
@@ -42,6 +35,56 @@ import { createPwaUpdateWatcher } from "./pwa/update.ts";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+// ---------------------------------------------------------------------------
+// Route-level code splitting (WP-VC3) — the bundle was 720 kB raw / 215 kB
+// gzip, well past Vite's 500 kB warning, on an app whose brief is explicitly
+// "works on a low-end phone on a supermarket connection" (HANDOVER.md §1).
+// The shell, Home and Shopping stay in the eager, initial chunk — Shopping
+// especially, since it's the in-store screen a shopper opens the app FOR.
+// The brief specifically calls out the recipe editor, ingredient editor,
+// planner and pantry as not needing to be in the initial chunk; every OTHER
+// route is, by the same "shell + Home + Shopping is the hot path" logic,
+// equally not part of it — Recipes/Ingredients (browse), a recipe's read
+// view, and Settings are all visited less often per session than Home or
+// Shopping, so they move to their own lazily-fetched chunks too, requested
+// only when their route is actually navigated to. `Suspense`'s fallback is
+// the kit's own `Skeleton` (UI_DESIGN.md §10) — never a blank flash while
+// the chunk downloads.
+//
+// `vite-plugin-pwa`'s `generateSW` mode (vite.config.ts) builds its precache
+// manifest FROM the build's own output files, after this split happens — so
+// every lazy chunk below is still precached automatically, same as before;
+// nothing here needs to also touch vite.config.ts's PWA config. Verified by
+// `npm run build`'s own "precache N entries" line (more chunks than before
+// this change) and e2e/wp-24-sw-offline.spec.ts, unchanged, still passing.
+const Recipes = lazy(() => import("./routes/Recipes.tsx").then((m) => ({ default: m.Recipes })));
+const RecipeDetail = lazy(() => import("./routes/RecipeDetail.tsx").then((m) => ({ default: m.RecipeDetail })));
+const RecipeEditor = lazy(() => import("./routes/RecipeEditor.tsx").then((m) => ({ default: m.RecipeEditor })));
+const Ingredients = lazy(() => import("./routes/Ingredients.tsx").then((m) => ({ default: m.Ingredients })));
+const IngredientEditor = lazy(() =>
+  import("./routes/IngredientEditor.tsx").then((m) => ({ default: m.IngredientEditor })),
+);
+const Pantry = lazy(() => import("./routes/Pantry.tsx").then((m) => ({ default: m.Pantry })));
+const Plan = lazy(() => import("./routes/Plan.tsx").then((m) => ({ default: m.Plan })));
+const Settings = lazy(() => import("./routes/Settings.tsx").then((m) => ({ default: m.Settings })));
+
+/** Suspense fallback for a lazily-loaded route — matches the multi-`Skeleton` loading shape every route's own data-loading state already uses (e.g. Shopping.tsx, Plan.tsx). */
+function RouteFallback() {
+  return (
+    <section>
+      <Skeleton height="1.8rem" width="35%" />
+      <Skeleton />
+      <Skeleton />
+      <Skeleton />
+    </section>
+  );
+}
+
+/** Wraps a lazily-loaded route element in one shared `<Suspense>`/`RouteFallback` pair, so each router entry below stays a one-liner. */
+function lazyRoute(element: ReactElement): ReactElement {
+  return <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
 }
 
 /** Default title for a freshly created workbook — human-readable, editable later like any spreadsheet title (invariant 6). */
@@ -316,18 +359,22 @@ const router = createBrowserRouter(
       path: "/",
       element: <ShellContainer />,
       children: [
+        // Home and Shopping are the hot path (see the code-splitting doc
+        // comment above) — the only two feature routes still eagerly
+        // bundled into the shell's own chunk.
         { index: true, element: <Home /> },
-        { path: "recipes", element: <Recipes /> },
-        { path: "recipes/ingredients", element: <Ingredients /> },
-        { path: "recipes/ingredients/new", element: <IngredientEditor /> },
-        { path: "recipes/ingredients/:ingredientId", element: <IngredientEditor /> },
-        { path: "recipes/new", element: <RecipeEditor /> },
-        { path: "recipes/:recipeId", element: <RecipeDetail /> },
-        { path: "recipes/:recipeId/edit", element: <RecipeEditor /> },
-        { path: "pantry", element: <Pantry /> },
-        { path: "plan", element: <Plan /> },
         { path: "shopping", element: <Shopping /> },
-        { path: "settings", element: <Settings /> },
+        // Everything else is a separately-fetched lazy chunk.
+        { path: "recipes", element: lazyRoute(<Recipes />) },
+        { path: "recipes/ingredients", element: lazyRoute(<Ingredients />) },
+        { path: "recipes/ingredients/new", element: lazyRoute(<IngredientEditor />) },
+        { path: "recipes/ingredients/:ingredientId", element: lazyRoute(<IngredientEditor />) },
+        { path: "recipes/new", element: lazyRoute(<RecipeEditor />) },
+        { path: "recipes/:recipeId", element: lazyRoute(<RecipeDetail />) },
+        { path: "recipes/:recipeId/edit", element: lazyRoute(<RecipeEditor />) },
+        { path: "pantry", element: lazyRoute(<Pantry />) },
+        { path: "plan", element: lazyRoute(<Plan />) },
+        { path: "settings", element: lazyRoute(<Settings />) },
       ],
     },
   ],

@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { E2E_CREATED_SPREADSHEET_ID, E2E_FAKE_ACCESS_TOKEN } from "../src/mocks/handlers.ts";
 
 // WP-VC ("visual conformance — make the app match the approved mock").
 //
@@ -177,5 +178,224 @@ test.describe("unstyled-link audit (owner-reported: the ingredients-catalog link
     const color = await backLink.evaluate((el) => getComputedStyle(el).color);
     expect(color).not.toBe("rgb(0, 0, 238)");
     expect(color).not.toBe("rgb(85, 26, 139)");
+  });
+});
+
+// WP-VC3 Task 1: `SegmentedControl` rendered `border-radius: 10px`
+// (`--radius-md`); the mock's `.seg`/`.seg button` are a `999px` pill
+// (design/mock-screens.html, `.seg{...border-radius:999px...}`). Pre-
+// existing since WP-20, deferred twice because the component is shared —
+// every consumer (recipe household flag, pantry/shopping/pantry-form/mark-
+// cooked storage location, ingredient unit, recipe kind, the theme control)
+// gets the fix from the one CSS Module change, verified here on two
+// representative consumers via a measured `getComputedStyle` check rather
+// than a screenshot alone.
+test.describe("SegmentedControl is a 999px pill, not a 10px rounded rect (Task 1)", () => {
+  test("the theme control (Settings 'Appearance') renders both the trough and the selected segment as a 999px pill", async ({
+    page,
+  }) => {
+    await enterReadyShell(page, "settings");
+    const group = page.getByRole("radiogroup", { name: "Appearance" });
+    await expect(group).toBeVisible();
+    const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
+    expect(groupRadius).toBe("999px");
+
+    const selected = page.getByRole("radio", { checked: true }).first();
+    const segmentRadius = await selected.evaluate((el) => getComputedStyle(el.closest("label")!).borderRadius);
+    expect(segmentRadius).toBe("999px");
+  });
+
+  test("a recipe's household-flag control (RecipeDetail read view) is also a 999px pill", async ({ page }) => {
+    await enterReadyShell(page, "recipes");
+    await addRecipe(page, "Pill Shape Test", 15);
+    await page.getByRole("link", { name: "Pill Shape Test" }).click();
+
+    const group = page.getByRole("radiogroup", { name: "Household flag" });
+    await expect(group).toBeVisible();
+    const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
+    expect(groupRadius).toBe("999px");
+  });
+});
+
+// WP-VC3 ("final conformance pass"): Plan and Shopping were previously
+// verified by screenshot only (both WP-22's and WP-23's own handover reports
+// said so) — the weaker method the rest of this file's discipline exists to
+// replace. Everything below asserts a measured number (boundingBox()/
+// getComputedStyle), never a screenshot.
+
+/**
+ * Seeds a recipe needing 400 g of rice (the seed catalog's "dry-goods"-
+ * category rice — src/data/seed-catalog.ts) and a plan slot for it this
+ * week, through the real `WorkbookStore` contract — same technique as
+ * e2e/wp-23-shopping-trip.spec.ts's `seedRicePlanForThisWeek` (see that
+ * file's doc comment for why this runs inside `page.evaluate` rather than
+ * through a UI that may not be mounted yet). Trimmed to just what the
+ * CheckRow-geometry test below needs: one populated shopping-list line to
+ * measure, in a category the catalog actually assigns (so the same seed
+ * doubles as a live check that WP-VC3's category grouping produces a real
+ * subheading, not just an empty-list layout check).
+ */
+async function seedRicePlanForThisWeek(page: Page): Promise<void> {
+  await page.evaluate(
+    async ({ token, spreadsheetId }) => {
+      const sheetsPath = "/src/sheets/index.ts";
+      const domainPath = "/src/domain/index.ts";
+      const rangePath = "/src/routes/shopping/range.ts";
+      const sheets = await import(sheetsPath);
+      const domain = await import(domainPath);
+      const rangeHelpers = await import(rangePath);
+
+      const auth = { getAccessToken: () => Promise.resolve(token), invalidate: () => undefined };
+      const transport = sheets.createGoogleSheetsTransport({ spreadsheetId, auth });
+      const store = sheets.createSheetsWorkbookStore(transport);
+      const rng = domain.createSeededRng(1);
+
+      const recipeId = domain.newRecipeId(rng);
+      await store.recipes.upsert({
+        id: recipeId,
+        name: "E2E rice dinner",
+        kind: "cooked",
+        baseServings: 2,
+        prepMinutes: 5,
+        cookMinutes: 20,
+        mealTags: ["dinner"],
+        status: "in-rotation",
+      });
+      await store.recipeIngredients.replaceForRecipe(recipeId, [
+        { recipeId, ingredientId: domain.makeIngredientId("rice"), quantity: { amount: 400, unit: "g" } },
+      ]);
+
+      const monday = rangeHelpers.mondayOnOrBefore(domain.systemClock.today());
+      await store.planSlots.upsert({
+        id: domain.newPlanSlotId(rng),
+        date: monday,
+        slotType: "dinner",
+        slotIndex: 0,
+        filling: { kind: "recipe", recipeId },
+        state: "planned",
+        pinned: false,
+      });
+    },
+    { token: E2E_FAKE_ACCESS_TOKEN, spreadsheetId: E2E_CREATED_SPREADSHEET_ID },
+  );
+}
+
+test.describe("Plan and Shopping — full-width layout (design/mock-reference.css §2)", () => {
+  test.use({ viewport: { width: 1677, height: 1000 } });
+
+  // Both are in AppShell.tsx's WIDE_ROUTES alongside /recipes and /pantry
+  // (which the describe block above already covers) — this closes the gap
+  // WP-VC/WP-VC2 left: neither was measured, only screenshotted.
+  test("the Plan route is not capped at the 840px reading measure", async ({ page }) => {
+    await enterReadyShell(page, "plan");
+    const measure = page.locator("main > div").first();
+    const box = await measure.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThan(1200);
+  });
+
+  test("the Shopping route is not capped at the 840px reading measure", async ({ page }) => {
+    await enterReadyShell(page, "shopping");
+    const measure = page.locator("main > div").first();
+    const box = await measure.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThan(1200);
+  });
+
+  // UI_DESIGN.md §13 Desktop: "the week planner is the screen that justifies
+  // desktop: seven columns, whole week visible" — plan.module.css's `.week`
+  // is `grid-template-columns: repeat(7, minmax(0,1fr))` at >=768px. Pinning
+  // the literal column count, not just "wider than 1200px", is what makes
+  // this test fail if a future change collapses the grid to fewer/more
+  // columns while still happening to measure wide.
+  test("the week planner's desktop grid renders exactly seven columns, one per day", async ({ page }) => {
+    await enterReadyShell(page, "plan");
+    await expect(page.getByRole("heading", { name: "Plan", level: 1 })).toBeVisible();
+    // Plan.tsx renders its own Skeletons while `usePlanWeek` boots (and, as
+    // of WP-VC3, the route itself is a lazily-fetched chunk) — wait for the
+    // real week grid rather than racing either of those.
+    const grid = page.locator('main [class*="week"]').first();
+    await expect(grid).toBeVisible();
+    const columnCount = await grid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(" ").length);
+    expect(columnCount).toBe(7);
+  });
+});
+
+test.describe("hue-derived surface tokens on Plan/Shopping (design/mock-reference.css §1)", () => {
+  // The describe block near the top of this file already proves the
+  // MECHANISM (oklch() tied to --accent-hue) holds on Home. This extends the
+  // same measured check to the two routes WP-VC3 is specifically closing the
+  // gap on, guarding against a future route-scoped regression (e.g. a
+  // route's own CSS module accidentally reintroducing a flat hex surface)
+  // that a Home-only check would never catch.
+  for (const routePath of ["plan", "shopping"] as const) {
+    test(`${routePath}: --paper/--surface/--surface-2/--line resolve to hue-derived oklch(), not flat hex`, async ({
+      page,
+    }) => {
+      await enterReadyShell(page, routePath);
+      const { hue, tokens } = await page.evaluate(() => {
+        const cs = getComputedStyle(document.documentElement);
+        return {
+          hue: cs.getPropertyValue("--accent-hue").trim(),
+          tokens: {
+            paper: cs.getPropertyValue("--paper").trim(),
+            surface: cs.getPropertyValue("--surface").trim(),
+            surface2: cs.getPropertyValue("--surface-2").trim(),
+            line: cs.getPropertyValue("--line").trim(),
+          },
+        };
+      });
+      for (const [name, value] of Object.entries(tokens)) {
+        expect(value, `--${name} should be an oklch() colour, not a flat hex`).toMatch(/^oklch\(/);
+        if (name !== "surface") {
+          expect(value, `--${name} should carry the live --accent-hue (${hue})`).toContain(` ${hue})`);
+        }
+      }
+    });
+  }
+});
+
+test.describe("CheckRow measured geometry on Shopping (UI_DESIGN.md §6 'the WHOLE row is the tap target')", () => {
+  test("a populated shopping CheckRow measures the 56px in-store touch target and a 24px check box — not screenshot-only", async ({
+    page,
+  }) => {
+    await enterReadyShell(page);
+    await seedRicePlanForThisWeek(page);
+    await page.getByRole("link", { name: "Shopping", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Shopping", level: 1 })).toBeVisible();
+
+    const riceCheckbox = page.getByRole("checkbox", { name: /rice/i });
+    await expect(riceCheckbox).toBeVisible();
+    // CheckRow.tsx renders one <label> wrapping the whole row — box, hidden
+    // checkbox input, text and trailing quantity all inside it — so the
+    // label IS the tap target this test measures.
+    const row = riceCheckbox.locator("xpath=ancestor::label[1]");
+
+    // CheckRow.module.css: min-height: calc(var(--touch-target) + var(--space-2))
+    // = 48px + 8px = 56px — bigger than ListRow's plain 48px --touch-target,
+    // matching UI_DESIGN.md §6's "in-store variant; larger" than ListRow.
+    const minHeight = await row.evaluate((el) => getComputedStyle(el).minHeight);
+    expect(minHeight).toBe("56px");
+    const rowBox = await row.boundingBox();
+    expect(rowBox).not.toBeNull();
+    expect(rowBox!.height).toBeGreaterThanOrEqual(56);
+
+    // The decorative check box (CheckRow.module.css's `.box`) is a fixed
+    // 24x24px square — first() picks the outer <span class="...box..."> over
+    // its own nested .boxSvg/.boxRect/.boxCheck descendants (whose class
+    // names also contain the substring "box"), since querySelectorAll's
+    // document order lists an ancestor before its own descendants.
+    const checkBox = row.locator('[class*="box"]').first();
+    const checkBoxBox = await checkBox.boundingBox();
+    expect(checkBoxBox).not.toBeNull();
+    expect(checkBoxBox!.width).toBeCloseTo(24, 0);
+    expect(checkBoxBox!.height).toBeCloseTo(24, 0);
+
+    // WP-VC3's shopping category-subheading contract change, exercised
+    // live: the seeded rice line is catalog-categorised "dry-goods"
+    // (src/data/seed-catalog.ts), so "To buy" renders under a "Dry goods"
+    // subheading rather than one flat list (design/mock-screens.html
+    // #shopping's `.rowgroup`s).
+    await expect(page.getByRole("heading", { name: "Dry goods" })).toBeVisible();
   });
 });

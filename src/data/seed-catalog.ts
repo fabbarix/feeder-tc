@@ -44,7 +44,13 @@
  * that isn't true — a bag of rice or a bag of sugar does not spoil faster
  * once opened, matching this WP's brief verbatim.
  */
-import { makeIngredientId, type Ingredient, type StorageLocation, type Unit } from "../domain/index.ts";
+import {
+  makeIngredientId,
+  type Ingredient,
+  type IngredientCategory,
+  type StorageLocation,
+  type Unit,
+} from "../domain/index.ts";
 
 // ---------------------------------------------------------------------------
 // Leftover pseudo-ingredient defaults (DESIGN.md §2 "Servings, scaling &
@@ -84,12 +90,23 @@ interface SeedIngredient {
   readonly defaultLocation: StorageLocation;
 }
 
-// Grouped by the categories this WP's brief calls out (produce, dairy,
-// meat/fish, dry goods, tinned/jarred, frozen, condiments, baking,
-// herbs/spices, drinks). The grouping is comment-only — `seedCatalog` below
-// is one flat list, matching the `Ingredients` sheet shape.
-const RAW_CATALOG: readonly SeedIngredient[] = [
-  // --- Produce -------------------------------------------------------------
+interface SeedCategorySection {
+  readonly category: IngredientCategory;
+  readonly entries: readonly SeedIngredient[];
+}
+
+/**
+ * Grouped by category (WP-VC3 — this grouping used to be comment-only; the
+ * data was already correct, it just wasn't machine-readable). Each section's
+ * `category` is stamped onto every entry it contains by `RAW_CATALOG` below,
+ * which is what `seedCatalog`'s `Ingredient.category` field — and in turn
+ * the Shopping route's "Produce"/"Dry goods"/etc. subheadings
+ * (`src/routes/Shopping.tsx`) — are built from.
+ */
+const CATALOG_SECTIONS: readonly SeedCategorySection[] = [
+  {
+    category: "produce",
+    entries: [
   { id: "tomato", name: "Tomato", unit: "piece", shelfLifeDays: 7, openedShelfLifeDays: 2, defaultLocation: "pantry" },
   { id: "onion", name: "Onion", unit: "piece", shelfLifeDays: 30, openedShelfLifeDays: 5, defaultLocation: "pantry" },
   { id: "garlic", name: "Garlic", unit: "piece", shelfLifeDays: 90, openedShelfLifeDays: 90, defaultLocation: "pantry" },
@@ -105,7 +122,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "lemon", name: "Lemon", unit: "piece", shelfLifeDays: 21, openedShelfLifeDays: 21, defaultLocation: "pantry" },
   { id: "avocado", name: "Avocado", unit: "piece", shelfLifeDays: 5, openedShelfLifeDays: 1, defaultLocation: "pantry" },
 
-  // --- Dairy & eggs ----------------------------------------------------------
+    ],
+  },
+  {
+    category: "dairy-eggs",
+    entries: [
   { id: "milk", name: "Milk", unit: "ml", shelfLifeDays: 10, openedShelfLifeDays: 7, defaultLocation: "fridge" },
   { id: "butter", name: "Butter", unit: "g", shelfLifeDays: 60, openedShelfLifeDays: 21, defaultLocation: "fridge" },
   { id: "cheddar-cheese", name: "Cheddar cheese", unit: "g", shelfLifeDays: 30, openedShelfLifeDays: 10, defaultLocation: "fridge" },
@@ -117,7 +138,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "mozzarella", name: "Mozzarella", unit: "g", shelfLifeDays: 14, openedShelfLifeDays: 4, defaultLocation: "fridge" },
   { id: "cream-cheese", name: "Cream cheese", unit: "g", shelfLifeDays: 30, openedShelfLifeDays: 10, defaultLocation: "fridge" },
 
-  // --- Meat & fish (fresh/chilled) -------------------------------------------
+    ],
+  },
+  {
+    category: "meat-fish",
+    entries: [
   { id: "chicken-breast", name: "Chicken breast", unit: "g", shelfLifeDays: 4, openedShelfLifeDays: 2, defaultLocation: "fridge" },
   { id: "ground-beef", name: "Ground beef", unit: "g", shelfLifeDays: 3, openedShelfLifeDays: 2, defaultLocation: "fridge" },
   { id: "beef-steak", name: "Beef steak", unit: "g", shelfLifeDays: 4, openedShelfLifeDays: 3, defaultLocation: "fridge" },
@@ -130,7 +155,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "deli-ham", name: "Deli ham", unit: "g", shelfLifeDays: 14, openedShelfLifeDays: 5, defaultLocation: "fridge" },
   { id: "smoked-salmon", name: "Smoked salmon", unit: "g", shelfLifeDays: 14, openedShelfLifeDays: 3, defaultLocation: "fridge" },
 
-  // --- Dry goods -------------------------------------------------------------
+    ],
+  },
+  {
+    category: "dry-goods",
+    entries: [
   { id: "rice", name: "Rice", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
   { id: "pasta", name: "Pasta", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
   { id: "couscous", name: "Couscous", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 365, defaultLocation: "pantry" },
@@ -142,7 +171,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "breadcrumbs", name: "Breadcrumbs", unit: "g", shelfLifeDays: 180, openedShelfLifeDays: 90, defaultLocation: "pantry" },
   { id: "bread", name: "Bread", unit: "piece", shelfLifeDays: 5, openedShelfLifeDays: 5, defaultLocation: "pantry" },
 
-  // --- Tinned / jarred ---------------------------------------------------------
+    ],
+  },
+  {
+    category: "tinned-jarred",
+    entries: [
   { id: "tinned-tomatoes", name: "Tinned tomatoes", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 5, defaultLocation: "pantry" },
   { id: "tinned-chickpeas", name: "Tinned chickpeas", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 4, defaultLocation: "pantry" },
   { id: "tinned-black-beans", name: "Tinned black beans", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 4, defaultLocation: "pantry" },
@@ -156,7 +189,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "jam", name: "Jam", unit: "piece", shelfLifeDays: 365, openedShelfLifeDays: 30, defaultLocation: "pantry" },
   { id: "honey", name: "Honey", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
 
-  // --- Frozen ------------------------------------------------------------------
+    ],
+  },
+  {
+    category: "frozen",
+    entries: [
   { id: "frozen-peas", name: "Frozen peas", unit: "g", shelfLifeDays: 270, openedShelfLifeDays: 120, defaultLocation: "freezer" },
   { id: "frozen-corn", name: "Frozen corn", unit: "g", shelfLifeDays: 270, openedShelfLifeDays: 120, defaultLocation: "freezer" },
   { id: "frozen-mixed-vegetables", name: "Frozen mixed vegetables", unit: "g", shelfLifeDays: 270, openedShelfLifeDays: 120, defaultLocation: "freezer" },
@@ -167,7 +204,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "frozen-fish-fillets", name: "Frozen fish fillets", unit: "g", shelfLifeDays: 180, openedShelfLifeDays: 60, defaultLocation: "freezer" },
   { id: "ice-cream", name: "Ice cream", unit: "g", shelfLifeDays: 180, openedShelfLifeDays: 30, defaultLocation: "freezer" },
 
-  // --- Condiments ----------------------------------------------------------------
+    ],
+  },
+  {
+    category: "condiments",
+    entries: [
   { id: "ketchup", name: "Ketchup", unit: "ml", shelfLifeDays: 365, openedShelfLifeDays: 30, defaultLocation: "pantry" },
   { id: "mustard", name: "Mustard", unit: "ml", shelfLifeDays: 365, openedShelfLifeDays: 60, defaultLocation: "pantry" },
   { id: "mayonnaise", name: "Mayonnaise", unit: "ml", shelfLifeDays: 90, openedShelfLifeDays: 30, defaultLocation: "fridge" },
@@ -181,7 +222,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "tahini", name: "Tahini", unit: "ml", shelfLifeDays: 365, openedShelfLifeDays: 90, defaultLocation: "pantry" },
   { id: "worcestershire-sauce", name: "Worcestershire sauce", unit: "ml", shelfLifeDays: 1095, openedShelfLifeDays: 365, defaultLocation: "pantry" },
 
-  // --- Baking -----------------------------------------------------------------
+    ],
+  },
+  {
+    category: "baking",
+    entries: [
   { id: "flour", name: "Flour", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 365, defaultLocation: "pantry" },
   { id: "sugar", name: "Sugar", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
   { id: "brown-sugar", name: "Brown sugar", unit: "g", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
@@ -192,7 +237,11 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "chocolate-chips", name: "Chocolate chips", unit: "g", shelfLifeDays: 365, openedShelfLifeDays: 180, defaultLocation: "pantry" },
   { id: "vanilla-extract", name: "Vanilla extract", unit: "ml", shelfLifeDays: 1095, openedShelfLifeDays: 1095, defaultLocation: "pantry" },
 
-  // --- Herbs & spices ------------------------------------------------------------
+    ],
+  },
+  {
+    category: "herbs-spices",
+    entries: [
   { id: "black-pepper", name: "Black pepper", unit: "g", shelfLifeDays: 1095, openedShelfLifeDays: 730, defaultLocation: "pantry" },
   { id: "salt", name: "Salt", unit: "g", shelfLifeDays: 3650, openedShelfLifeDays: 3650, defaultLocation: "pantry" },
   { id: "cumin", name: "Cumin", unit: "g", shelfLifeDays: 1095, openedShelfLifeDays: 365, defaultLocation: "pantry" },
@@ -205,14 +254,24 @@ const RAW_CATALOG: readonly SeedIngredient[] = [
   { id: "fresh-cilantro", name: "Fresh cilantro", unit: "g", shelfLifeDays: 7, openedShelfLifeDays: 3, defaultLocation: "fridge" },
   { id: "fresh-ginger", name: "Fresh ginger", unit: "g", shelfLifeDays: 21, openedShelfLifeDays: 10, defaultLocation: "fridge" },
 
-  // --- Drinks --------------------------------------------------------------------
+    ],
+  },
+  {
+    category: "drinks",
+    entries: [
   { id: "orange-juice", name: "Orange juice", unit: "ml", shelfLifeDays: 14, openedShelfLifeDays: 7, defaultLocation: "fridge" },
   { id: "coffee", name: "Coffee (ground)", unit: "g", shelfLifeDays: 270, openedShelfLifeDays: 60, defaultLocation: "pantry" },
   { id: "tea-bags", name: "Tea bags", unit: "piece", shelfLifeDays: 730, openedShelfLifeDays: 730, defaultLocation: "pantry" },
   { id: "sparkling-water", name: "Sparkling water", unit: "ml", shelfLifeDays: 270, openedShelfLifeDays: 3, defaultLocation: "pantry" },
   { id: "beer", name: "Beer", unit: "ml", shelfLifeDays: 180, openedShelfLifeDays: 1, defaultLocation: "fridge" },
   { id: "wine", name: "Wine", unit: "ml", shelfLifeDays: 1095, openedShelfLifeDays: 5, defaultLocation: "pantry" },
+    ],
+  },
 ];
+
+/** `CATALOG_SECTIONS`, flattened, with each entry stamped with its section's category. */
+const RAW_CATALOG: readonly (SeedIngredient & { readonly category: IngredientCategory })[] =
+  CATALOG_SECTIONS.flatMap((section) => section.entries.map((entry) => ({ ...entry, category: section.category })));
 
 /**
  * The seeded catalog, as constructed `Ingredient`s (branded ids via
@@ -227,4 +286,5 @@ export const seedCatalog: readonly Ingredient[] = RAW_CATALOG.map((entry) => ({
   shelfLifeDays: entry.shelfLifeDays,
   openedShelfLifeDays: entry.openedShelfLifeDays,
   defaultLocation: entry.defaultLocation,
+  category: entry.category,
 }));
