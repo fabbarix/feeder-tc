@@ -202,6 +202,12 @@ test("Mark cooked deducts pantry and creates leftovers", async ({ page }) => {
   // And "Chili" appears in cooked history
   await goTo(page, "Recipes");
   await page.getByRole("link", { name: /Chili/ }).click();
-  await expect(page.getByRole("main")).toContainText("dinner");
+  // Assert the cooked-history line itself, which is what this scenario is
+  // about. The previous assertion looked for the lowercase word "dinner",
+  // which only ever matched incidental text on the old always-editable
+  // recipe form; WP-VC2 split that into a read view where the meal tag is a
+  // capitalised "Dinner" pill. Asserting incidental copy made this test
+  // pass for the wrong reason and then fail for the wrong reason.
+  await expect(page.getByRole("main")).toContainText(/Cooked \d+ time/i);
   await expect(page.getByRole("main")).not.toContainText("Not marked cooked yet");
 });
