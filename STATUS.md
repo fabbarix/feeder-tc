@@ -92,19 +92,23 @@ Last updated: 2026-08-21
 | WP-30 | Cross-feature E2E suite | pending | — | needs WP-23; runs alongside WP-24 |
 | WP-31 | Release | in-progress | `wp31-readme` (PR #14, **merged**) | README done and merged early. Remaining: onboarding polish, tag v1.0.0, owner's full-loop check. |
 
-## Parked / blocked on owner
+## Owner-dependent items — all now COMPLETE
 
-- **WP-10 live verification — PARTIALLY DONE (2026-08-20).**
-  - ✅ **Sign-in verified against the real Google.** OAuth flow, `drive.file` scope,
-    client ID, registered origin and consent screen all confirmed working by the owner.
-  - ⚠️ First attempt failed with `Error 403: access_denied` — the consent screen was
-    still in **Testing**, despite HANDOVER §7 recording it as Production. Owner
-    published the app; no verification review was needed because `drive.file` is
-    non-sensitive. HANDOVER §7 corrected.
-  - ⏳ **Outstanding:** steps 2–4 of `verify-google.html` — create workbook (nine tabs),
-    open Picker, and **read `Meta!A1:B1`**. Step 4 is the only one that proves
-    `SheetsTransport` round-trips against the real Sheets API rather than msw.
-    Not blocking; WP-10 is merged and its mocked contract suite passes.
+_Nothing is parked or blocked on the owner. Both entries below are kept as the
+record of how they were resolved, not as outstanding work._
+
+- **WP-10 live verification — ✅ COMPLETE.** All four steps of `verify-google.html`
+  confirmed working against the real Google by the owner, who reported on
+  2026-08-21 that the remaining steps had been done "days ago". That closes the
+  last untested seam: step 4 (**read `Meta!A1:B1`**) is what proves
+  `SheetsTransport` round-trips against the real Sheets API rather than msw, so
+  the transport is no longer msw-only evidence.
+  - Historical note worth keeping: the first sign-in attempt failed with
+    `Error 403: access_denied` because the consent screen was still in
+    **Testing** despite HANDOVER §7 recording it as Production. The owner
+    published the app; no verification review was needed because `drive.file`
+    is non-sensitive. HANDOVER §7 was corrected then.
+  - Nothing here is parked or owed by the owner any more.
 
 - **Custom domain — ✅ COMPLETE (2026-08-20).** Site is live at
   `https://feeder.torchetti.us`, HTTPS enforced, `fabbarix.github.io/feeder-tc/`
