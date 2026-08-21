@@ -166,17 +166,168 @@
   font-weight: 600;
 }
 
-.steps {
+/* Richer steps (WP-PHOTO UI — mock-responsive.html's `.stepslist`/
+   `.stepitem`/`.stepmeta`/`.stepdetail` family): a short line always
+   visible, an optional image/duration/timer-button, and detail behind a
+   native <details> disclosure so a step with paragraphs of explanation
+   doesn't turn the method into a wall of text. Replaces the old bare
+   `.steps`/`<ol>` — a numbered circle badge via CSS counters, not a native
+   `<ol>` marker, is what the mock's own design calls for here. */
+.stepsList {
+  list-style: none;
+  counter-reset: step;
   margin: 0;
-  padding-left: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  font-size: 14px;
-  color: var(--text);
+  padding: 0;
+  display: grid;
+  gap: 16px;
 }
 
-.steps li::marker {
+.stepItem {
+  display: flex;
+  gap: 12px;
+  counter-increment: step;
+}
+
+.stepItem::before {
+  content: counter(step);
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--accent-bg);
   color: var(--accent);
-  font-weight: 700;
+  font: 700 12px/24px var(--sans);
+  text-align: center;
+}
+
+.stepBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.stepLine {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.stepImgWrap {
+  margin-top: 9px;
+}
+
+.stepMeta {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.stepDur {
+  font: 600 11px/1 var(--sans);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 600 11.5px/1 var(--sans);
+  padding: 7px 12px;
+  min-height: 32px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  cursor: pointer;
+}
+
+.timerBtn:hover {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.stepDetail summary {
+  cursor: pointer;
+  font: 600 12px/1 var(--sans);
+  color: var(--accent);
+  margin-top: 8px;
+  list-style: none;
+}
+
+.stepDetail summary::-webkit-details-marker {
+  display: none;
+}
+
+.stepDetail summary::before {
+  content: "Show detail ▾";
+}
+
+.stepDetail[open] summary::before {
+  content: "Hide detail ▴";
+}
+
+.detailText {
+  margin-top: 9px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.65;
+  padding: 11px 13px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+/* The running timer — large and legible, used with hands covered in flour
+   (mock-responsive.html's own words). Full accent colour is deliberate: an
+   active timer is exactly the "exception" UI_DESIGN.md §13's colour rule
+   reserves colour for, unlike a resting duration badge. */
+.timerRun {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.timerLabel {
+  font: 600 12px/1.3 var(--sans);
+  opacity: 0.85;
+  margin: 0 0 3px;
+}
+
+.timerCount {
+  font: 700 36px/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.timerActions {
+  display: flex;
+  gap: 9px;
+  flex: none;
+}
+
+/* 44px — real touch targets even on the boldest, most glanced-at control on
+   the screen (mock's own note: "44px pause/cancel targets"). */
+.timerButton {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent-text);
+  background: transparent;
+  color: var(--accent-text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.photoRailItem {
+  display: flex;
 }

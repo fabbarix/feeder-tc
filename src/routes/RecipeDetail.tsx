@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { ErrorState, SegmentedControl, Skeleton } from "../ui/components";
-import { Minus, Plus } from "../ui/icons";
+import { ErrorState, Markdown, SegmentedControl, Skeleton } from "../ui/components";
+import { PhotoMedia } from "../ui/photo/index.ts";
+import { Minus, Pause, Plus, Timer, X } from "../ui/icons";
 import {
   formatQuantity,
   newPlanSlotId,
@@ -15,13 +16,29 @@ import {
   type RecipeIngredient,
   type RecipeStatus,
   type RecipeStep,
+  type StepId,
 } from "../domain/index.ts";
+import { getPhotoDataUrl } from "../photos/index.ts";
 import { usePantryInventory } from "./pantry/usePantryInventory.ts";
 import { formatShortDate } from "./date-format.ts";
 import { STATUS_OPTIONS } from "./recipe-options.ts";
 import formsStyles from "./forms.module.css";
 import recipesStyles from "./recipes.module.css";
 import styles from "./recipe-detail.module.css";
+
+/** One running/paused kitchen timer, tied to a specific step — only one at a time (mock-responsive.html shows a single `.timerrun`, contextual to whichever step started it). */
+interface ActiveTimer {
+  readonly stepId: StepId;
+  readonly remainingSeconds: number;
+  readonly paused: boolean;
+}
+
+/** "18:42" / "6:05" — mm:ss, never hours (no step here runs an hour+). */
+function formatTimer(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -79,8 +96,34 @@ export function RecipeDetail() {
   const [steps, setSteps] = useState<readonly RecipeStep[]>([]);
   const [planSlots, setPlanSlots] = useState<readonly PlanSlot[]>([]);
   const [servings, setServings] = useState<number | undefined>(undefined);
+  const [activeTimer, setActiveTimer] = useState<ActiveTimer | undefined>(undefined);
 
   const today = clock.today();
+
+  const timerRunning = activeTimer !== undefined && !activeTimer.paused && activeTimer.remainingSeconds > 0;
+  useEffect(() => {
+    if (!timerRunning) return;
+    const id = window.setInterval(() => {
+      setActiveTimer((current) => {
+        if (!current) return current;
+        return { ...current, remainingSeconds: Math.max(0, current.remainingSeconds - 1) };
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [timerRunning]);
+
+  function startTimer(step: RecipeStep): void {
+    if (step.durationMinutes === undefined) return;
+    setActiveTimer({ stepId: step.id, remainingSeconds: step.durationMinutes * 60, paused: false });
+  }
+
+  function togglePauseTimer(): void {
+    setActiveTimer((current) => (current ? { ...current, paused: !current.paused } : current));
+  }
+
+  function cancelTimer(): void {
+    setActiveTimer(undefined);
+  }
 
   useEffect(() => {
     // `loading`/`error` are only ever set from the promise's own resolution
@@ -291,17 +334,103 @@ export function RecipeDetail() {
                   {steps.length === 0 ? (
                     <p className={formsStyles.hint}>No steps recorded.</p>
                   ) : (
-                    <ol className={styles.steps}>
-                      {steps.map((step) => (
-                        <li key={step.id}>{step.description}</li>
-                      ))}
-                    </ol>
+                    <>
+                      {activeTimer
+                        ? (() => {
+                            const runningIndex = steps.findIndex((s) => s.id === activeTimer.stepId);
+                            return (
+                              <div className={styles.timerRun}>
+                                <div>
+                                  <p className={styles.timerLabel}>
+                                    Running — step {runningIndex === -1 ? "" : runningIndex + 1}
+                                  </p>
+                                  <p className={styles.timerCount}>{formatTimer(activeTimer.remainingSeconds)}</p>
+                                </div>
+                                <div className={styles.timerActions}>
+                                  <button
+                                    type="button"
+                                    className={styles.timerButton}
+                                    aria-label={activeTimer.paused ? "Resume timer" : "Pause timer"}
+                                    onClick={togglePauseTimer}
+                                  >
+                                    <Pause size={18} aria-hidden="true" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.timerButton}
+                                    aria-label="Cancel timer"
+                                    onClick={cancelTimer}
+                                  >
+                                    <X size={18} aria-hidden="true" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        : null}
+                      <ol className={styles.stepsList}>
+                        {steps.map((step) => {
+                          const isRunning = activeTimer?.stepId === step.id;
+                          return (
+                            <li key={step.id} className={styles.stepItem}>
+                              <div className={styles.stepBody}>
+                                <p className={styles.stepLine}>{step.description}</p>
+                                {step.hasPhoto ? (
+                                  <div className={styles.stepImgWrap}>
+                                    <PhotoMedia
+                                      kind="recipe-step"
+                                      hasPhoto
+                                      size="step"
+                                      fetchPhoto={() => getPhotoDataUrl(store, "recipe-step", step.id)}
+                                    />
+                                  </div>
+                                ) : null}
+                                {step.durationMinutes !== undefined ? (
+                                  <div className={styles.stepMeta}>
+                                    <span className={styles.stepDur}>
+                                      <Timer size={12} aria-hidden="true" />
+                                      {step.durationMinutes} min{isRunning ? " · running" : ""}
+                                    </span>
+                                    {!isRunning ? (
+                                      <button
+                                        type="button"
+                                        className={styles.timerBtn}
+                                        onClick={() => startTimer(step)}
+                                      >
+                                        Start timer
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                                {step.detail ? (
+                                  <details className={styles.stepDetail}>
+                                    <summary />
+                                    <div className={styles.detailText}>
+                                      <Markdown text={step.detail} />
+                                    </div>
+                                  </details>
+                                ) : null}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </>
                   )}
                 </div>
               </div>
             </div>
 
             <div className={styles.rail}>
+              {recipe.hasPhoto ? (
+                <PhotoMedia
+                  kind="recipe"
+                  hasPhoto
+                  size="detail"
+                  fetchPhoto={() => getPhotoDataUrl(store, "recipe", recipe.id)}
+                  alt={recipe.name}
+                />
+              ) : null}
               <div className={formsStyles.sectionCard}>
                 <div className={formsStyles.sectionCardHead}>Household flag</div>
                 <div className={formsStyles.sectionCardBody}>
