@@ -36,9 +36,14 @@ test("Creating a bought meal", async ({ page }) => {
   await expect(page.getByRole("main")).toContainText("0 prep");
   await expect(page.getByRole("main")).toContainText("50 cook");
 
-  // ...confirmed directly on the recipe itself: bought recipes never show
-  // an editable prep-time field, only the fixed "0 min" hint.
+  // ...confirmed directly on the recipe itself: clicking the card now opens
+  // the read-only recipe view (WP-VC2 — design/mock-screens.html #recipe),
+  // not straight into the editor. Its own "Edit" action is what reaches the
+  // editor, where bought recipes never show an editable prep-time field,
+  // only the fixed "0 min" hint.
   await page.getByRole("link", { name: "Store lasagna" }).click();
+  await expect(page.getByRole("heading", { name: "Store lasagna" })).toBeVisible();
+  await page.getByRole("link", { name: "Edit" }).click();
   await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "Store-bought" })).toBeChecked();
   await expect(page.getByText("0 min — store-bought meals have no prep step.")).toBeVisible();
@@ -77,26 +82,28 @@ test("Retiring a recipe", async ({ page }) => {
   await page.getByRole("button", { name: "Save recipe" }).click();
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 
-  // When the user sets "Liver stew" status to retired — the 3-state
-  // "Household flag" control lives on the recipe's own page (moved there
-  // to match the approved mockup, owner-reported 2026-08-20 — it was
-  // originally on the list card), so open the recipe, flip it, and save.
+  // When the user sets "Liver stew" status to retired. The "Household
+  // flag" segmented control is a live, immediate-write action right on the
+  // read-only recipe view itself (WP-VC2 — design/mock-screens.html
+  // #recipe's rail control), not something that requires opening the
+  // editor and saving a form: open the recipe and flip it there directly.
   await page.getByRole("link", { name: "Liver stew" }).click();
-  await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Liver stew" })).toBeVisible();
   await page.getByRole("radio", { name: "Retired" }).click();
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await expect(page.getByRole("radio", { name: "Retired" })).toBeChecked();
 
-  // Then "Liver stew" shows as retired in the recipe list
+  // Then "Liver stew" shows as retired in the recipe list. Via the primary
+  // nav explicitly (not just `{ name: "Recipes" }`): Recipes also has its
+  // own `RouteTabs` "Recipes" tab (WP-VC — the ingredients catalog is
+  // reachable as a proper tab now), so an unscoped locator can transiently
+  // match both mid-navigation.
+  const primaryNav = page.getByRole("navigation", { name: "Primary" });
+  await primaryNav.getByRole("link", { name: "Recipes", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("Retired");
 
-  // Persisted, not just local state — reload the list and check again. Via
-  // the primary nav explicitly (not just `{ name: "Recipes" }`): Recipes
-  // also has its own `RouteTabs` "Recipes" tab (WP-VC — the ingredients
-  // catalog is reachable as a proper tab now), so an unscoped locator can
-  // transiently match both mid-navigation.
-  const primaryNav = page.getByRole("navigation", { name: "Primary" });
+  // Persisted, not just local state — reload the list and check again.
   await primaryNav.getByRole("link", { name: "Home" }).click();
-  await primaryNav.getByRole("link", { name: "Recipes" }).click();
+  await primaryNav.getByRole("link", { name: "Recipes", exact: true }).click();
   await expect(page.getByRole("main")).toContainText("Retired");
 });

@@ -14,9 +14,18 @@ import { enterReadyShell } from "./support/shell.ts";
 // first — see e2e/wp-15-shell-gating.spec.ts for the gating behavior itself.
 test("navigates from home to the pantry route", async ({ page }) => {
   await enterReadyShell(page);
-  await expect(page.getByRole("heading", { name: "Feeder" })).toBeVisible();
+  // WP-VC2's Home dashboard renders a personalized greeting as its own h1
+  // ("Good evening, Fabio" in the mock) rather than a literal "Feeder"
+  // heading — match the pattern rather than a hardcoded name/time-of-day.
+  await expect(page.getByRole("heading", { name: /^Good (morning|afternoon|evening),/ })).toBeVisible();
 
-  await page.getByRole("link", { name: "Pantry" }).click();
+  // Scoped to the primary nav, `exact: true`: Home's own "Use these first"
+  // rail can render its own "Go to Pantry" empty-state link (WP-VC2), which
+  // an unscoped, substring `{ name: "Pantry" }` locator would also match.
+  await page
+    .getByRole("navigation", { name: "Primary" })
+    .getByRole("link", { name: "Pantry", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/pantry$/);
   await expect(page).not.toHaveURL(/#/);
   await expect(page.getByRole("heading", { name: "Pantry" })).toBeVisible();
@@ -35,11 +44,13 @@ test("resolves a deep link with a route parameter on cold load", async ({ page }
   // "ready" would be a second full navigation, which drops the in-memory
   // (never-persisted) access token and re-gates the app (see
   // e2e/support/shell.ts).
-  await enterReadyShell(page, "recipes/12");
-  // WP-20's real RecipeEditor reads the ":recipeId" param and renders "Edit
-  // recipe" for any id (id "12" doesn't exist in a fresh workbook, so the
-  // body below the heading is an error state — irrelevant to what this
-  // test proves: the router resolved the parameterised path at all).
+  await enterReadyShell(page, "recipes/12/edit");
+  // WP-20's real RecipeEditor reads the ":recipeId" param (now nested one
+  // level deeper, at "/recipes/:id/edit" since WP-VC2 split the read view
+  // from the editor) and renders "Edit recipe" for any id (id "12" doesn't
+  // exist in a fresh workbook, so the body below the heading is an error
+  // state — irrelevant to what this test proves: the router resolved the
+  // parameterised path at all).
   await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
-  await expect(page).toHaveURL(/\/recipes\/12$/);
+  await expect(page).toHaveURL(/\/recipes\/12\/edit$/);
 });
