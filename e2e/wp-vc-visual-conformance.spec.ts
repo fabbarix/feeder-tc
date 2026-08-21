@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { addRecipe } from "./support/recipes.ts";
 import { E2E_CREATED_SPREADSHEET_ID, E2E_FAKE_ACCESS_TOKEN } from "../src/mocks/handlers.ts";
 
 // WP-VC ("visual conformance — make the app match the approved mock").
@@ -11,22 +12,6 @@ import { E2E_CREATED_SPREADSHEET_ID, E2E_FAKE_ACCESS_TOKEN } from "../src/mocks/
 // again (see design/mock-reference.css for the mock's own extracted
 // tokens/layout rules, copied verbatim, which is what every assertion here
 // is checked against).
-
-async function addRecipe(
-  page: import("@playwright/test").Page,
-  name: string,
-  cookMinutes: number,
-): Promise<void> {
-  await page
-    .getByRole("navigation", { name: "Primary" })
-    .getByRole("link", { name: "Recipes" })
-    .click();
-  await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
-  await page.getByRole("textbox", { name: "Name" }).fill(name);
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill(String(cookMinutes));
-  await page.getByRole("button", { name: "Save recipe" }).click();
-  await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
-}
 
 test.describe("full-width layout mode for grid/browse routes (design/mock-reference.css §2)", () => {
   test.use({ viewport: { width: 1677, height: 1000 } });

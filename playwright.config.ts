@@ -33,6 +33,14 @@ const PWA_PORT = PORT + 1;
 const PWA_BASE_URL = `http://localhost:${PWA_PORT}/`;
 const PWA_SPEC = /wp-24-sw-offline\.spec\.ts$/;
 
+// WP-30's cross-feature specs drive backend/sync behaviour (multi-context
+// workbook sharing, generation bumps, stale-workbook migration, offline
+// outbox concurrency) that doesn't depend on viewport — running them on
+// "mobile-chrome" too would only double their cost (the multi-client spec
+// alone opens two browser contexts per test) for zero extra coverage, the
+// same reasoning as the "pwa" project's own carve-out above.
+const WP30_DESKTOP_ONLY_SPECS = /wp-30-.*\.spec\.ts$/;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -55,7 +63,7 @@ export default defineConfig({
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
-      testIgnore: PWA_SPEC,
+      testIgnore: [PWA_SPEC, WP30_DESKTOP_ONLY_SPECS],
     },
     {
       name: "pwa",

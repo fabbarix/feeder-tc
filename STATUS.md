@@ -61,9 +61,56 @@ Last updated: 2026-08-21 (second pass — see the 2026-08-21 integration-log ent
 | #33 | WP-PHOTO **UI** | `cf82ed1` | Closed the gap the owner caught: `src/photos/` had **zero importers**; now ten. Also fixed a latent data-loss bug in `RecipeEditor`. |
 | #34 | Outbox flush coalescing | `b81851a` | **Data-loss fix — see below.** |
 | #35 | WP-PURCHASING core | `4435fae` | Kills `0.5 Store Bought Lasagna`. Contract change was genuinely **additive-only**, and it updated the contract changelog. |
+| #36 | Stale-workbook missing-tab fix | `6dda2c1` | **Owner-reported production bug.** See below. |
+| #37 | WP-31 release readiness | `fcf367a` | Config-missing screen instead of a white page; ~24 kB bundle cut; onboarding copy; README refresh. |
 | — | Auth session restore | `e6c1790`, `e7914c5` | Released straight to production at the owner's instruction; verified live in the production bundle. |
 
-`main` after the run: **1087 tests / 190 E2E**, lint + typecheck + build green, verified locally after every merge.
+`main` after the run: **1112 tests**, lint + typecheck + build green, verified locally after every merge.
+Initial chunk now **608.25 kB raw / 188.19 kB gzip**, down from 631.67 kB — the win came from
+`Calendar.tsx` no longer pulling in eleven unused calendar systems via `createCalendar`'s
+non-tree-shakeable dispatcher, plus a lazily-imported seed catalog.
+
+### The stale-workbook bug (#36) — owner-reported, from production
+
+Opening the barcode scanner on the live app returned `Sheets API request failed with 400`.
+Sheet **tabs** are only created at spreadsheet-creation time, and `bootstrapWorkbook` runs
+only from `handleCreateWorkbook` — so a workbook created before a sheet joined the schema
+never gains that tab. The owner's workbook predates M6-A (`Products`, `PriceObservations`)
+and WP-PHOTO (`Photos`). `readRange` had no missing-tab fallback (only `appendRows` did), so
+the read returned a bare 400.
+
+**Why no test could catch it:** `src/sheets/mocks/handlers.ts` pre-created every tab
+unconditionally, so the entire bug class was unrepresentable. Fixed by adding an opt-in
+`existingSheets` option to the double — that is the systemic half of the fix.
+
+Also found en route: `appendRows`' self-heal created a tab and appended immediately, leaving
+data at row 1 with **no header row** (invariant 6 violation).
+
+## Open defects — both block v1.0.0 in the coordinator's judgement
+
+**1. No stale-save protection anywhere — silent clobbering between household members.**
+`refreshBeforeEdit` was built and unit-tested in WP-17, exported from `src/sync/index.ts`,
+and wired into **no route at all** — while `contracts.ts:144` states "last-write-wins (no
+locking, refresh-before-edit is the caller's job)". It is an unimplemented contract, not a
+design choice. **15+ blind write sites**: Home, plan/usePlanWeek, RecipeDetail, RecipeEditor,
+IngredientEditor, scan, settings, shopping. Two people editing the same recipe or planning the
+same week silently overwrite each other. WP-30 fixed **RecipeEditor only** (narrowly scoped,
+because building its scenario forced the decision); the rest is a pending package. Note the
+right treatment differs by shape: LWW is arguably *correct* for a per-item toggle like a
+shopping check-off, and clearly wrong for a whole-entity form write.
+
+**2. The same `InventoryEvent` is appended TWICE after an offline→online transition.**
+Found by WP-30's offline/outbox scenario; confirmed by raw request trace (byte-identical
+bodies, same event id). Pantry stock silently doubles on the app's core offline path.
+Structural, not a race: **five** places each construct `createLocalStorageOutbox(workbookId)`
++ `createOutboxSyncController` over the same queue — `App.tsx:384`,
+`usePantryInventory.ts:218`, `useScanFlow.ts:211`, `usePlanWeek.ts:221`,
+`useShoppingList.ts:262`. The App-level controller is always live, so any route hook that
+starts one means two live controllers permanently; both wake on the same reconnect and both
+append. `flush.ts`'s exactly-once check guards only the **retry** path, so two first-try
+successes never trip it — making `outbox-sync-controller.ts`'s "regardless of how many passes
+run" comment overclaimed. Fix package in flight; WP-30 lands the scenario as `test.fail()`
+with the root cause in its comment so the bug stays visible rather than being fixed silently.
 
 ### The outbox bug (#34) — the most important thing found in this run
 
@@ -289,8 +336,17 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 - **TypeScript pinned to `^6.0.3`**, not current 7.x: `typescript-eslint@8.67` declares
   peer `<6.1.0`. Revisit as a dedicated dependency-bump task once the ecosystem
   catches up — must not drift in via a feature branch.
-- **Picker API key referrer allowlist still contains `http://localhost:5173/*`.**
-  Needed for development; worth dropping from the production key at WP-31.
+- ~~**Picker API key referrer allowlist contains `http://localhost:5173/*`.**~~
+  **Resolved 2026-08-21.** The note assumed a separate dev key existed; there
+  was only ONE key serving both production and local dev, so dropping the
+  referrer outright would have broken real-Google development on 5173 (the
+  registered OAuth origin). Split instead: a new dev-only key
+  (`7fe988c3-…`, `localhost:5173` only) and the production key
+  (`be2d2e1a-…`) narrowed to `feeder.torchetti.us/*` plus
+  `fabbarix.github.io/feeder-tc/*` — the latter previously allowed **every**
+  project under the account. Both remain scoped to `picker.googleapis.com`.
+  Local dev needs the dev key in `.env.local`; the Actions secret is
+  unchanged. See `CLAUDE.md`.
 
 - **WP-VC4 leftovers.** Three gaps carried out of PR #28: the pantry toolbar has two
   buttons where the mock has one; multi-lot Open/Move/Spoil has no E2E coverage; and

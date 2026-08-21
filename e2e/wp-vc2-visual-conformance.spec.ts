@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { addRecipe } from "./support/recipes.ts";
 
 // WP-VC2 ("Home dashboard + read-only recipe view — match design/mock-
 // screens.html's #home and #recipe sections"). Pins the measurable shape of
@@ -8,15 +9,6 @@ import { enterReadyShell } from "./support/shell.ts";
 // numbers/selectors, not screenshots, so a future change that quietly
 // breaks the layout fails a specific assertion instead of "looking a bit
 // off".
-
-async function addRecipe(page: import("@playwright/test").Page, name: string, cookMinutes: number): Promise<void> {
-  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Recipes", exact: true }).click();
-  await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
-  await page.getByRole("textbox", { name: "Name" }).fill(name);
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill(String(cookMinutes));
-  await page.getByRole("button", { name: "Save recipe" }).click();
-  await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
-}
 
 test.describe("Home dashboard (design/mock-screens.html #home)", () => {
   test("greets by name, shows the date/household size, and two side-by-side stat tiles — even on a phone viewport", async ({

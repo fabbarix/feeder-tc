@@ -2,3 +2,12 @@ node_modules/
 dist/
 .env.local
 .env.*.local
+# Backups/swaps of the credentials file — `.env.local` itself was covered but
+# `.env.local.bak`, `.env.local~`, editor swapfiles etc. were not, so a stray
+# copy of real credentials could be committed by a careless `git add -A`.
+.env.local.*
+.env.local~
+!.env.local.example
+# Generated Playwright output (WP-30) — these were tracked by mistake.
+playwright-report/
+test-results/
