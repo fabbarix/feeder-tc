@@ -18,26 +18,46 @@
  * `zxing-wasm`'s default `locateFile` fetches the `.wasm` binary from the
  * jsDelivr CDN (see its README) — wrong for an offline-first PWA (no
  * third-party runtime dependency, HANDOVER §4 invariant 7's spirit) and
- * wrong for CI (no real network calls). The `?url` import below makes Vite
- * bundle the `.wasm` file as a same-origin, hashed asset instead, and
- * `prepareZXingModule`'s `overrides.locateFile` is pointed at it explicitly.
+ * wrong for CI (no real network calls). `wasm-asset-url.ts`'s `?url` import
+ * makes Vite bundle the `.wasm` file as a same-origin, hashed asset
+ * instead, and `prepareZXingModule`'s `overrides.locateFile` is pointed at
+ * it explicitly. `vite.config.ts` additionally registers a `CacheFirst`
+ * runtime-caching route for that same URL pattern, and
+ * `warm-wasm-decoder.ts` opportunistically primes it — see that file for
+ * why (coordinator follow-up on PR #32: a cold fetch of this ~464 KB
+ * gzip file while standing in a shop with bad signal is exactly the
+ * failure this app's "offline-first" brief exists to prevent).
  */
 import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
-// Vite's generic `declare module '*?url'` (vite/client.d.ts) resolves this to
-// a same-origin, hashed asset URL string at build time, not a JS module.
-import zxingReaderWasmUrl from "zxing-wasm/reader/zxing_reader.wasm?url";
+import { zxingReaderWasmUrl } from "./wasm-asset-url.ts";
 
-let prepared = false;
+/**
+ * A stable object reference, not an inline literal per call:
+ * `prepareZXingModule` reuses its cached module promise only when the
+ * `overrides` object passed in `shallow`-equals the previously cached one
+ * (see zxing-wasm's own `PrepareZXingModuleOptions.equalityFn` doc
+ * comment) — a fresh `{ locateFile: (path) => ... }` object literal on
+ * every call would never `Object.is`-equal a previous one (function
+ * identity differs each time), defeating that cache and re-triggering
+ * instantiation on every single call. Defining this once at module scope
+ * is what makes `ensureWasmDecoderReady`/`decodeBarcodeFromImageData`
+ * actually idempotent after the first successful call.
+ */
+const ZXING_MODULE_OVERRIDES = {
+  locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? zxingReaderWasmUrl : prefix + path),
+};
 
-/** Idempotent — safe to call on every decode attempt; only the first call actually configures the module. */
-function ensurePrepared(): void {
-  if (prepared) return;
-  prepared = true;
-  prepareZXingModule({
-    overrides: {
-      locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? zxingReaderWasmUrl : prefix + path),
-    },
-  });
+/**
+ * Forces the WASM module to actually fetch and instantiate NOW, and throws
+ * if that fails (e.g. offline and the file was never cached) — called once,
+ * eagerly, before `useBarcodeScanner.ts` starts its decode loop, so a
+ * genuine "the decoder isn't available" failure surfaces as a single clear
+ * error the caller can show a real message for, rather than as a silent,
+ * endlessly-retried per-frame failure (coordinator follow-up on PR #32:
+ * "never a spinner that goes nowhere").
+ */
+export async function ensureWasmDecoderReady(): Promise<void> {
+  await prepareZXingModule({ overrides: ZXING_MODULE_OVERRIDES, fireImmediately: true });
 }
 
 /**
@@ -45,9 +65,12 @@ function ensurePrepared(): void {
  * captured frame. Returns the first result's text, or `undefined` if none
  * was found — never throws on "no barcode in this frame", since that is the
  * overwhelmingly common case in a decode loop (see `useBarcodeScanner.ts`).
+ * Assumes `ensureWasmDecoderReady` already succeeded once for this session
+ * (`prepareZXingModule`'s own cache makes calling it again here practically
+ * free either way).
  */
 export async function decodeBarcodeFromImageData(imageData: ImageData): Promise<string | undefined> {
-  ensurePrepared();
+  prepareZXingModule({ overrides: ZXING_MODULE_OVERRIDES });
   const results = await readBarcodes(imageData, {
     formats: ["AllRetail"],
     tryHarder: true,

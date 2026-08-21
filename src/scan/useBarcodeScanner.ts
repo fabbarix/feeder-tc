@@ -5,8 +5,13 @@
  * lifecycle: requests the camera, picks a decoder (native `BarcodeDetector`
  * where available, the lazily-loaded WASM fallback otherwise — coordinator
  * decision, see `src/scan/wasm-decoder.ts`'s header for why that import is
- * dynamic), polls frames on an interval, and reports one of five statuses a
- * route can render distinct UI for. Manual barcode entry is NOT part of
+ * dynamic), polls frames on an interval, and reports one of several
+ * statuses a route can render distinct UI for — including
+ * `"decoder-unavailable"`, a genuinely different failure from `"denied"`/
+ * `"unavailable"`: the camera itself works, but the WASM fallback couldn't
+ * be fetched/instantiated (offline, never cached — see
+ * `warm-wasm-decoder.ts`), detected once, up front, rather than retried
+ * silently forever inside the decode loop. Manual barcode entry is NOT part of
  * this hook — it has nothing to do with the camera and is always available
  * regardless of `status` (the scan route renders it unconditionally, so
  * there is never a dead end).
@@ -38,7 +43,14 @@ import {
 import { isBarcodeDetectorSupported } from "./capabilities.ts";
 import { createNativeBarcodeDetector, detectBarcodes, type BarcodeDetectorLike } from "./detector.ts";
 
-export type ScannerStatus = "idle" | "starting" | "scanning" | "denied" | "unavailable" | "error";
+export type ScannerStatus =
+  | "idle"
+  | "starting"
+  | "scanning"
+  | "denied"
+  | "unavailable"
+  | "decoder-unavailable"
+  | "error";
 
 export interface UseBarcodeScannerResult {
   /** `"idle"` whenever `enabled` is false, regardless of whatever the camera was doing before it was disabled. */
@@ -88,15 +100,22 @@ export function useBarcodeScanner(
     let stream: MediaStream | undefined;
     let intervalId: number | undefined;
 
-    async function decodeOneFrame(video: HTMLVideoElement, detector: BarcodeDetectorLike | undefined): Promise<string | undefined> {
+    async function decodeOneFrame(
+      video: HTMLVideoElement,
+      detector: BarcodeDetectorLike | undefined,
+      wasmModule: typeof import("./wasm-decoder.ts") | undefined,
+    ): Promise<string | undefined> {
       if (detector) {
         const results = await detectBarcodes(detector, video);
         return results[0];
       }
+      if (!wasmModule) return undefined;
       // WASM path: draw the current frame to a small offscreen canvas, then
-      // hand ImageData to the lazily-loaded decoder. The dynamic import
-      // below resolves instantly after the first call (module cache) — it
-      // is not re-fetched every tick.
+      // hand ImageData to the already-loaded-and-ready decoder (see
+      // `start()` below — the module is imported and instantiated ONCE,
+      // before this loop starts, specifically so a fetch/instantiation
+      // failure surfaces as a single clear error rather than a silently
+      // retried per-frame one).
       if (!canvasRef.current) canvasRef.current = document.createElement("canvas");
       const canvas = canvasRef.current;
       const scale = video.videoWidth > 0 ? Math.min(1, WASM_FRAME_WIDTH / video.videoWidth) : 1;
@@ -106,13 +125,13 @@ export function useBarcodeScanner(
       if (!ctx) return undefined;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const wasmDecoder = await import("./wasm-decoder.ts");
-      return wasmDecoder.decodeBarcodeFromImageData(imageData);
+      return wasmModule.decodeBarcodeFromImageData(imageData);
     }
 
     async function start(): Promise<void> {
       setStatus("starting");
       setErrorMessage(undefined);
+      let decoderAttempted = false;
       try {
         stream = await startCameraStream();
         if (cancelled) {
@@ -126,9 +145,24 @@ export function useBarcodeScanner(
         if (cancelled) return;
 
         let detector: BarcodeDetectorLike | undefined;
+        let wasmModule: typeof import("./wasm-decoder.ts") | undefined;
         if (isBarcodeDetectorSupported()) {
           detector = createNativeBarcodeDetector();
         } else {
+          // Imported and made ready ONCE, up front — a fetch/instantiation
+          // failure (offline, never cached — see warm-wasm-decoder.ts for
+          // the mitigation) throws HERE, in the same try/catch as the
+          // camera-permission errors below, instead of inside the decode
+          // loop where it would otherwise be swallowed as "no barcode in
+          // this frame" and retried forever (coordinator follow-up on PR
+          // #32: "never a spinner that goes nowhere"). `decoderAttempted`
+          // is what lets the catch block below tell "the decoder itself
+          // couldn't be readied" apart from any other unrelated error
+          // (e.g. the video-element guard just above).
+          decoderAttempted = true;
+          wasmModule = await import("./wasm-decoder.ts");
+          await wasmModule.ensureWasmDecoderReady();
+          if (cancelled) return;
           setUsingWasmFallback(true);
         }
 
@@ -140,14 +174,18 @@ export function useBarcodeScanner(
           const currentVideo = videoRef.current;
           if (!currentVideo || currentVideo.readyState < currentVideo.HAVE_CURRENT_DATA) return;
           busy = true;
-          decodeOneFrame(currentVideo, detector)
+          decodeOneFrame(currentVideo, detector, wasmModule)
             .then((raw) => {
               if (raw && !cancelled) onDetectedRef.current(raw);
             })
             .catch(() => {
-              // One failed decode tick (a blurry/empty frame, a transient
-              // WASM hiccup) is not fatal — the loop just tries again on
-              // the next tick.
+              // A single failed decode TICK past this point (a blurry/empty
+              // frame, a transient WASM hiccup) is not fatal — the loop
+              // just tries again next tick. This is deliberately narrower
+              // than before: the one failure mode that used to hide here
+              // (the decoder never became available at all) can no longer
+              // reach this catch — it already threw above, before the
+              // loop started.
             })
             .finally(() => {
               busy = false;
@@ -155,10 +193,21 @@ export function useBarcodeScanner(
         }, DECODE_INTERVAL_MS);
       } catch (err) {
         if (cancelled) return;
+        if (stream) {
+          // No working decoder (denied/no-camera/decoder-unavailable) means
+          // there is nothing useful this stream can still do — stop it
+          // immediately rather than leaving the camera's in-use indicator
+          // lit for a screen that has already given up.
+          stopCameraStream(stream);
+          stream = undefined;
+        }
         if (err instanceof CameraPermissionDeniedError) {
           setStatus("denied");
         } else if (err instanceof CameraUnavailableError || err instanceof CameraUnsupportedError) {
           setStatus("unavailable");
+        } else if (decoderAttempted) {
+          setStatus("decoder-unavailable");
+          setErrorMessage(messageOf(err));
         } else {
           setStatus("error");
           setErrorMessage(messageOf(err));

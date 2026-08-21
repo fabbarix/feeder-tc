@@ -85,6 +85,27 @@ const pwaPlugin = VitePWA({
     // - apis.google.com — gapi loader + Picker (src/sheets/picker.ts).
     // - oauth2.googleapis.com — token endpoint GIS may call directly.
     runtimeCaching: [
+      // M6 barcode scanner (coordinator follow-up on PR #32): the WASM
+      // fallback decoder's ~1 MB `.wasm` binary is DELIBERATELY not in
+      // `globPatterns` above — it would push its full gzip size onto every
+      // install, including every Android/Chrome user who has
+      // `BarcodeDetector` and never needs it at all. `CacheFirst` here
+      // means: the first time this file is EVER fetched (either the
+      // opportunistic background warm from `src/scan/warm-wasm-decoder.ts`,
+      // triggered as soon as the app is usable, or — failing that — a live
+      // fetch the moment a Safari/iOS user actually opens the scanner), the
+      // service worker keeps it, so every subsequent scan (online or not)
+      // is served from cache rather than the network. `maxEntries: 2` lets
+      // an old and a new content-hashed filename briefly coexist across an
+      // app update instead of evicting the still-useful one immediately.
+      {
+        urlPattern: /\/assets\/zxing_reader-.*\.wasm$/,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "barcode-wasm-decoder",
+          expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 90 },
+        },
+      },
       {
         urlPattern: /^https:\/\/sheets\.googleapis\.com\//,
         handler: "NetworkOnly",

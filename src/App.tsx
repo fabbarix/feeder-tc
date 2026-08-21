@@ -32,6 +32,7 @@ import {
   createOutboxSyncController,
 } from "./sync/index.ts";
 import { createPwaUpdateWatcher } from "./pwa/update.ts";
+import { warmBarcodeDecoderIfNeeded } from "./scan/warm-wasm-decoder.ts";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -298,6 +299,20 @@ function ShellContainer() {
   }, [auth, pickerLauncher, registry, refreshActiveWorkbook, showToast]);
 
   const shellState = deriveShellState(authState, user, activeWorkbook);
+
+  // Coordinator follow-up on PR #32: warm the barcode WASM fallback as soon
+  // as the app is USABLE — signed in, workbook loaded — rather than waiting
+  // for the user to open /scan, which may already be too late (the
+  // household is often already at the shop by their first scan). This is
+  // a fire-and-forget, idle-scheduled, best-effort background fetch;
+  // `warmBarcodeDecoderIfNeeded` itself no-ops on browsers with
+  // `BarcodeDetector`, while offline, or on a detectable save-data/2G
+  // connection — see that module for the full policy and why the
+  // connection check is inert on Safari (the very browser this exists
+  // for — see that module's own doc comment).
+  useEffect(() => {
+    if (shellState.kind === "ready") warmBarcodeDecoderIfNeeded();
+  }, [shellState.kind]);
 
   const workbookContextValue = useMemo<WorkbookContextValue | undefined>(() => {
     if (!activeWorkbook || !countedOutbox) return undefined;

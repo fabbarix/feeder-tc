@@ -153,9 +153,15 @@ export function Scan() {
                 <CameraSlash size={32} aria-hidden="true" />
                 {scanner.status === "denied" ? <p>Camera access was denied.</p> : null}
                 {scanner.status === "unavailable" ? <p>No camera was found on this device.</p> : null}
+                {scanner.status === "decoder-unavailable" ? (
+                  <p>The barcode reader isn't available offline yet on this device.</p>
+                ) : null}
                 {scanner.status === "error" ? <p>Couldn't start the camera{scanner.errorMessage ? `: ${scanner.errorMessage}` : "."}</p> : null}
                 {scanner.status === "starting" || scanner.status === "idle" ? <p>Starting camera…</p> : null}
-                {scanner.status === "denied" || scanner.status === "unavailable" || scanner.status === "error" ? (
+                {scanner.status === "denied" ||
+                scanner.status === "unavailable" ||
+                scanner.status === "decoder-unavailable" ||
+                scanner.status === "error" ? (
                   <>
                     <p className={styles.cameraHint}>Type the barcode below instead.</p>
                     <button type="button" className={styles.retryButton} onClick={scanner.retry}>

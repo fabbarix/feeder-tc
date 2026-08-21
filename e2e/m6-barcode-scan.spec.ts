@@ -127,6 +127,47 @@ async function readPriceObservations(page: Page): Promise<readonly { barcode?: s
   );
 }
 
+/**
+ * Reads the raw `InventoryEvents` `purchase` rows for one ingredient, plus
+ * every `ShoppingItems` row for it — used by the "scan the same barcode
+ * twice" test to prove there is no double-decrement/double-count: two
+ * scans must produce two independent (additive-only, invariant 1) purchase
+ * events, but at most one `ShoppingItems` row per (ingredient, range) key
+ * (insert-or-replace by key, same as every other `upsert` in this
+ * codebase — a second check-off overwrites the first's `checked`/
+ * `boughtQuantity`, it does not add a second row).
+ */
+async function readRiceWorkbookState(
+  page: Page,
+): Promise<{ purchaseCount: number; purchaseQuantities: number[]; shoppingItemCount: number }> {
+  return page.evaluate(
+    async ({ token, spreadsheetId }) => {
+      const sheetsPath = "/src/sheets/index.ts";
+      const domainPath = "/src/domain/index.ts";
+      const sheets = await import(sheetsPath);
+      const domain = await import(domainPath);
+      const auth = { getAccessToken: () => Promise.resolve(token), invalidate: () => undefined };
+      const transport = sheets.createGoogleSheetsTransport({ spreadsheetId, auth });
+      const store = sheets.createSheetsWorkbookStore(transport);
+      const rice = domain.makeIngredientId("rice");
+
+      const events = await store.inventoryEvents.readFrom(0);
+      const purchases = events.rows.filter(
+        (e: { type: string; ingredientId: string }) => e.type === "purchase" && e.ingredientId === rice,
+      );
+      const shoppingItems = await store.shoppingItems.readAll();
+      const riceItems = shoppingItems.rows.filter((i: { ingredientId: string }) => i.ingredientId === rice);
+
+      return {
+        purchaseCount: purchases.length,
+        purchaseQuantities: purchases.map((p: { quantity: { amount: number } }) => p.quantity.amount),
+        shoppingItemCount: riceItems.length,
+      };
+    },
+    { token: E2E_FAKE_ACCESS_TOKEN, spreadsheetId: E2E_CREATED_SPREADSHEET_ID },
+  );
+}
+
 test("Scan: an unknown barcode opens the product editor and creates a product + pantry lot + price", async ({ page }) => {
   await stubCamera(page, "NotFoundError");
   await enterReadyShell(page, "scan");
@@ -266,4 +307,60 @@ test("Scan: no camera on the device falls back to manual entry, never a dead end
   await expect(page.getByText("No camera was found on this device.")).toBeVisible();
   await expect(page.getByLabel("Enter barcode manually")).toBeVisible();
   await expect(page.getByRole("button", { name: "Try the camera again" })).toBeVisible();
+});
+
+// Coordinator review question on PR #32: scanning the SAME known barcode
+// twice in one shopping trip (two bags bought) must not double-decrement
+// or double-count anything. `recordPurchase` (useScanFlow.ts) only ever
+// builds `purchase` events — additive, invariant 1 — so there is no
+// "decrement" path at all; the real risk this test actually exercises is
+// double-CREDITING the shopping list: since `shoppingNeedByIngredient` is
+// recomputed from the live, optimistically-updated pantry (the first
+// scan's still-pending PurchaseEvent is folded in immediately, before any
+// network round trip — see usePantryInventory.ts's own "OPTIMISTIC read
+// model" doc comment, which useScanFlow.ts mirrors), the second scan sees
+// the ALREADY-reduced need and must not re-apply the original one.
+test("Scan: scanning the same known barcode twice credits the list once and adds two separate pantry lots", async ({
+  page,
+}) => {
+  await stubCamera(page, "NotFoundError");
+  await enterReadyShell(page, "scan");
+  await seedRiceNeedForToday(page); // needs 400 g of rice this week
+  await seedProduct(page, {
+    barcode: "0000000000052",
+    name: "Riso Gallo Arborio 1 kg",
+    ingredientId: "rice",
+    canonicalAmount: 1000,
+    canonicalUnit: "g",
+    displayQuantity: 1,
+    displayUnit: "kg",
+    shelfLifeDays: 365,
+    isBulk: false,
+  });
+
+  // First scan: the need still exists -> "Mark bought", default 400 g.
+  await page.getByLabel("Enter barcode manually").fill("0000000000052");
+  await page.getByRole("button", { name: "Look up" }).click();
+  await expect(page.getByRole("heading", { name: /mark riso gallo arborio 1 kg bought/i })).toBeVisible();
+  await page.getByRole("button", { name: "Mark bought" }).click();
+  await expect(page.getByLabel("Enter barcode manually")).toBeVisible();
+
+  // Second scan of the SAME barcode, moments later (a second bag) — the
+  // 400 g need is already covered by the first (still-pending) purchase,
+  // so this must NOT show "Mark ... bought" pre-filled with 400 g again;
+  // it falls back to a plain restock (no live need left to credit).
+  await page.getByLabel("Enter barcode manually").fill("0000000000052");
+  await page.getByRole("button", { name: "Look up" }).click();
+  await expect(page.getByRole("heading", { name: /add riso gallo arborio 1 kg to pantry/i })).toBeVisible();
+  await page.getByRole("button", { name: "Add to pantry" }).click();
+  await expect(page.getByLabel("Enter barcode manually")).toBeVisible();
+
+  const state = await readRiceWorkbookState(page);
+  // Two scans -> two independent, additive purchase events (two lots) —
+  // never merged, never overwritten (invariant 1).
+  expect(state.purchaseCount).toBe(2);
+  expect(state.purchaseQuantities.sort((a, b) => a - b)).toEqual([400, 1000]);
+  // But only ONE ShoppingItems row for (rice, this week) — the second scan
+  // did not re-check-off / double-credit the same need a second time.
+  expect(state.shoppingItemCount).toBe(1);
 });
