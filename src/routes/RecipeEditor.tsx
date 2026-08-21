@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
 import {
+  ConfirmDialog,
   ErrorState,
   QuantityInput,
   SegmentedControl,
@@ -40,6 +41,28 @@ import stepStyles from "./recipe-steps.module.css";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Field-by-field comparison of the parts of a `Recipe` this editor actually
+ * lets a person change — used only to detect "someone else's write landed
+ * since this editor loaded", never persisted or sent anywhere. Deliberately
+ * not a JSON.stringify/deep-equal of the whole object: two `Recipe`s built
+ * from independent decodes can differ in key insertion order (conditional
+ * `hasPhoto` spread) without differing in any value a save could clobber.
+ */
+function recipeContentEquals(a: Recipe, b: Recipe): boolean {
+  return (
+    a.name === b.name &&
+    a.kind === b.kind &&
+    a.baseServings === b.baseServings &&
+    a.prepMinutes === b.prepMinutes &&
+    a.cookMinutes === b.cookMinutes &&
+    a.status === b.status &&
+    (a.hasPhoto ?? false) === (b.hasPhoto ?? false) &&
+    a.mealTags.length === b.mealTags.length &&
+    a.mealTags.every((tag, i) => tag === b.mealTags[i])
+  );
 }
 
 interface LineDraft {
@@ -109,6 +132,15 @@ export function RecipeEditor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  // WP-30: the row as this editor last read it — compared against a fresh
+  // read at save time to detect a stale save (HANDOVER §4's plain-row LWW
+  // deliberately never locks or blocks a write, but silently overwriting a
+  // concurrent household member's edit with no warning at all is a
+  // different, worse thing than "last write wins": nobody who did that
+  // second write ever knew a conflict happened). `undefined` for a brand
+  // new recipe, which has no prior row to go stale against.
+  const loadedRecipeRef = useRef<Recipe | undefined>(undefined);
+  const [staleConflict, setStaleConflict] = useState<Recipe | undefined>(undefined);
 
   const [ingredientsCatalog, setIngredientsCatalog] = useState<readonly Ingredient[]>([]);
   const [linkedIngredientId, setLinkedIngredientId] = useState<IngredientId | undefined>(undefined);
@@ -156,6 +188,7 @@ export function RecipeEditor() {
             setError(`No recipe with id "${recipeId}".`);
             return;
           }
+          loadedRecipeRef.current = found;
           setName(found.name);
           setKind(found.kind);
           setStatus(found.status);
@@ -282,7 +315,7 @@ export function RecipeEditor() {
     setSteps((current) => current.filter((_, i) => i !== index));
   }
 
-  async function handleSave(): Promise<void> {
+  async function handleSave(force = false): Promise<void> {
     if (name.trim() === "" || baseServings === null || baseServings <= 0 || cookMinutes === null) {
       showToast({
         variant: "warning",
@@ -303,6 +336,25 @@ export function RecipeEditor() {
 
     setSaving(true);
     try {
+      // Stale-save check, before ANY write below (photos included) — a
+      // household member editing the same recipe on another device may
+      // have saved since this editor loaded. Skipped for a brand-new
+      // recipe (no prior row to have gone stale) and on the confirmed
+      // "Save anyway" retry (`force`). Deliberately a full re-read rather
+      // than a cheap version/etag check: HANDOVER §4 amendment 3 is the
+      // only sanctioned exception to "no version columns", and it is
+      // scoped to units, not this.
+      if (!isNew && !force) {
+        const latest = await store.recipes.readAll();
+        const current = latest.rows.find((r) => r.id === recipeId);
+        const loaded = loadedRecipeRef.current;
+        if (current && loaded && !recipeContentEquals(current, loaded)) {
+          setSaving(false);
+          setStaleConflict(current);
+          return;
+        }
+      }
+
       const id = isNew ? newRecipeId(rng) : makeRecipeId(recipeId!);
 
       // Steps with a blank instruction are dropped entirely below (existing
@@ -719,6 +771,23 @@ export function RecipeEditor() {
           </div>
         </form>
       ) : null}
+      <ConfirmDialog
+        open={staleConflict !== undefined}
+        title="This recipe changed elsewhere"
+        description={
+          staleConflict
+            ? `Someone else saved "${staleConflict.name}" since you opened it. Saving now overwrites their changes with yours.`
+            : undefined
+        }
+        confirmLabel="Save anyway"
+        cancelLabel="Keep editing"
+        destructive
+        onConfirm={() => {
+          setStaleConflict(undefined);
+          void handleSave(true);
+        }}
+        onCancel={() => setStaleConflict(undefined)}
+      />
     </section>
   );
 }

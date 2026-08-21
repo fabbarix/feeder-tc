@@ -8,3 +8,6 @@ dist/
 .env.local.*
 .env.local~
 !.env.local.example
+# Generated Playwright output (WP-30) — these were tracked by mistake.
+playwright-report/
+test-results/
