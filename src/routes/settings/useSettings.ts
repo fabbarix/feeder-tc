@@ -2,8 +2,26 @@
  * Owns the household-shared `Settings` row (WP-22): household size, slot
  * layout, repeat-exclusion window. Plain-row read/write
  * (`WorkbookStore.settings.read/write`) — last-write-wins, no outbox
- * (invariant 9 only applies to `InventoryEvent`s), same pattern as
- * `RecipeEditor.tsx`'s `store.recipes.upsert`.
+ * (invariant 9 only applies to `InventoryEvent`s).
+ *
+ * WP-stale-save: unlike `RecipeEditor.tsx`/`IngredientEditor.tsx` (one
+ * discrete Save button after editing several fields at once), every write
+ * here comes from a single rapid tap — a household-size stepper, an
+ * add/remove-a-meal-slot button — with no explicit "Save" step at all.
+ * Blocking each tap on a `ConfirmDialog` the way the whole-form editors do
+ * would turn "tap + twice more" into three separate interruptions for what
+ * the person experiences as one continuous adjustment. So `save` here takes
+ * an EDIT function, not a finished `Settings` object, and applies it to a
+ * freshly re-read row (same "refresh before edit" idea `src/sync/
+ * refresh-before-edit.ts` names, inlined here because `Settings` is a
+ * `read`/`write` singleton, not a `readAll`/`upsert` collection that helper's
+ * generic shape expects) — protecting whatever field a concurrent household
+ * member just changed (e.g. a meal slot) from being reset by THIS tap's
+ * write, without a dialog on every tap. `settings === undefined` (no row
+ * loaded — the "Set up defaults" empty-state action) skips the re-read
+ * entirely: there is no prior row to have gone stale against, and
+ * `store.settings.read()` would just rethrow the same "no valid general
+ * row" error `Settings.tsx` already renders as its own empty state.
  */
 import { useCallback, useEffect, useState } from "react";
 import { useWorkbookContext } from "../../workbook-context.ts";
@@ -20,7 +38,13 @@ export interface UseSettingsResult {
   readonly saving: boolean;
   readonly settings: Settings | undefined;
   readonly retry: () => void;
-  readonly save: (next: Settings) => Promise<void>;
+  /**
+   * `current` is the freshest known row (a fresh re-read when one already
+   * exists, `undefined` only for the no-row-yet empty state) — build the
+   * next `Settings` from `current`, not from a captured closure value, so a
+   * field this edit doesn't touch is never reset to a stale local copy.
+   */
+  readonly save: (edit: (current: Settings | undefined) => Settings) => Promise<void>;
 }
 
 export function useSettings(): UseSettingsResult {
@@ -54,9 +78,16 @@ export function useSettings(): UseSettingsResult {
   }, [store, reloadToken]);
 
   const save = useCallback(
-    async (next: Settings): Promise<void> => {
+    async (edit: (current: Settings | undefined) => Settings): Promise<void> => {
       setSaving(true);
       try {
+        // Refresh-before-edit — see this module's own doc comment for why
+        // this merges onto a fresh read instead of showing a per-tap
+        // ConfirmDialog. `settings === undefined` is the no-row-yet case;
+        // re-reading there would just rethrow the same error this route's
+        // empty state already handles.
+        const current = settings === undefined ? undefined : await store.settings.read();
+        const next = edit(current);
         await store.settings.write(next);
         setSettings(next);
         // Clears a stale "no Settings row yet" load error (Settings.tsx's
@@ -71,7 +102,7 @@ export function useSettings(): UseSettingsResult {
         setSaving(false);
       }
     },
-    [store, showToast],
+    [store, settings, showToast],
   );
 
   const retry = useCallback(() => setReloadToken((t) => t + 1), []);
