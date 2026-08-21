@@ -53,6 +53,9 @@ export {
   WifiSlash,
   CloudArrowUp,
   ArrowClockwise,
+  ArrowsClockwise,
+  PushPin,
+  PushPinSlash,
   Trash,
   // Auth / workbook gating (§12 — signed-out / no-workbook shell states)
   GoogleLogo,

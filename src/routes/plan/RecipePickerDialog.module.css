@@ -1,0 +1,92 @@
+/* Same overlay chrome as src/ui/components/ConfirmDialog.module.css — kept
+   route-local rather than promoted to the kit, since this dialog's list
+   markup (vs. confirm/cancel) is specific to the Plan route's manual-pick
+   flow (UI_DESIGN.md §7: routes may compose their own layout above the
+   kit's primitives). */
+
+.underlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.5);
+}
+
+.sheet {
+  width: min(420px, 100%);
+  max-height: min(560px, 80vh);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  outline: none;
+  overflow: hidden;
+}
+
+.title {
+  margin: 0 0 var(--space-3);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-h);
+  font: 500 0.95rem/1.2 var(--sans);
+  cursor: pointer;
+  text-align: left;
+}
+
+.option:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.pill {
+  font: 600 0.65rem/1 var(--sans);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.clearButton {
+  margin-top: var(--space-3);
+  min-height: var(--touch-target);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.clearButton:hover {
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
