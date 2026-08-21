@@ -157,7 +157,7 @@ export interface SharedWorkbookBackend {
    * actually fail.
    */
   install(context: BrowserContext): Promise<{ setNetworkDown(down: boolean): void }>;
-  close(): void;
+  close(): Promise<void>;
 }
 
 export function createSharedWorkbookBackend(config: SharedWorkbookConfig): SharedWorkbookBackend {
@@ -196,8 +196,18 @@ export function createSharedWorkbookBackend(config: SharedWorkbookConfig): Share
   });
   const store = createSheetsWorkbookStore(transport);
 
+  // Every context `install()` routes, so `close()` can unroute them again.
+  // Without this the route handler stays registered after a spec's context is
+  // torn down, and a later spec in the same run trips
+  // "Target page, context or browser has been closed while running route
+  // callback" — surfacing as a failure in whichever UNRELATED test happens to
+  // be running at the time. Playwright's own error text prescribes
+  // `unrouteAll({ behavior: "ignoreErrors" })`; this is that.
+  const installed: BrowserContext[] = [];
+
   async function install(context: BrowserContext): Promise<{ setNetworkDown(down: boolean): void }> {
     let down = false;
+    installed.push(context);
     await context.route(
       (url) => GOOGLE_HOSTS.has(url.hostname),
       async (route) => {
@@ -205,21 +215,27 @@ export function createSharedWorkbookBackend(config: SharedWorkbookConfig): Share
           await route.abort("internetdisconnected");
           return;
         }
-        const req = route.request();
-        const body = req.postDataBuffer();
-        const init: RequestInit = { method: req.method(), headers: await req.allHeaders() };
-        if (body && req.method() !== "GET" && req.method() !== "HEAD") {
-          init.body = new Uint8Array(body);
+        try {
+          const req = route.request();
+          const body = req.postDataBuffer();
+          const init: RequestInit = { method: req.method(), headers: await req.allHeaders() };
+          if (body && req.method() !== "GET" && req.method() !== "HEAD") {
+            init.body = new Uint8Array(body);
+          }
+          const response = await fetch(req.url(), init);
+          const buffer = Buffer.from(await response.arrayBuffer());
+          const headers: Record<string, string> = {};
+          response.headers.forEach((value, key) => {
+            const lower = key.toLowerCase();
+            if (lower === "content-encoding" || lower === "content-length") return;
+            headers[key] = value;
+          });
+          await route.fulfill({ status: response.status, headers, body: buffer });
+        } catch {
+          // The page/context went away mid-flight (normal at teardown). There
+          // is nobody left to fulfil for, and throwing here would fail an
+          // unrelated test, so swallow it.
         }
-        const response = await fetch(req.url(), init);
-        const buffer = Buffer.from(await response.arrayBuffer());
-        const headers: Record<string, string> = {};
-        response.headers.forEach((value, key) => {
-          const lower = key.toLowerCase();
-          if (lower === "content-encoding" || lower === "content-length") return;
-          headers[key] = value;
-        });
-        await route.fulfill({ status: response.status, headers, body: buffer });
       },
     );
     return { setNetworkDown: (value: boolean) => (down = value) };
@@ -230,6 +246,12 @@ export function createSharedWorkbookBackend(config: SharedWorkbookConfig): Share
     store,
     listSheets: () => listSheetTitles(config.spreadsheetId, { auth }),
     install,
-    close: () => server.close(),
+    close: async () => {
+      await Promise.all(
+        installed.map((context) => context.unrouteAll({ behavior: "ignoreErrors" }).catch(() => undefined)),
+      );
+      installed.length = 0;
+      server.close();
+    },
   };
 }

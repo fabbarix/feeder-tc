@@ -81,6 +81,6 @@ test("a workbook created before the current schema migrates on open instead of c
     const sheetsAfter = new Set(await backend.listSheets());
     for (const sheet of MISSING) expect(sheetsAfter.has(sheet)).toBe(true);
   } finally {
-    backend.close();
+    await backend.close();
   }
 });
