@@ -12,7 +12,16 @@ import {
   withSlotRemoved,
 } from "./settings/slot-layout.ts";
 import type { MealTag, Weekday } from "../domain/index.ts";
-import { DEFAULT_SETTINGS } from "../sheets/index.ts";
+// Deliberately `bootstrap.ts` directly, not the `sheets/index.ts` barrel:
+// this lazy route (App.tsx) importing the SAME barrel App.tsx already
+// imports eagerly made Rollup fold several otherwise route-lazy chunks
+// (the barcode WASM decoder, purchasing, several icon chunks...) into the
+// EAGER entry — measured 8 modulepreloaded chunks before, 16 after, a
+// dependency this file has no actual use for. Reaching straight into the
+// one sibling module that owns the one constant this route needs avoids
+// coupling to the sheets layer's entire surface (auth, transport, picker,
+// registry, migrate) and keeps this chunk boundary exactly what it was.
+import { DEFAULT_SETTINGS } from "../sheets/bootstrap.ts";
 import styles from "./settings/settings.module.css";
 import forms from "./forms.module.css";
 
