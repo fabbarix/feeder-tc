@@ -29,6 +29,12 @@ const ROUTES = [
   "plan",
   "shopping",
   "settings",
+  // M6: the barcode scanner + product editor (DESIGN_PRODUCTS.md §1). Headless
+  // Chromium has no camera and no granted permission, so this naturally
+  // exercises the "denied"/"unavailable" fallback UI rather than a live feed
+  // — exactly the state that must stay accessible (manual entry, never a
+  // dead end).
+  "scan",
 ];
 
 test("signed-out gate screen has no axe violations", async ({ page }) => {

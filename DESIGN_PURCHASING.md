@@ -295,6 +295,34 @@ default density of 1.0 would overstate flour by ~80%.** So:
 > weight inline — never convert on an assumption. A wrong conversion here corrupts
 > the pantry ledger and the shopping list at once, and does so invisibly.
 
+### 10.1a One density per ingredient — every volume unit derives from it
+
+Owner question, 2026-08-21: *"do we derive the spoon, teaspoon, etc from the
+cup? Assuming the same ingredient has the same volume/weight ratio?"* **Yes,
+and deliberately.** The editor asks "1 cup weighs ___ g" because that is
+answerable off a kitchen scale; it is stored as `gramsPerMl = value / 240`,
+and every other volume unit falls out of that one number:
+
+| unit | ml | flour @ 130 g/cup |
+|---|---|---|
+| cup | 240 | 130 g |
+| tbsp | 15 | 8 g |
+| tsp | 5 | 3 g |
+
+**Why one number and not three.** Density is a property of the substance, so a
+tablespoon and a cup of the same flour genuinely share it. Storing one figure
+means the three can never drift out of sync, and a household correcting the
+cup weight recalibrates the whole family at once.
+
+**Where the assumption frays, stated honestly.** Compressible powders pack
+differently by vessel: a "cup of flour" is 120–150 g depending on whether you
+scoop or spoon-and-level, so a teaspoon is actually *closer* to true density
+than a cup is. The error therefore lives in the cup measurement itself, not in
+the derivation. Accepted because cooking tolerances absorb ±10% on flour, and
+because the household can correct the one number. **Per-unit overrides are
+explicitly rejected** — more precision than the domain has, and three
+independently-editable numbers for one physical property is a bug factory.
+
 ### 10.2 Which cup?
 
 A US legal cup is 240 ml, a US customary cup 236.6 ml, a metric cup 250 ml,
@@ -366,12 +394,24 @@ work at all:
   recipes): Tinned tomatoes, Tinned chickpeas, Tinned black beans, Tinned
   tuna, Tinned corn, Tomato passata, Pasta sauce, Peanut butter, Jam, Honey,
   Olives, Pickles.
-- **→ `g`, `loose`** (produce genuinely bought by weight): Tomato, Onion,
-  Bell pepper.
-- **Stay `piece`** (genuinely counted, and sold as items): Eggs, Bread,
-  Lettuce, Cucumber, Lemon, Avocado, Banana, Apple, Garlic, Frozen pizza,
-  Tea bags. Garlic especially — recipes say "2 cloves", and grams there would
-  be worse, not better.
+- **→ `g`, `loose`** (produce genuinely bought and cooked by weight):
+  **Tomato only.** This is the owner's original example ("200 gr of Tomatoes")
+  and the one case where recipes really do say "400 g".
+- **Stay `piece`** (genuinely counted, and sold as items): **Onion**,
+  **Bell pepper**, Eggs, Bread, Lettuce, Cucumber, Lemon, Avocado, Banana,
+  Apple, Garlic, Frozen pizza, Tea bags. Garlic especially — recipes say
+  "2 cloves", and grams there would be worse, not better.
+
+> **Corrected 2026-08-21, after the design agent caught the contradiction
+> while mocking it.** An earlier version of this list moved Onion and Bell
+> pepper to grams too, which directly contradicted §5's own scenarios — rows 3
+> and 4 use "½ onion → buy 1 Onion" as *the* worked example of whole-unit
+> rounding, and that example evaporates if an onion is 75 g of a loose weight.
+> The test is not "does a shop ever weigh this" but **"does a recipe author
+> write it as a count"**, and for onions and peppers they plainly do. Only
+> tomato passes that test. Worth recording because the mistake was mine and
+> the general rule is easy to over-apply: re-uniting a countable item silently
+> turns off its whole-unit rounding, which is the entire feature.
 
 Re-uniting a genuinely countable item silently turns off its whole-unit
 rounding, which is why the third list is deliberately the longest. Revisable

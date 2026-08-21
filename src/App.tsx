@@ -32,6 +32,7 @@ import {
   createOutboxSyncController,
 } from "./sync/index.ts";
 import { createPwaUpdateWatcher } from "./pwa/update.ts";
+import { warmBarcodeDecoderIfNeeded } from "./scan/warm-wasm-decoder.ts";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -70,6 +71,15 @@ const Pantry = lazy(() => import("./routes/Pantry.tsx").then((m) => ({ default: 
 const PantryItem = lazy(() => import("./routes/PantryItem.tsx").then((m) => ({ default: m.PantryItem })));
 const Plan = lazy(() => import("./routes/Plan.tsx").then((m) => ({ default: m.Plan })));
 const Settings = lazy(() => import("./routes/Settings.tsx").then((m) => ({ default: m.Settings })));
+// M6 (DESIGN_PRODUCTS.md §1): the scanner + product editor. Lazy for the same
+// reason as every route below, PLUS a harder requirement — its own decoder
+// (src/scan/useBarcodeScanner.ts) must lazily `import()` a WASM fallback
+// (src/scan/wasm-decoder.ts) only when BarcodeDetector is absent, and that
+// fallback must never even be a candidate for the INITIAL chunk. Keeping the
+// whole Scan route out of the eager shell bundle is the first of two layers
+// of code-splitting that guarantees that (see wasm-decoder.ts's own header
+// for the second).
+const Scan = lazy(() => import("./routes/scan/Scan.tsx").then((m) => ({ default: m.Scan })));
 
 /** Suspense fallback for a lazily-loaded route — matches the multi-`Skeleton` loading shape every route's own data-loading state already uses (e.g. Shopping.tsx, Plan.tsx). */
 function RouteFallback() {
@@ -300,6 +310,20 @@ function ShellContainer() {
 
   const shellState = deriveShellState(authState, user, activeWorkbook);
 
+  // Coordinator follow-up on PR #32: warm the barcode WASM fallback as soon
+  // as the app is USABLE — signed in, workbook loaded — rather than waiting
+  // for the user to open /scan, which may already be too late (the
+  // household is often already at the shop by their first scan). This is
+  // a fire-and-forget, idle-scheduled, best-effort background fetch;
+  // `warmBarcodeDecoderIfNeeded` itself no-ops on browsers with
+  // `BarcodeDetector`, while offline, or on a detectable save-data/2G
+  // connection — see that module for the full policy and why the
+  // connection check is inert on Safari (the very browser this exists
+  // for — see that module's own doc comment).
+  useEffect(() => {
+    if (shellState.kind === "ready") warmBarcodeDecoderIfNeeded();
+  }, [shellState.kind]);
+
   const workbookContextValue = useMemo<WorkbookContextValue | undefined>(() => {
     if (!activeWorkbook || !countedOutbox) return undefined;
     const transport = createGoogleSheetsTransport({ spreadsheetId: activeWorkbook.id, auth });
@@ -387,6 +411,7 @@ const router = createBrowserRouter(
         { path: "pantry/:ingredientId", element: lazyRoute(<PantryItem />) },
         { path: "plan", element: lazyRoute(<Plan />) },
         { path: "settings", element: lazyRoute(<Settings />) },
+        { path: "scan", element: lazyRoute(<Scan />) },
       ],
     },
   ],
