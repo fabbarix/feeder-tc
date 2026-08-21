@@ -687,6 +687,14 @@ export function usePlanWeek(): UsePlanWeekResult {
           if (input.leftover && input.leftover.amount > 0) {
             const location = input.leftover.location;
             const { ingredient, isNew } = resolveLeftoverIngredient(recipe, ingredients, location);
+            // WP-stale-save: no stale-save protection needed on this
+            // ingredients.upsert — `leftover-ingredient.ts`'s own doc
+            // comment already documents why: the id is a deterministic
+            // slug, this only ever runs when `isNew` (no existing catalog
+            // row), and `upsert` is insert-or-replace — so two concurrent
+            // "mark cooked" calls independently deciding "this leftover
+            // ingredient doesn't exist yet" both compute the exact same
+            // row and idempotently converge, never a partial-field clobber.
             if (isNew) {
               await store.ingredients.upsert(ingredient);
               setIngredients((current) => [...current, ingredient]);
