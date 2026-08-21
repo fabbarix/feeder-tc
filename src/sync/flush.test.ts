@@ -124,6 +124,43 @@ describe("flushOutbox: exactly-once under the 'server applied it, response lost'
     expect(page.rows).toEqual([]);
   });
 
+  it("a second, independent flush pass over the same event does not duplicate it once the first has already landed (defence in depth for two outbox-sync controllers sharing one workbook)", async () => {
+    // Two SEPARATE Outbox instances that both still hold evt-1 pending —
+    // exactly the shape of the production bug this guards against: two
+    // controllers, each backed by its own `createLocalStorageOutbox(workbookId)`
+    // instance over the SAME localStorage key. Both see evt-1 as pending
+    // because neither has acknowledged it yet; only ONE of them actually
+    // gets to append it first.
+    const base = createFakeWorkbookStore();
+    const outboxA = createFakeOutbox();
+    const outboxB = createFakeOutbox();
+    await outboxA.enqueue(useEvent("evt-1"));
+    await outboxB.enqueue(useEvent("evt-1"));
+
+    // Controller A's flush runs to completion first — it appends evt-1 and
+    // acknowledges it from ITS OWN outbox (outboxA). outboxB is untouched:
+    // it still reports evt-1 as pending, because acknowledging is a local
+    // operation on whichever Outbox instance did the flushing, not a
+    // property of the shared ledger.
+    const resultA = await flushOutbox({ outbox: outboxA, workbookStore: base, sleep: noSleep });
+    expect(resultA.flushed).toEqual([makeEventId("evt-1")]);
+    expect(await outboxB.pending()).toEqual([useEvent("evt-1")]); // still pending in B
+
+    // Controller B's flush now runs, unaware that A already landed this
+    // exact event. Without the pre-attempt dedupe check, `flushOne` would
+    // call `append` directly on its first attempt (no error to trigger the
+    // old retry-only check) and silently double the row.
+    const resultB = await flushOutbox({ outbox: outboxB, workbookStore: base, sleep: noSleep });
+    expect(resultB.flushed).toEqual([makeEventId("evt-1")]); // reports success...
+    expect(await outboxB.pending()).toEqual([]); // ...and acknowledges, same as any successful flush
+
+    // The critical assertion: the ledger holds evt-1 exactly once, not
+    // twice, even though two independent flush passes both "successfully"
+    // processed it.
+    const page = await base.inventoryEvents.readFrom(0);
+    expect(page.rows.filter((row) => row.id === makeEventId("evt-1"))).toHaveLength(1);
+  });
+
   it("waits between retries using the injected sleep, not a real timer", async () => {
     const base = createFakeWorkbookStore();
     const outbox = createFakeOutbox();

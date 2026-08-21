@@ -1,7 +1,8 @@
 /**
  * Outbox flush (WP-17): appends pending events to InventoryEvents in FIFO
  * order, with retry, and — the point of this module — exactly-once
- * semantics even when a retried append could otherwise duplicate a row.
+ * semantics even when a retried append, or a second independent flush pass
+ * over the same event, could otherwise duplicate a row.
  *
  * The failure mode this defends against (WP-17 BDD "Flush retry does not
  * duplicate events"): the server actually applies an `append`, but the HTTP
@@ -15,6 +16,32 @@
  * reads the sheet itself (`WorkbookStore.inventoryEvents.readFrom`) and
  * looks for the event's id among the rows actually there, which is the one
  * source of truth that distinguishes the two cases.
+ *
+ * That check used to run only in the catch branch — i.e. only BEFORE a
+ * *retry* of a failed append. It now also runs before the very FIRST attempt
+ * (`flushOne` below), as defence in depth for a second cause of the same
+ * duplicate-row symptom that has nothing to do with retries: two separate
+ * `flushOutbox` callers (e.g. two outbox-sync controllers over the same
+ * workbook — the double-append bug this module now guards against
+ * explicitly — or, even after that architectural fix, two browser tabs
+ * open on the same workbook, each with its own JS process and therefore its
+ * own controller, both reading the same shared localStorage-backed outbox)
+ * can each independently see the event as pending and each succeed on their
+ * own FIRST attempt. Neither one ever entered the retry branch, so the old
+ * check never ran for either of them.
+ *
+ * This pre-attempt check narrows that window but — being a plain read then
+ * a separate write, with no compare-and-swap available from the Google
+ * Sheets API — cannot close it to zero: two flush passes that both read
+ * "not yet applied" within the same handful of milliseconds, before either
+ * one's append has landed, can still both proceed to append. What it does
+ * guarantee is that a flush pass which starts strictly after another one's
+ * append for the same event has already landed — the common case for two
+ * independent, uncoordinated flushers, since real HTTP round trips are not
+ * instantaneous — will see it and skip, never writing a second row. The
+ * real, deterministic fix for the reported bug is architectural
+ * (`outbox-registry.ts`: exactly one controller per workbook, app-wide);
+ * this is defence in depth on top of that, not a replacement for it.
  */
 import type { WorkbookStore } from "../domain/contracts.ts";
 import type { Outbox } from "../domain/contracts.ts";
@@ -64,11 +91,13 @@ interface DedupeCheck {
 }
 
 /**
- * The exactly-once mechanism: checked BEFORE retrying a failed append, not
- * just against local outbox state, because the failure being guarded
- * against is "the server applied it and only the response was lost" — from
- * the client's point of view that is indistinguishable from a genuine
- * failure until it re-reads the sheet.
+ * The exactly-once mechanism: reads the sheet itself rather than trusting
+ * local outbox state, because both failure modes it guards against — "the
+ * server applied it and only the response was lost" (checked before a
+ * retry) and "a second, independent flush pass got here first" (checked
+ * before the very first attempt, see `flushOne`) — are indistinguishable
+ * from "never applied" purely from the client's own state. Re-reading the
+ * sheet is the one source of truth that tells them apart.
  */
 async function wasAlreadyApplied(
   workbookStore: WorkbookStore,
@@ -93,6 +122,17 @@ async function flushOne(
   sinceCursorIn: number,
 ): Promise<FlushOneOutcome> {
   let sinceCursor = sinceCursorIn;
+
+  // Pre-attempt check (see module header): catches the case where some
+  // OTHER flush pass — a second controller, another browser tab, a prior
+  // pass that crashed after appending but before acknowledging — already
+  // landed this exact event, so this pass never even needs to try.
+  const preCheck = await wasAlreadyApplied(workbookStore, event.id, sinceCursor);
+  sinceCursor = preCheck.nextCursor;
+  if (preCheck.found) {
+    return { ok: true, nextCursor: sinceCursor };
+  }
+
   const maxAttempts = backoffMs.length + 1;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
