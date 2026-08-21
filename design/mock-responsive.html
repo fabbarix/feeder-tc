@@ -354,6 +354,12 @@ details.stepdetail summary::-webkit-details-marker{display:none}
 details.stepdetail summary::before{content:"Show detail ▾"}
 details.stepdetail[open] summary::before{content:"Hide detail ▴"}
 details.stepdetail .detailtext{margin-top:9px;font-size:13px;color:var(--text-dim);line-height:1.65;padding:11px 13px;background:var(--surface-2);border-radius:var(--r-sm)}
+/* Same disclosure idiom, re-labelled: the shopping row states the buy
+   decision, this defends it (DESIGN_PURCHASING.md §6). Indented to sit
+   under the row's info column, not its leading tick. */
+details.stepdetail.why{margin:-3px 0 10px 37px}
+details.stepdetail.why summary::before{content:"Why? ▾"}
+details.stepdetail.why[open] summary::before{content:"Hide ▴"}
 
 /* The running timer — large and legible, used with hands covered in flour.
    Full accent colour is deliberate here: an active timer is exactly the
@@ -391,6 +397,18 @@ details.stepdetail .detailtext{margin-top:9px;font-size:13px;color:var(--text-di
 .qty .val{flex:1;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:11px 12px;background:var(--surface);font:600 16px/1 var(--ui);font-variant-numeric:tabular-nums}
 .qty .unit{font:500 12.5px/1 var(--ui);color:var(--text-faint)}
 .relrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:11px}
+/* Plain text field, same look as the step-card's, generalised so pack
+   size and the conversion fields (§8, §10) can use it outside a
+   .stepcard too — one input idiom, not a second one per screen. */
+.tfield{width:100%;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);color:var(--text);font:400 13.5px/1.5 var(--ui);padding:9px 11px}
+.tfield::placeholder{color:var(--text-faint)}
+/* A recipe ingredient line, entry-unit aware (§10): amount, a unit chip
+   that opens the same SelectSheet idiom as the ingredient/recipe pickers
+   (UI_DESIGN.md §5 — a third use, not a new one), the ingredient name,
+   remove. The canonical gram value sits below, muted, only when the
+   typed unit isn't already grams. */
+.iline{display:flex;gap:8px;align-items:center;margin-bottom:5px}
+.iline-conv{font:400 12px/1.3 var(--ui);color:var(--text-faint);margin:0 0 11px 64px}
 
 /* settings */
 .srow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 15px;border-bottom:1px solid var(--line-soft)}
@@ -994,6 +1012,120 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     the tick and the quantity for a touch target that's supposed to be unmissable is noise, not recognition help;
     you're standing in front of the tomatoes, you don't need a photo of one to identify it.
   </div>
+
+  <h3 style="font:400 22px/1.2 var(--display);font-variation-settings:'opsz' 40;margin:36px 0 8px">Editing an ingredient: how you buy it, how you measure it</h3>
+  <p class="sub"><code>DESIGN_PURCHASING.md</code> §8: two optional groups, both collapsed by default — the §3
+    defaults mean most of the 104 seeded ingredients never need either. Three ingredients below, one per tier,
+    each showing a different state so all the field-level rules are visible somewhere: <b>Mayonnaise</b> (phone)
+    with both groups still collapsed, the common case; <b>Flour</b> (tablet) with "How you buy it" expanded but on
+    <b>Loose</b>, so no pack-size field appears at all — <em>shown only for Whole</em> means exactly this; and
+    <b>Onion</b> (desktop) with <b>Whole</b> selected, its pack size, and the count-based "1 onion weighs ___ g"
+    field from §8's second example.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone · collapsed, the default</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">Edit ingredient</span><span class="p-meta">Cancel</span></div>
+        <div class="p-body">
+          <span class="field-label">Name</span>
+          <div class="search" style="margin-bottom:14px;max-width:none"><span style="color:var(--text)">Mayonnaise</span></div>
+          <span class="field-label">Canonical unit</span>
+          <div class="tagpill" style="margin-bottom:16px">g — fixed, invariant 3</div>
+          <button class="btn ghost sm full" style="margin-bottom:10px">+ How you buy it</button>
+          <button class="btn ghost sm full" style="margin-bottom:16px">+ How you measure it</button>
+          <p style="font-size:12.5px;color:var(--text-faint);margin:0 0 16px">Both optional. The seeded defaults
+            (§3) already fix "0.5 Onion" and the lasagna bug without either being filled in.</p>
+          <button class="btn full">Save ingredient</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet · Loose, so no pack field</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">"How you buy it" expanded to show the rule that matters most: the pack-size field is
+        <em>absent</em>, not disabled or greyed — Loose ingredients have nothing to round to, so there's nothing to
+        ask for.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/ingredients/flour/edit</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">Cancel</button><button class="btn sm">Save ingredient</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Edit ingredient</span></div>
+          <p class="dt-sub">Flour · g · pantry · 365d</p>
+          <div class="measure-narrow" style="display:grid;gap:16px">
+            <div class="card"><div class="card-head">Identity</div><div class="card-pad-lg">
+              <span class="field-label">Name</span>
+              <div class="search" style="margin:0;max-width:none"><span style="color:var(--text)">Flour</span></div>
+            </div></div>
+            <div class="card"><div class="card-head">How you buy it</div><div class="card-pad-lg">
+              <span class="field-label">Sold as</span>
+              <div class="seg" style="width:100%"><button style="flex:1">Whole</button><button aria-pressed="true" style="flex:1">Loose</button></div>
+              <p style="font-size:12.5px;color:var(--text-faint);margin:10px 0 0">Loose — buy any amount, sold by
+                weight. Switch to Whole to set a pack size and round the basket to it.</p>
+            </div></div>
+            <div class="card"><div class="card-head">How you measure it</div><div class="card-pad-lg">
+              <span class="field-label">1 cup weighs</span>
+              <div style="display:flex;align-items:center;gap:8px"><input class="tfield" type="text" inputmode="decimal" placeholder="130" style="max-width:110px"><span class="unit">g</span></div>
+              <p style="font-size:12.5px;color:var(--text-faint);margin:10px 0 0">Seeded default shown as the
+                placeholder, not filled in — the household overrides only when it disagrees. A recipe author writes
+                "1 cup flour" and it stores 130 g.</p>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop · Whole, with a pack and a piece weight</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Onion's pack defaults to "1 piece" per §3's table — filled in already, not a blank
+        the household must complete. The gram field asks "1 onion weighs ___ g," never "density" or "unit mass" —
+        answerable straight off a kitchen scale (§8).</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/ingredients/onion/edit</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip">Cancel</button><button class="btn sm">Save ingredient</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Edit ingredient</span></div>
+          <p class="dt-sub">Onion · piece · pantry · 30d</p>
+          <div class="dt-cols">
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">Identity</div><div class="card-pad-lg">
+                <span class="field-label">Name</span>
+                <div class="search" style="margin:0;max-width:none"><span style="color:var(--text)">Onion</span></div>
+              </div></div>
+              <div class="card"><div class="card-head">How you measure it</div><div class="card-pad-lg">
+                <span class="field-label">1 onion weighs</span>
+                <div style="display:flex;align-items:center;gap:8px"><input class="tfield" type="text" inputmode="decimal" placeholder="150" style="max-width:110px"><span class="unit">g</span></div>
+                <p style="font-size:12.5px;color:var(--text-faint);margin:10px 0 0">Leaving this empty is safe: a
+                  recipe just can't write "300 g onion" until it's set, rather than the app guessing.</p>
+              </div></div>
+            </div>
+            <div style="display:grid;gap:16px">
+              <div class="card"><div class="card-head">How you buy it</div><div class="card-pad-lg">
+                <span class="field-label">Sold as</span>
+                <div class="seg" style="width:100%;margin-bottom:14px"><button aria-pressed="true" style="flex:1">Whole</button><button style="flex:1">Loose</button></div>
+                <span class="field-label">Pack size</span>
+                <div style="display:flex;align-items:center;gap:8px"><input class="tfield" type="text" inputmode="decimal" value="1" style="max-width:110px"><span class="unit">piece</span></div>
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note">
+    <strong>Never a guessed conversion — an absent field, not a default of 1.0.</strong> §10.1 is explicit that a
+    default density would overstate flour by ~80%. Every numeric field in "How you measure it" is a plain
+    <code>.tfield</code> text input holding a string (§5's numbers rule — no native <code>type=number</code>,
+    scroll-wheel jank, or silent <code>NaN</code>), shown with the seeded default as a <em>placeholder</em>, never
+    pre-filled as a value the household didn't actually enter — so an untouched field is visibly "using the seeded
+    default," not indistinguishable from "the household confirmed this number."
+  </div>
 </section>
 
 <!-- ══ RECIPE DETAIL ══ -->
@@ -1395,10 +1527,22 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div style="margin-bottom:14px"><button class="photo-add" type="button"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add a photo</span></button></div>
           <span class="field-label">Kind</span>
           <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+          <span class="field-label">Can't be split</span>
+          <div class="seg" style="width:100%;margin-bottom:8px"><button style="flex:1">Splits into portions</button><button aria-pressed="true" style="flex:1">Can't be split</button></div>
+          <p style="font-size:12.5px;color:var(--text-faint);margin:0 0 14px">Scales in whole units — extras become leftovers.</p>
           <span class="field-label">Meal tags</span>
           <div class="relrow" style="margin-bottom:14px"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
           <span class="field-label">Servings</span>
           <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
+          <span class="field-label">Ingredients</span>
+          <div style="margin-bottom:14px">
+            <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="1" style="max-width:52px"><button class="chip">cup ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Flour</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+            <p class="iline-conv">1 cup flour (130 g)</p>
+            <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="2" style="max-width:52px"><button class="chip">piece ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Onion</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+            <p class="iline-conv">2 piece onion (300 g)</p>
+            <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="450" style="max-width:52px"><button class="chip">g ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Mince</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+            <button class="btn ghost sm full" style="margin-top:6px">+ Add ingredient</button>
+          </div>
           <span class="field-label">Steps</span>
           <div class="stepcard">
             <div class="stepcard-head"><span class="stepcard-num">Step 1</span><button class="stepcard-del" aria-label="Delete step">✕</button></div>
@@ -1440,6 +1584,9 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <div class="card"><div class="card-head">Kind &amp; rotation</div><div class="card-pad-lg">
               <span class="field-label">Kind</span>
               <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+              <span class="field-label">Can't be split</span>
+              <div class="seg" style="width:100%;margin-bottom:8px"><button style="flex:1">Splits into portions</button><button aria-pressed="true" style="flex:1">Can't be split</button></div>
+              <p style="font-size:12.5px;color:var(--text-faint);margin:0 0 14px">Scales in whole units — extras become leftovers.</p>
               <span class="field-label">Household flag</span>
               <div class="seg" style="width:100%"><button style="flex:1">Staple</button><button aria-pressed="true" style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
             </div></div>
@@ -1448,6 +1595,14 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
               <span class="field-label">Cook time</span>
               <div class="qty"><button>−</button><span class="val">50 <span class="unit">min</span></span><button>+</button></div>
+            </div></div>
+            <div class="card"><div class="card-head">Ingredients</div><div class="card-pad-lg">
+              <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="1" style="max-width:52px"><button class="chip">cup ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Flour</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+              <p class="iline-conv">1 cup flour (130 g)</p>
+              <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="2" style="max-width:52px"><button class="chip">piece ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Onion</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+              <p class="iline-conv">2 piece onion (300 g)</p>
+              <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="450" style="max-width:52px"><button class="chip">g ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Mince</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+              <button class="btn ghost sm" style="margin-top:6px">+ Add ingredient</button>
             </div></div>
             <div class="card"><div class="card-head">Steps</div><div class="card-pad-lg">
               <div class="stepcard">
@@ -1542,6 +1697,9 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               <div class="card"><div class="card-head">Kind &amp; rotation</div><div class="card-pad-lg">
                 <span class="field-label">Kind</span>
                 <div class="seg" style="width:100%;margin-bottom:14px"><button style="flex:1">Cooked</button><button aria-pressed="true" style="flex:1">Bought</button></div>
+                <span class="field-label">Can't be split</span>
+                <div class="seg" style="width:100%;margin-bottom:8px"><button style="flex:1">Splits into portions</button><button aria-pressed="true" style="flex:1">Can't be split</button></div>
+                <p style="font-size:12.5px;color:var(--text-faint);margin:0 0 14px">Scales in whole units — extras become leftovers.</p>
                 <span class="field-label">Household flag</span>
                 <div class="seg" style="width:100%"><button style="flex:1">Staple</button><button aria-pressed="true" style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
               </div></div>
@@ -1553,12 +1711,29 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
                 <span class="field-label">Cook time</span>
                 <div class="qty"><button>−</button><span class="val">50 <span class="unit">min</span></span><button>+</button></div>
               </div></div>
+              <div class="card"><div class="card-head">Ingredients</div><div class="card-pad-lg">
+                <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="1" style="max-width:52px"><button class="chip">cup ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Flour</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+                <p class="iline-conv">1 cup flour (130 g)</p>
+                <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="2" style="max-width:52px"><button class="chip">piece ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Onion</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+                <p class="iline-conv">2 piece onion (300 g)</p>
+                <div class="iline"><input class="tfield" type="text" inputmode="decimal" value="450" style="max-width:52px"><button class="chip">g ▾</button><div class="search" style="margin:0;max-width:none;flex:1"><span style="color:var(--text)">Mince</span></div><button class="stepcard-del" aria-label="Remove ingredient">✕</button></div>
+                <button class="btn ghost sm" style="margin-top:6px">+ Add ingredient</button>
+              </div></div>
             </div>
           </div>
         </div>
       </div></div>
     </div>
 
+  </div>
+  <div class="note">
+    <strong>"Can't be split," and an Ingredients card the editor never had.</strong> The toggle is rendered as the
+    same two-option <code>.seg</code> as Kind, not a new switch idiom — this mock has no track-and-thumb control
+    anywhere, and Kind itself is already exactly this shape of binary choice. Pre-checked here because Kind is
+    Bought (§4: <code>indivisible?: boolean</code> defaults to <code>kind === "bought"</code>), with the exact
+    helper text DESIGN_PURCHASING.md §8 asks for. The Ingredients card is a genuine gap this file had before now —
+    the read view (above) has always rendered <code>.ilist</code>, but the editor never grew a way to edit it; it
+    now uses the same amount/unit/name/remove shape as everything else here, plus the §10 unit chip (next).
   </div>
   <div class="note">
     <strong>Add, replace, remove — three states, always visible, never hover-only.</strong> Empty state (phone,
@@ -1585,6 +1760,62 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     stepper as servings and cook time (§5's "no native numeric inputs" rule doesn't stop applying per-step), and
     feeds the read view's <b>Start timer</b> button directly — a step with no duration set simply shows no timer
     affordance at all.
+  </div>
+
+  <h3 style="font:400 22px/1.2 var(--display);font-variation-settings:'opsz' 40;margin:36px 0 8px">Recipe entry units: cups, pounds and spoons → grams (§10)</h3>
+  <p class="sub">The unit chip on each ingredient line (<code>cup ▾</code> above) opens a picker of the units this
+    <em>specific</em> ingredient can accept — never a fixed list, since a unit needing a conversion constant the
+    ingredient doesn't have (§10.1) simply isn't offered. Flour has a density, so grams, kilograms, cup, tablespoon
+    and teaspoon are all available: five options, past the ≤4 threshold for a <code>.seg</code>, so this is a
+    <code>SelectSheet</code> — the same primitive the ingredient and recipe pickers already use (UI_DESIGN.md §5),
+    a third use rather than a new one.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="sheetframe">
+        <div class="scrim"></div>
+        <div class="sheet2">
+          <div class="grab2"></div>
+          <h4 style="font:500 18px/1.2 var(--display);margin:0 0 3px">Flour — entry unit</h4>
+          <p class="dsub">Grams are what pantry math runs on; pick whatever you actually measure in</p>
+          <div style="display:grid;gap:1px">
+            <div class="leftoverpick"><span><span class="lp-name">g</span><span class="lp-meta">canonical — no conversion</span></span></div>
+            <div class="leftoverpick"><span><span class="lp-name">kg</span><span class="lp-meta">1 kg = 1000 g</span></span></div>
+            <div class="leftoverpick"><span><span class="lp-name">cup</span><span class="lp-meta">240 ml, using this ingredient's density → 130 g</span></span><span class="badge a">Selected</span></div>
+            <div class="leftoverpick"><span><span class="lp-name">tbsp</span><span class="lp-meta">15 ml → 8 g</span></span></div>
+            <div class="leftoverpick"><span><span class="lp-name">tsp</span><span class="lp-meta">5 ml → 3 g</span></span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Tablet uses this same centred popover, narrower — the "Cooking and leftovers" overlays
+        above already established the pattern, not repeated a third time. Mince, by contrast, would offer only
+        <code>g</code>, <code>kg</code>, <code>lb</code> and <code>oz</code> — mass-to-mass is free (§10.1's exact
+        constants, no per-ingredient data), but it has no density, so cup/tbsp/tsp never appear for it.</p>
+      <div class="tier-frame"><div class="dialogframe">
+        <div class="dialog" style="max-width:320px">
+          <h4>Flour — entry unit</h4>
+          <p class="dsub">Grams are what pantry math runs on; pick whatever you actually measure in</p>
+          <div style="display:grid;gap:1px">
+            <div class="leftoverpick"><span><span class="lp-name">g</span><span class="lp-meta">canonical — no conversion</span></span></div>
+            <div class="leftoverpick"><span><span class="lp-name">kg</span><span class="lp-meta">1 kg = 1000 g</span></span></div>
+            <div class="leftoverpick"><span><span class="lp-name">cup</span><span class="lp-meta">240 ml, using this ingredient's density → 130 g</span></span><span class="badge a">Selected</span></div>
+            <div class="leftoverpick"><span><span class="lp-name">tbsp</span><span class="lp-meta">15 ml → 8 g</span></span></div>
+            <div class="leftoverpick"><span><span class="lp-name">tsp</span><span class="lp-meta">5 ml → 3 g</span></span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="note">
+    <strong>Which cup? Stated once, here, rather than left for the household to guess (§10.2).</strong> "240 ml,
+    using this ingredient's density" in the meta line is doing two jobs at once: it names the US legal cup
+    (240 ml, not the 236.6 ml customary or 250 ml metric cup) as the one Feeder means, and it shows the arithmetic
+    that turns a volume into the grams the pantry ledger actually stores — so a household never wonders which
+    "cup" the app used or has to trust an opaque "130 g" with no working shown. Storage is unaffected either way:
+    <code>RecipeIngredient.quantity</code> stays canonical grams regardless of which unit is picked here;
+    <code>displayQuantity</code>/<code>displayUnit</code> (§10.3) are provenance only, read by no engine or fold —
+    the same settled pattern <code>Product</code> already uses, applied a second time.
   </div>
 </section>
 
@@ -1729,6 +1960,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <div class="mday-h"><span>Thu 27</span><span>empty</span></div>
             <div class="mslot"><span><span class="mt">Dinner</span><span class="mn" style="color:var(--text-faint)">Pick a meal</span></span><button class="iconbtn" aria-label="Add"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
           </div>
+          <div class="mday">
+            <div class="mday-h"><span>Fri 28</span><span>1 slot</span></div>
+            <div class="mslot"><span><span class="mt">Dinner</span><span class="mn">Store lasagna</span></span><span class="badge ok">→ 2 leftover</span></div>
+          </div>
         </div>
       </div></div>
     </div>
@@ -1765,7 +2000,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div class="weekband">
             <div class="weekband-label">Fri – Sun</div>
             <div class="week4">
-              <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna</div></div>
+              <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna<span class="badge ok">→ 2 leftover</span></div></div>
               <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili</div><div class="slot"><span class="t">Dinner</span>Fish pie</div></div>
               <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast</div></div>
               <div></div>
@@ -1795,7 +2030,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <div class="day"><div class="day-n">Tue 25</div><div class="slot left"><span class="t">Dinner</span>Leftover: Chili</div></div>
             <div class="day"><div class="day-n">Wed 26</div><div class="slot"><span class="t">Dinner · tonight</span>Roast chicken</div></div>
             <div class="day"><div class="day-n">Thu 27</div><div class="slot add">+ Dinner</div></div>
-            <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna</div></div>
+            <div class="day"><div class="day-n">Fri 28</div><div class="slot"><span class="t">Dinner</span>Store lasagna<span class="badge ok">→ 2 leftover</span></div></div>
             <div class="day"><div class="day-n">Sat 29</div><div class="slot"><span class="t">Lunch</span>Leftover: Chili</div><div class="slot"><span class="t">Dinner</span>Fish pie</div></div>
             <div class="day"><div class="day-n">Sun 30</div><div class="slot pin"><span class="t">Dinner · staple</span>Sunday roast</div></div>
           </div>
@@ -1824,6 +2059,18 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     <b>Today</b> action beside it. On phone and tablet it's a standalone row above the week; at desktop it
     <em>becomes</em> the page heading — "Week of 24 August" was always static text before, so making it the
     control costs nothing and makes the most important navigation on the screen impossible to miss.
+  </div>
+
+  <div class="note">
+    <strong>Leftover forecast on the slot itself, not just discovered later on the list (§6, last bullet).</strong>
+    Friday's <b>Store lasagna</b> — a bought meal, indivisible, serves 4 to a household of 4 — shows
+    <code>→ 2 leftover</code> in the same neutral <code>.badge.ok</code> already used everywhere else in this file
+    for calm, non-warning information (Pantry's "Planned", the expiry dates). It's a forecast computed the same way
+    <code>scaleIndivisible()</code> works out the basket (§4): <code>produced − targetServings</code>, shown before
+    the shop rather than after, so the household sees "this creates a leftover" while deciding what to cook, not as
+    a surprise at mark-cooked. §9.3 recommends the leftover lot itself is still only <em>created</em> at mark-cooked
+    (matching the existing reconciliation flow) — this badge is a forecast, not a promise the pantry already
+    reflects.
   </div>
 
   <h3 style="font:400 26px/1.2 var(--display);font-variation-settings:'opsz' 60;margin:40px 0 8px">Month — an overview, not an editor</h3>
@@ -2187,6 +2434,169 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
       </div></div>
     </div>
 
+  </div>
+
+  <h3 style="font:400 22px/1.2 var(--display);font-variation-settings:'opsz' 40;margin:36px 0 8px">Purchasability: the buy amount is primary, the need is context</h3>
+  <p class="sub"><code>DESIGN_PURCHASING.md</code> §1: today <code>Shopping.tsx</code> renders
+    <code>neededQuantity</code> raw — a bought lasagna serving 4 in a household of 2 shows as
+    <b>"0.5 Store Bought Lasagna."</b> A quarter of the seeded catalogue (26 of 104 ingredients are
+    <code>piece</code>) has the same defect any time a recipe doesn't scale to a whole multiple. New engine
+    <code>suggestPurchase()</code> rounds the aggregated shortfall to something purchasable, computed once at the
+    end of <code>allocateShoppingList</code> — never per meal, never before FIFO stock is subtracted. Five rows
+    below, one per row in §5's scenario table: a whole pack, a countable, a bought meal, a loose item (unchanged),
+    and a household override.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="phone phone-rel">
+        <div class="p-head"><span class="p-title">Shopping</span><span class="p-meta">5 left</span></div>
+        <div class="p-body">
+          <div class="filters"><button class="fchip" aria-pressed="true">This week</button><button class="fchip">Next week</button><button class="fchip">2 weeks</button><button class="fchip">4 weeks</button></div>
+          <div class="rowgroup">Dry goods &amp; condiments</div>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Mayonnaise</span><span class="row-sub">needs 130 g</span></span><span class="row-qty">1 jar</span></button>
+          <details class="stepdetail why"><summary></summary><p class="detailtext">3 meals need 130 g; sold in 250 g jars, so we round up to 1 — 120 g becomes pantry surplus, not waste.</p></details>
+          <div class="rowgroup">Produce</div>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Onion</span><span class="row-sub">needs 1.5</span></span><span class="row-qty">2</span></button>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Tomatoes <span class="row-sub" style="display:inline;color:var(--accent);font-weight:600">· adjusted</span></span><span class="row-sub">needs 200 g</span></span><span class="row-qty">500 g</span></button>
+          <div class="rowgroup">Meals</div>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Store lasagna</span><span class="row-sub">serves 4, you need 2</span></span><span class="row-qty">1</span></button>
+          <details class="stepdetail why"><summary></summary><p class="detailtext">Friday dinner needs 2 servings. Store lasagna can't be split — it's bought as a whole 4-serving pack, so 1 covers it with 2 servings forecast as a leftover.</p></details>
+          <div class="rowgroup">Fresh meat</div>
+          <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Mince</span><span class="row-sub">Wed dinner</span></span><span class="row-qty">450 g</span></button>
+        </div>
+        <button class="fab" aria-label="Scan a barcode"><svg viewBox="0 0 24 24"><path d="M3 7V5.5A2.5 2.5 0 0 1 5.5 3H7"/><path d="M17 3h1.5A2.5 2.5 0 0 1 21 5.5V7"/><path d="M21 17v1.5a2.5 2.5 0 0 1-2.5 2.5H17"/><path d="M7 21H5.5A2.5 2.5 0 0 1 3 18.5V17"/><path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/></svg></button>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
+      <p class="tier-note">Same "To buy" card as the tierstrip above, rows updated to buy-primary. "Adjusted" reuses
+        the same small accent label Pantry already uses for "3 in pantry" — it's provenance, not a warning; §6 is
+        explicit that a rounded or overridden line must never read as an error state.</p>
+      <div class="tier-frame"><div class="tablet">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/shopping</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button aria-current="page">Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip"><svg viewBox="0 0 24 24"><path d="M3 7V5.5A2.5 2.5 0 0 1 5.5 3H7"/><path d="M17 3h1.5A2.5 2.5 0 0 1 21 5.5V7"/><path d="M21 17v1.5a2.5 2.5 0 0 1-2.5 2.5H17"/><path d="M7 21H5.5A2.5 2.5 0 0 1 3 18.5V17"/><path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/></svg>Scan</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Shopping</span></div>
+          <p class="dt-sub">Week of 24 August · 5 items left</p>
+          <div class="filters"><button class="fchip" aria-pressed="true">This week</button><button class="fchip">Next week</button><button class="fchip">2 weeks</button><button class="fchip">4 weeks</button></div>
+          <div class="card measure"><div class="card-head">To buy</div><div class="card-pad">
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Mayonnaise</span><span class="row-sub">needs 130 g</span></span><span class="row-qty">1 jar</span></button>
+            <details class="stepdetail why"><summary></summary><p class="detailtext">3 meals need 130 g; sold in 250 g jars, so we round up to 1 — 120 g becomes pantry surplus, not waste.</p></details>
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Onion</span><span class="row-sub">needs 1.5</span></span><span class="row-qty">2</span></button>
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Tomatoes <span style="color:var(--accent);font-weight:600;font-size:12px">· adjusted</span></span><span class="row-sub">needs 200 g</span></span><span class="row-qty">500 g</span></button>
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Store lasagna</span><span class="row-sub">serves 4, you need 2</span></span><span class="row-qty">1</span></button>
+            <details class="stepdetail why"><summary></summary><p class="detailtext">Friday dinner needs 2 servings. Store lasagna can't be split — it's bought as a whole 4-serving pack, so 1 covers it with 2 servings forecast as a leftover.</p></details>
+            <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Mince</span><span class="row-sub">Wed dinner</span></span><span class="row-qty">450 g</span></button>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">The rail is where the arithmetic already lives (see the tierstrip above) — extended here
+        with the rounding sentence §6 asks for, right under the existing per-meal provenance. Nothing moves to the
+        row; the row still states the decision.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/shopping</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button>Plan</button><button aria-current="page">Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="chip"><svg viewBox="0 0 24 24"><path d="M3 7V5.5A2.5 2.5 0 0 1 5.5 3H7"/><path d="M17 3h1.5A2.5 2.5 0 0 1 21 5.5V7"/><path d="M21 17v1.5a2.5 2.5 0 0 1-2.5 2.5H17"/><path d="M7 21H5.5A2.5 2.5 0 0 1 3 18.5V17"/><path d="M7 8v8M10 8v8M13.5 8v8M17 8v8"/></svg>Scan</button><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Shopping</span></div>
+          <p class="dt-sub">Week of 24 August · 5 items left</p>
+          <div class="filters"><button class="fchip" aria-pressed="true">This week</button><button class="fchip">Next week</button><button class="fchip">2 weeks</button><button class="fchip">4 weeks</button><button class="fchip">Custom range…</button></div>
+          <div class="dt-cols">
+            <div class="card"><div class="card-head">To buy</div><div class="card-pad">
+              <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Mayonnaise</span><span class="row-sub">needs 130 g</span></span><span class="row-qty">1 jar</span></button>
+              <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Onion</span><span class="row-sub">needs 1.5</span></span><span class="row-qty">2</span></button>
+              <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Tomatoes <span style="color:var(--accent);font-weight:600;font-size:12px">· adjusted</span></span><span class="row-sub">needs 200 g</span></span><span class="row-qty">500 g</span></button>
+              <button class="row" aria-pressed="true"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Store lasagna</span><span class="row-sub">serves 4, you need 2</span></span><span class="row-qty">1</span></button>
+              <button class="row" aria-pressed="false"><span class="tick"><svg viewBox="0 0 18 18"><path d="M3 9.5l4 4 8-9"/></svg></span><span><span class="row-name">Mince</span><span class="row-sub">Wed dinner</span></span><span class="row-qty">450 g</span></button>
+            </div></div>
+            <div class="card"><div class="card-head">Why?</div>
+              <div style="padding:16px;font-size:13px;color:var(--text-dim);line-height:1.5">
+                <b style="color:var(--text)">Why 1 jar of mayonnaise?</b><br>3 meals need 130 g; sold in 250 g jars, so we round up to 1 — 120 g becomes pantry surplus.
+              </div>
+              <div style="padding:0 16px 16px;font-size:13px;color:var(--text-dim);line-height:1.5">
+                <b style="color:var(--text)">Why 1 store lasagna?</b><br>Friday dinner needs 2 servings. It can't be split — bought as a whole 4-serving pack — so 1 covers it, forecasting 2 servings leftover.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note">
+    <strong>The row states the decision; "Why?" defends it — extended, not cluttered.</strong>
+    <code>Shopping.tsx:179</code> already renders "Why 130 g mayonnaise?" with per-meal provenance; the only change
+    is one more sentence, the rounding itself — <em>"3 meals need 130 g; sold in 250 g jars."</em> Phone and tablet
+    fold it behind the existing <code>&lt;details&gt;</code> idiom (renamed <code>.why</code>, same box, same native
+    behaviour) directly under the row it explains; desktop already had a rail for exactly this, so the sentence
+    just lands there instead of a new element. <b>Tomatoes</b> shows the override from scenario 9 (500 g bought
+    against a 200 g need) with no "Why?" at all — an explicit household choice doesn't need defending, it needs the
+    small "adjusted" label so a second shopper knows it was deliberate, not a bug.
+  </div>
+
+  <h3 style="font:400 22px/1.2 var(--display);font-variation-settings:'opsz' 40;margin:36px 0 8px">Adjusting the buy amount — a first-class tap, not a hidden edit</h3>
+  <p class="sub">Scenario 9: "I need 200 g of tomatoes but want to buy 500 g." Tapping the quantity — not a
+    long-press, not a swipe-to-reveal — opens a stepper sized for a thumb in a shop aisle. It reuses the exact
+    <code>.qty</code> control already established in Settings and the recipe editor, so nothing new is being taught
+    to the household. The override persists in <code>ShoppingItem.purchaseOverride</code>, so a plan recompute
+    doesn't silently discard it (§6) — a reroll changes the <em>need</em>, never a choice the household already made
+    about the <em>buy</em>.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone · a loose item</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="sheetframe">
+        <div class="scrim"></div>
+        <div class="sheet2">
+          <div class="grab2"></div>
+          <h4 style="font:500 18px/1.2 var(--display);margin:0 0 3px">Adjust: Tomatoes</h4>
+          <p class="dsub">This week's recipes need 200 g</p>
+          <div class="reconcile">
+            <p class="rc-math">Loose — steps by 50 g. Buying more than you need becomes pantry stock, not waste.</p>
+            <div class="rc-result"><span class="rc-label">→ buy</span><div class="qty"><button aria-label="Fewer">−</button><span class="val">500 <span class="unit">g</span></span><button aria-label="More">+</button></div></div>
+          </div>
+          <button class="btn full">Save — 300 g surplus to pantry</button>
+        </div>
+      </div></div>
+    </div>
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop · a whole item</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Tablet uses this same centred dialog, only narrower — the pattern the "Cooking and
+        leftovers" overlays already established above, not repeated a third time. Whole items step by one whole
+        pack (here, one 250 g jar) rather than a gram increment — stepping to "1.4 jars" would defeat the entire
+        point of purchase modes.</p>
+      <div class="tier-frame"><div class="dialogframe">
+        <div class="dialog">
+          <h4>Adjust: Mayonnaise</h4>
+          <p class="dsub">3 meals need 130 g this week</p>
+          <div class="reconcile">
+            <p class="rc-math">Sold in 250 g jars — steps by one whole jar, never a fraction</p>
+            <div class="rc-result"><span class="rc-label">→ buy</span><div class="qty"><button aria-label="Fewer">−</button><span class="val">1 <span class="unit">jar</span></span><button aria-label="More">+</button></div></div>
+          </div>
+          <div class="dialog-actions"><button class="chip">Cancel</button><button class="btn sm">Save — 120 g surplus to pantry</button></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="note">
+    <strong>No new alarm colours — surplus is normal.</strong> The stepper's copy says "surplus to pantry," never
+    "extra" or "wasted," and nothing on this sheet uses <code>--warn</code>/<code>--crit</code>. §13's colour rule
+    reserves colour for freshness exceptions (expiring, expired); a rounded or overridden buy quantity is neither,
+    so it stays in the same neutral palette as everything else on the sheet.
   </div>
 </section>
 
