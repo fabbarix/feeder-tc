@@ -870,17 +870,21 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     384 → 320px if it still doesn't fit, same ladder already settled for product photos), because a Google Sheets
     cell holds 50,000 characters and base64 inflation puts the real ceiling at ~36.6KB — a hard limit, not a
     preference, so there's no case for a bigger budget just because this hero renders larger on the detail page
-    than a product thumbnail does. Photos live in their own <code>RecipePhotos</code> sheet, same reasoning as
-    <code>ProductPhotos</code>: <code>readAll()</code> pulls a whole sheet, and a photo column on the Recipes sheet
-    itself would drag all 18 images down the wire just to list recipes. <b>The grid never fetches a photo it isn't
+    than a product thumbnail does. Photos live in a dedicated sheet rather than a column on Recipes:
+    <code>readAll()</code> pulls a whole sheet, and a photo column on the Recipes sheet itself would drag all 18
+    images down the wire just to list recipes. <b>Updated since this was drafted:</b> WP-PHOTO (PR #30, merged)
+    settled on <em>one</em> unified <code>Photos</code> sheet keyed on
+    <code>(ownerKind, ownerId)</code> — it absorbed M6-A's per-entity <code>ProductPhotos</code>, and there is no
+    separate <code>RecipePhotos</code> sheet. The reasoning below is unchanged; only the sheet count is. <b>The grid never fetches a photo it isn't
     showing.</b> Recipes render immediately from the text-only list; a card whose recipe has a photo shows
     <code>Skeleton</code> in the media box until that one photo is fetched — lazily, only once the card is on
     screen — then crossfades in (opacity, 220ms, the kit's own State-tier motion). A card whose recipe has no photo
     never issues a fetch at all. One stored resolution serves both the ~200px grid card and the larger detail hero;
     generating a second "thumbnail" size would mean a second sheet column for a cosmetic gain that isn't worth the
-    contract complexity. <em>Dependency: this assumes the Recipes sheet carries a cheap <code>hasPhoto</code>
-    signal so the list can decide skeleton-vs-placeholder without touching <code>RecipePhotos</code> at all — flagged
-    for the coordinator's contract change, not decided here.</em>
+    contract complexity. <em>Dependency, now resolved: this assumed the Recipes sheet carries a cheap
+    <code>hasPhoto</code> signal so the list can decide skeleton-vs-placeholder without touching the photo sheet at
+    all. WP-PHOTO (PR #30, merged) added exactly that — <code>Recipe.hasPhoto?</code> and
+    <code>Ingredient.hasPhoto?</code>, optional and additive — so this is no longer a flagged assumption.</em>
   </div>
   <div class="note">
     <strong>The tag clip's actual cause.</strong> <code>recipes.module.css</code>'s <code>.tagRow</code> carries
@@ -1098,10 +1102,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
       <p class="tier-note">Eggs default to Whole with a 1-piece pack per §3's table; here the household has gone
         further and set it to a 12-carton, so shopping now rounds to cartons instead of loose eggs — the
         progressive-enhancement case §3 describes, not the trivial default. The gram field asks "1 egg weighs
-        ___ g," never "density" or "unit mass" — answerable straight off a kitchen scale (§8). Eggs are also one of
+        ___ g," never "density" or "unit mass" — answerable straight off a kitchen scale (§8). Eggs are one of
         the seeds DESIGN_PURCHASING.md §11.2 confirms stays <code>piece</code> — genuinely counted, genuinely sold
-        as items — unlike Onion, which that same decision re-units to <code>g</code>/<code>loose</code> (see the
-        note below the Shopping tierstrip).</p>
+        as items. Onion stays <code>piece</code> too: the §11.2 list was corrected after this mock was first
+        drafted (see the note below the Shopping tierstrip).</p>
       <div class="tier-frame"><div class="browser">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/ingredients/eggs/edit</div></div>
         <div class="dt-top">
@@ -2668,14 +2672,14 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
   </div>
   <div class="note">
     <strong>Why the countable-scenario row is Lemon, not Onion — a live decision landed mid-build.</strong>
-    §5's own scenario table narrates rows 3–4 with "onion" ("Recipe needs ½ onion… Three meals × ½ onion…"), and an
-    earlier pass of this mock followed that literally. But <code>DESIGN_PURCHASING.md</code> §11.2 — closed by the
-    owner while this PR was in progress — re-units Onion to <code>g</code>/<code>loose</code> in the real seed
-    catalogue (it's bought and cooked by weight far more often than by the piece). Shipping a "2 Onion" whole-pack
-    row would now contradict the household's own catalogue on day one. <b>Lemon</b> stays <code>piece</code> in that
-    same decision and needs no other change to the scenario's arithmetic, so it replaces Onion here. The Ingredient
-    editor's "how you measure it" example below is unaffected by this and deliberately still uses a
-    <code>piece</code>→<code>g</code> conversion — see that section's note for which ingredient and why.
+    §5's own scenario table narrates rows 3–4 with "onion" ("Recipe needs ½ onion… Three meals × ½ onion…"). A
+    mid-build pass of <code>DESIGN_PURCHASING.md</code> §11.2 briefly re-united Onion to <code>g</code>/<code>loose</code>,
+    so this row was switched to <b>Lemon</b> to avoid contradicting the catalogue. <b>That §11.2 entry has since been
+    corrected: Onion stays <code>piece</code></b> — precisely because §5's worked example depends on it, and because
+    the real test is not "does a shop ever weigh this" but "does a recipe author write it as a count," which for
+    onions they plainly do. Only Tomato actually moves to grams among the produce. <b>Lemon is kept here anyway</b>:
+    it is an equally valid countable, the arithmetic is identical, and a second countable example costs nothing —
+    but Onion would now be correct too.
   </div>
 
   <h3 style="font:400 22px/1.2 var(--display);font-variation-settings:'opsz' 40;margin:36px 0 8px">Adjusting the buy amount — a first-class tap, not a hidden edit</h3>
