@@ -172,6 +172,20 @@ h2{font:400 clamp(24px,3.2vw,33px)/1.15 var(--display);font-variation-settings:"
 .plot{padding:11px 9px;border-radius:var(--r-sm)}
 .plot:hover{background:var(--surface-2)}
 .plot-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+/* .plotrow adds a leading thumbnail in front of an unmodified .plot — a
+   wrapper, not a rewrite, so every existing .plot (Pantry, the pantry-item
+   page) keeps working exactly as before and only opts in where a photo
+   earns its place (see the Home and Pantry notes for which rows do). The
+   meter/badge stay the only coloured thing in the row — the thumbnail is
+   recognition, the colour is the alarm, and they must never compete. */
+.plotrow{display:flex;gap:10px;align-items:flex-start;padding:11px 9px;border-radius:var(--r-sm)}
+.plotrow:hover{background:var(--surface-2)}
+.plotrow .plot{padding:0;flex:1;min-width:0}
+.plotrow .plot:hover{background:transparent}
+/* leading-thumbnail row for Home's Tonight/Rest-of-week — same [img][info]
+   idiom as .rcard, sized for a single row instead of a grid card. */
+.row.rowimg{grid-template-columns:52px 1fr auto}
+.row.rowimg.tonight{grid-template-columns:64px 1fr auto}
 
 /* tab bar */
 .tabs{display:flex;border-top:1px solid var(--line-soft);background:var(--surface)}
@@ -191,21 +205,48 @@ h2{font:400 clamp(24px,3.2vw,33px)/1.15 var(--display);font-variation-settings:"
 .btn.danger{background:var(--crit-bg);color:var(--crit)}
 
 /* recipes / ingredients grids */
-.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:11px}
-.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;cursor:pointer;transition:border-color 180ms var(--ease),transform 180ms var(--ease)}
+/* Leading thumbnail, not a banner (owner decision, revising the first
+   pass): [img][info] survives an arbitrary source crop — a square
+   thumbnail tolerates any food photo, where a 2:1 strip decapitates a tall
+   dish — and it stops the image competing with the tag row for height, so
+   the "+N" cap below is gone; tags wrap and show in full again. 230px
+   minmax (bumped from the original 168px, matching .igrid) because a
+   horizontal card needs real width for text beside an 80px thumb, not just
+   above it. */
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px}
+.rlist{display:flex;flex-direction:column;gap:9px}
+.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;cursor:pointer;transition:border-color 180ms var(--ease),transform 180ms var(--ease);display:flex;gap:11px;align-items:flex-start}
 .rcard:hover{border-color:var(--accent-line);transform:translateY(-2px)}
-.rcard-body{padding:13px}
+.rcard-body{flex:1;min-width:0}
 .rcard h4{font:500 15.5px/1.2 var(--ui);margin:0 0 5px}
 .rcard .rmeta{font:400 12px/1.3 var(--ui);color:var(--text-faint);display:flex;gap:9px;flex-wrap:wrap}
 .rcard .rtags{display:flex;gap:5px;margin-top:9px;flex-wrap:wrap;align-items:center}
-.tagpill.more{background:transparent;color:var(--text-faint)}
 
-/* recipe media — the grid strip (.rcard-media, 2:1) and the detail hero
-   (.rhero, 16:9) share one base (.media) and three states: an actual photo,
-   a calm "no photo yet" placeholder, and a fetch-in-flight skeleton. See
-   the #recipes note for why the placeholder is a first-class state, not a
-   grey box, and why the grid always reserves this space while the detail
-   view does not. */
+/* Photo media, everywhere it appears — recipe cards, the recipe detail
+   inset, recipe steps, and ingredient thumbnails all share this one base
+   (.media) and three states: an actual photo, a calm "no photo yet"
+   placeholder, and a fetch-in-flight skeleton.
+
+   THE DISPLAY CAP IS THE STORAGE CAP, SEEN FROM THE OTHER END.
+   Every photo here is encoded at 512px on its longest side, 32KB budget
+   (DESIGN_PRODUCTS.md §5 — a Sheets cell tops out at 50,000 chars, ~36.6KB
+   once base64-inflated). That 512px ceiling isn't just a storage number —
+   it's also a LAYOUT number: nothing may ever be displayed wider than
+   512 CSS px, because past that you're upscaling a photo the user already
+   took, not rendering it at native resolution. Most viewing happens on a
+   2x display, where 512 physical px shown at 512 CSS px is already a 2x
+   upscale — soft and cheap-looking, the exact impression this whole
+   package is trying to undo. So the real working ceiling is lower:
+     - recipe card thumbnail (.rcard-media): 80px, leading, square    — a
+       square crop tolerates any source photo; a wide strip doesn't
+     - recipe detail inset (.rphoto): capped 320px               — see below
+     - step image (.rstepimg): capped 240px                      — a detail,
+       not a feature image, and small is honest here
+     - ingredient thumbnail, list row (.ithumb): 52px            — a glyph
+       replacement, not a photo moment
+     - ingredient editor preview (.iprev): capped 240px
+   True 2x crispness needs ≤256 CSS px; 320 is the deliberate compromise
+   for the one place (the detail inset) that wants to read a little larger. */
 .media{position:relative;overflow:hidden;background:var(--surface-2)}
 .media img{width:100%;height:100%;object-fit:cover;display:block}
 .media.empty{display:grid;place-items:center;color:var(--text-faint)}
@@ -213,18 +254,35 @@ h2{font:400 clamp(24px,3.2vw,33px)/1.15 var(--display);font-variation-settings:"
 .media.loading{background:linear-gradient(100deg,var(--surface-2) 30%,var(--line-soft) 45%,var(--surface-2) 60%);background-size:220% 100%;animation:shimmer 1.4s ease-in-out infinite}
 .media.photo{background:linear-gradient(135deg,oklch(0.64 0.09 48),oklch(0.5 0.1 24))}
 @keyframes shimmer{0%{background-position:120% 0}100%{background-position:-20% 0}}
-.rcard-media{aspect-ratio:2/1}
+.rcard-media{width:80px;height:80px;border-radius:var(--r-sm);flex:none}
 .rcard-media.empty svg{width:22px;height:22px}
-.rhero{aspect-ratio:16/9;border-radius:var(--r-md);margin-bottom:14px}
-.rhero.empty svg{width:34px;height:34px}
+/* .rphoto REPLACES an earlier full-width 16:9 "hero" — wrong the moment you
+   do the upscale math on a 1440px content column. A contained inset,
+   capped at the resolution that's actually there, corrected below. */
+.rphoto{aspect-ratio:4/3;border-radius:var(--r-md);max-width:320px}
+.rphoto.empty svg{width:28px;height:28px}
+.rstepimg{aspect-ratio:4/3;border-radius:var(--r-sm);max-width:240px;flex:none}
+.rstepimg.empty svg{width:20px;height:20px}
+.ithumb{width:52px;height:52px;border-radius:10px;flex:none}
+.ithumb.lg{width:64px;height:64px;border-radius:12px}
+.ithumb.empty svg{width:19px;height:19px}
+.iprev{aspect-ratio:1/1;border-radius:var(--r-md);max-width:240px}
+.iprev.empty svg{width:26px;height:26px}
 
-/* editor: add / replace / remove */
-.photo-add{aspect-ratio:2.3/1;border:1.5px dashed var(--line);border-radius:var(--r-sm);background:transparent;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-faint);cursor:pointer;transition:border-color 180ms var(--ease),color 180ms var(--ease)}
+/* editor: add / replace / remove — one idiom, sized per context */
+/* Square, capped 240px — the editor's preview shouldn't promise a shape
+   nothing displays in: recipe cards crop to a square thumbnail, the detail
+   inset is 4:3, nothing anywhere uses a wide banner any more, so a 240px
+   square (comfortably under the 320px display cap, same figure as .iprev)
+   is what to show while picking the photo. */
+.photo-add{aspect-ratio:1/1;max-width:240px;border:1.5px dashed var(--line);border-radius:var(--r-sm);background:transparent;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--text-faint);cursor:pointer;transition:border-color 180ms var(--ease),color 180ms var(--ease)}
 .photo-add:hover{border-color:var(--accent-line);color:var(--accent)}
 .photo-add svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .photo-add span{font:600 12px/1 var(--ui)}
-.photo-filled{border-radius:var(--r-sm);aspect-ratio:2.3/1}
+.photo-filled{border-radius:var(--r-sm);aspect-ratio:1/1;max-width:240px}
 .photo-actions{display:flex;gap:7px;margin-top:9px}
+.photo-actions.tight{gap:5px}
+.photo-actions .btn.xs{font-size:11px;padding:6px 10px}
 .tagpill{font:600 9.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:5px;background:var(--surface-2);color:var(--text-faint)}
 .filters{display:flex;gap:6px;flex-wrap:wrap;padding:0 2px 12px}
 .fchip{font:500 12.5px/1 var(--ui);padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-dim);cursor:pointer;transition:all 180ms var(--ease)}
@@ -238,14 +296,17 @@ h2{font:400 clamp(24px,3.2vw,33px)/1.15 var(--display);font-variation-settings:"
    free) */
 .igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px}
 .icard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 13px;display:flex;align-items:center;gap:11px}
-.icard .iicon{width:34px;height:34px;border-radius:9px;background:var(--surface-2);color:var(--text-dim);display:grid;place-items:center;flex:none}
-.icard .iicon svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .icard h4{font:500 14.5px/1.25 var(--ui);margin:0 0 2px}
 .icard .imeta{font:400 11.5px/1.3 var(--ui);color:var(--text-faint)}
 .irow{display:flex;align-items:center;gap:12px;padding:11px 9px;border-radius:var(--r-sm)}
 .irow:hover{background:var(--surface-2)}
-.irow .iicon{width:32px;height:32px;border-radius:9px;background:var(--surface-2);color:var(--text-dim);display:grid;place-items:center;flex:none}
-.irow .iicon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8}
+/* .ithumb replaces the generic carrot/box glyph every ingredient used to
+   get regardless of whether a photo existed — 104 seeded ingredients ship
+   with zero photos, so the empty state below IS the catalogue's normal
+   look, not a rare case. 52px sits inside the "48-64px in a list row"
+   guidance: big enough to read as a photo slot, small enough that 104 of
+   them (lazily fetched, one per visible row) stay a glyph-replacement, not
+   a feed. */
 
 /* a segmented control that must fit ANY container (UI_DESIGN §5: ≤4 options
    stay inline, never become a dropdown — but "inline" cannot mean
@@ -273,8 +334,58 @@ h2{font:400 clamp(24px,3.2vw,33px)/1.15 var(--display);font-variation-settings:"
 ol.steps{margin:0;padding-left:20px;display:grid;gap:9px;font-size:14px;color:var(--text-dim)}
 ol.steps li::marker{color:var(--accent);font-weight:700}
 
+/* Richer steps — read view: short line always visible, an optional image
+   (small, most steps have none), a duration badge that becomes a "start
+   timer" button, and detail behind a native <details> disclosure so a step
+   with paragraphs of explanation doesn't turn the method into a wall of
+   text. */
+.stepslist{display:grid;gap:16px;list-style:none;margin:0;padding:0;counter-reset:step}
+.stepitem{display:flex;gap:12px;counter-increment:step}
+.stepitem::before{content:counter(step);flex:none;width:24px;height:24px;border-radius:50%;background:var(--accent-bg);color:var(--accent);font:700 12px/24px var(--ui);text-align:center}
+.stepbody{flex:1;min-width:0}
+.stepline{font-size:14px;color:var(--text-dim);line-height:1.5;margin:0}
+.stepmeta{display:flex;align-items:center;gap:9px;margin-top:8px;flex-wrap:wrap}
+.stepdur{font:600 11px/1 var(--ui);color:var(--text-faint);display:inline-flex;align-items:center;gap:4px}
+.timerbtn{display:inline-flex;align-items:center;gap:5px;font:600 11.5px/1 var(--ui);padding:7px 12px;min-height:32px;border-radius:999px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-line);cursor:pointer}
+.timerbtn:hover{background:var(--accent);color:var(--accent-text)}
+.stepimg-wrap{margin-top:9px}
+details.stepdetail summary{cursor:pointer;font:600 12px/1 var(--ui);color:var(--accent);margin-top:8px;list-style:none}
+details.stepdetail summary::-webkit-details-marker{display:none}
+details.stepdetail summary::before{content:"Show detail ▾"}
+details.stepdetail[open] summary::before{content:"Hide detail ▴"}
+details.stepdetail .detailtext{margin-top:9px;font-size:13px;color:var(--text-dim);line-height:1.65;padding:11px 13px;background:var(--surface-2);border-radius:var(--r-sm)}
+
+/* The running timer — large and legible, used with hands covered in flour.
+   Full accent colour is deliberate here: an active timer is exactly the
+   "exception" §13's colour rule reserves colour for, unlike a resting
+   duration badge. */
+.timerrun{background:var(--accent);color:var(--accent-text);border-radius:var(--r-md);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.timerrun .tlabel{font:600 12px/1.3 var(--ui);opacity:.85;margin:0 0 3px}
+.timerrun .tcount{font:700 36px/1 var(--ui);font-variant-numeric:tabular-nums}
+.timerrun .tactions{display:flex;gap:9px;flex:none}
+.timerrun button{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--accent-text);background:transparent;color:var(--accent-text);display:grid;place-items:center;cursor:pointer}
+.timerrun button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Editor: one card per step — short + detail + duration + image, all
+   optional beyond the short line, never a novel-length form. */
+.stepcard{border:1px solid var(--line);border-radius:var(--r-sm);padding:13px;margin-bottom:10px}
+.stepcard:last-of-type{margin-bottom:0}
+.stepcard-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.stepcard-num{font:700 11px/1 var(--ui);color:var(--accent)}
+.stepcard-del{border:0;background:transparent;color:var(--text-faint);cursor:pointer;font-size:15px;padding:2px 6px}
+.stepcard-del:hover{color:var(--crit)}
+.stepcard .field-label{margin:0 0 5px}
+.stepcard textarea,.stepcard input[type=text]{width:100%;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);color:var(--text);font:400 13.5px/1.5 var(--ui);padding:9px 11px;resize:vertical}
+.stepcard-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+@media(max-width:340px){.stepcard-row{grid-template-columns:1fr}}
+
 .field-label{font:600 12px/1 var(--ui);color:var(--text-dim);margin-bottom:7px;display:block}
-.qty{display:flex;align-items:stretch;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--surface-2)}
+/* Capped, not full-bleed (tablet bug: no width rule meant .val's flex:1
+   stretched a stepper built for a ~260px phone column across an entire
+   600px card, forcing "− 8 servings +" apart into what read as a wrap).
+   260px comfortably fits the widest label ("servings") without the
+   cramped-vs-loose problem repeating in the other direction. */
+.qty{display:flex;align-items:stretch;max-width:260px;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;background:var(--surface-2)}
 .qty button{width:44px;border:0;background:transparent;color:var(--text-dim);font-size:19px;cursor:pointer;transition:background 160ms var(--ease),color 160ms var(--ease)}
 .qty button:hover{background:var(--accent-bg);color:var(--accent)}
 .qty .val{flex:1;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:11px 12px;background:var(--surface);font:600 16px/1 var(--ui);font-variant-numeric:tabular-nums}
@@ -301,6 +412,39 @@ ol.steps li::marker{color:var(--accent);font-weight:700}
 .hstat.warn .n{color:var(--warn)}
 .greet{font:400 21px/1.2 var(--display);font-variation-settings:"opsz" 40;margin:0 0 3px}
 .greetsub{font-size:13px;color:var(--text-faint);margin:0 0 14px}
+
+/* Week navigation — a prominent, labelled control present at every tier,
+   fixing the bug where prev/next existed (barely) on phone and tablet and
+   were simply absent on desktop, leaving no way to change week at all
+   there. The date range IS the heading now, not a caption beside one. */
+.weeknav{display:inline-flex;align-items:center;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:4px}
+.weeknav-btn{width:34px;height:34px;border-radius:50%;border:0;background:transparent;color:var(--text-dim);display:grid;place-items:center;cursor:pointer;font:600 16px/1 var(--ui);transition:background 160ms var(--ease),color 160ms var(--ease)}
+.weeknav-btn:hover{background:var(--surface);color:var(--accent)}
+.weeknav-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.weeknav-range{font:600 15px/1 var(--ui);padding:0 10px;color:var(--text);white-space:nowrap;font-variant-numeric:tabular-nums}
+.weeknav-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+
+/* Month/quarter — an overview, not an editor: one cell per day, density
+   not detail. Reused unchanged for quarter at a smaller cell (see the
+   #plan note for how it scales). */
+.viewswitch{margin-bottom:14px}
+.monthgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.monthgrid .dow{font:600 9px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);text-align:center;padding-bottom:4px}
+.mday-cell{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:6px;min-height:56px;cursor:pointer;transition:border-color 180ms var(--ease)}
+.mday-cell:hover{border-color:var(--accent-line)}
+.mday-cell.mute{opacity:.4}
+.mday-cell.istoday{border-color:var(--accent-line);background:var(--accent-bg)}
+.mday-cell .dn{font:600 10.5px/1 var(--ui);font-variant-numeric:tabular-nums;color:var(--text-dim);margin-bottom:5px}
+.mday-cell .dots{display:flex;gap:3px;flex-wrap:wrap}
+.mday-cell .dots i{width:6px;height:6px;border-radius:50%;background:var(--accent);display:block}
+.mday-cell .dots i.empty{background:var(--line)}
+.mday-cell .dots i.left{background:var(--text-faint)}
+.quartergrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.quartergrid .qmonth-label{font:600 11px/1 var(--ui);letter-spacing:.06em;color:var(--text-dim);margin-bottom:7px}
+.quartergrid .monthgrid{gap:2px}
+.quartergrid .mday-cell{min-height:22px;padding:2px;border-radius:4px}
+.quartergrid .mday-cell .dn{display:none}
+.quartergrid .mday-cell .dots{justify-content:center;padding-top:6px}
 
 /* week — desktop keeps seven columns; tablet gets four, banded into
    weekdays/weekend (see the #plan note) */
@@ -335,6 +479,30 @@ ol.steps li::marker{color:var(--accent);font-weight:700}
 .note{margin-top:24px;padding:18px 20px;border-radius:var(--r-md);background:var(--accent-bg);border:1px solid var(--accent-line);font-size:14.5px;max-width:96ch}
 .note strong{color:var(--accent)}
 .note code{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.92em}
+
+/* Overlay chrome for the mark-cooked / leftover-picker mini-screens —
+   phone gets a bottom sheet, desktop a centred dialog, same pattern
+   SelectSheet already established (UI_DESIGN.md §5). */
+.sheetframe{background:var(--surface);border:1px solid var(--line);border-radius:26px;overflow:hidden;box-shadow:var(--shadow-2);width:296px}
+.sheetframe .scrim{background:oklch(0.2 0.01 var(--accent-hue)/.35);padding:60px 0 0}
+.sheet2{background:var(--surface);border-radius:var(--r-lg) var(--r-lg) 0 0;box-shadow:0 -8px 24px -12px oklch(0 0 0/.3);padding:16px}
+.grab2{width:34px;height:4px;border-radius:999px;background:var(--line);margin:0 auto 13px}
+.dialogframe{background:oklch(0.2 0.01 var(--accent-hue)/.35);border-radius:var(--r-lg);padding:60px 40px;display:flex;align-items:flex-start;justify-content:center}
+.dialog{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow-2);max-width:380px;width:100%;padding:20px}
+.dialog h4{font:500 19px/1.2 var(--display);font-variation-settings:"opsz" 40;margin:0 0 4px}
+.dialog .dsub{font-size:12.5px;color:var(--text-faint);margin:0 0 16px}
+.reconcile{background:var(--surface-2);border-radius:var(--r-sm);padding:16px;text-align:center;margin-bottom:16px}
+.reconcile .rc-math{font-size:12.5px;color:var(--text-dim)}
+.reconcile .rc-result{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px}
+.reconcile .rc-result .qty{max-width:130px}
+.reconcile .rc-label{font:600 12px/1 var(--ui);color:var(--accent)}
+.dialog-actions{display:flex;gap:8px;margin-top:18px}
+.pinsection{background:var(--accent-bg);border:1px solid var(--accent-line);border-radius:var(--r-md);padding:10px;margin-bottom:12px}
+.pinsection .pin-label{font:600 10px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px;display:block}
+.leftoverpick{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 4px;border-radius:var(--r-sm);cursor:pointer}
+.leftoverpick:hover{background:var(--surface)}
+.leftoverpick .lp-name{font:500 13.5px/1.25 var(--ui)}
+.leftoverpick .lp-meta{font:400 11.5px/1.3 var(--ui);color:var(--text-faint);margin-top:1px}
 footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:var(--text-faint);font-size:14px}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important}}
 </style>
@@ -366,7 +534,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     <a href="#tiers">The three tiers</a><a href="#home">Home</a><a href="#recipes">Recipes</a>
     <a href="#ingredients">Ingredients</a><a href="#recipe">A recipe</a><a href="#pantry">Pantry</a>
     <a href="#editor">Recipe editor</a><a href="#lot">Pantry item</a><a href="#plan">Plan</a>
-    <a href="#shopping">Shopping</a><a href="#settings">Settings</a>
+    <a href="#cooking">Cooking &amp; leftovers</a><a href="#shopping">Shopping</a><a href="#settings">Settings</a>
   </div>
 </header>
 
@@ -426,9 +594,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 <!-- ══ HOME ══ -->
 <section id="home">
   <h2>Home</h2>
-  <p class="sub">No defect reported here — shown for completeness. Tablet gets the desktop's top nav a tier early,
-    but stays single column: the "use these first" card drops below the day cards rather than squeezing beside
-    them at a width that would leave each too narrow.</p>
+  <p class="sub">No layout defect reported here, but this is the screen a household opens most, so it's shown in
+    its <b>empty-photo state</b> — a fresh household's normal appearance, not the exception. Tablet gets the
+    desktop's top nav a tier early, but stays single column: the "use these first" card drops below the day cards
+    rather than squeezing beside them at a width that would leave each too narrow.</p>
   <div class="tierstrip">
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
@@ -442,10 +611,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <div class="hstat warn"><div class="n">2</div><div class="l">expiring in 3 days</div></div>
           </div>
           <div class="rowgroup">Tonight</div>
-          <div class="row norow"><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 45 min · serves 4</span></span><span class="badge a">Cook</span></div>
+          <div class="row rowimg tonight"><span class="media ithumb lg photo"></span><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 45 min · serves 4</span></span><span class="badge a">Cook</span></div>
           <div class="rowgroup">Use these first</div>
-          <div class="row norow"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml</span></span><span class="badge c">2 days</span></div>
-          <div class="row norow"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g</span></span><span class="badge w">4 days</span></div>
+          <div class="row rowimg"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml</span></span><span class="badge c">2 days</span></div>
+          <div class="row rowimg"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g</span></span><span class="badge w">4 days</span></div>
         </div>
         <nav class="tabs">
           <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
@@ -479,15 +648,15 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               <div class="hstat"><div class="n">1</div><div class="l">leftover portion set</div></div>
             </div>
             <div class="card"><div class="card-head">Tonight</div><div class="card-pad">
-              <div class="row norow"><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 20 min prep · 45 min cook · serves 4</span></span><button class="btn sm">Mark cooked</button></div>
+              <div class="row rowimg tonight"><span class="media ithumb lg photo"></span><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 20 min prep · 45 min cook · serves 4</span></span><button class="btn sm">Mark cooked</button></div>
             </div></div>
             <div class="card"><div class="card-head">Rest of the week</div><div class="card-pad">
-              <div class="row norow"><span><span class="row-name">Carbonara</span><span class="row-sub">Thursday dinner</span></span><span class="badge ok">Planned</span></div>
-              <div class="row norow"><span><span class="row-name">Store lasagna</span><span class="row-sub">Friday dinner · bought</span></span><span class="badge ok">Planned</span></div>
+              <div class="row rowimg"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></span><span><span class="row-name">Carbonara</span><span class="row-sub">Thursday dinner</span></span><span class="badge ok">Planned</span></div>
+              <div class="row rowimg"><span class="media ithumb loading" aria-label="Photo loading"></span><span><span class="row-name">Store lasagna</span><span class="row-sub">Friday dinner · bought</span></span><span class="badge ok">Planned</span></div>
             </div></div>
             <div class="card"><div class="card-head">Use these first</div><div class="card-pad">
-              <div class="plot"><div class="plot-top"><span class="row-name">Milk</span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div>
-              <div class="plot"><div class="plot-top"><span class="row-name">Chicken breast</span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div>
+              <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span class="row-name">Milk</span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div></div>
+              <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span class="row-name">Chicken breast</span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div></div>
             </div></div>
           </div>
         </div>
@@ -510,20 +679,20 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div class="dt-cols">
             <div style="display:grid;gap:16px">
               <div class="card"><div class="card-head">Tonight</div><div class="card-pad">
-                <div class="row norow"><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 20 min prep · 45 min cook · serves 4</span></span><button class="btn sm">Mark cooked</button></div>
+                <div class="row rowimg tonight"><span class="media ithumb lg photo"></span><span><span class="row-name">Roast chicken</span><span class="row-sub">Dinner · 20 min prep · 45 min cook · serves 4</span></span><button class="btn sm">Mark cooked</button></div>
               </div></div>
               <div class="card"><div class="card-head">Rest of the week</div><div class="card-pad">
-                <div class="row norow"><span><span class="row-name">Carbonara</span><span class="row-sub">Thursday dinner</span></span><span class="badge ok">Planned</span></div>
-                <div class="row norow"><span><span class="row-name">Store lasagna</span><span class="row-sub">Friday dinner · bought</span></span><span class="badge ok">Planned</span></div>
-                <div class="row norow"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Saturday lunch · 4 portions</span></span><span class="badge a">Leftover</span></div>
+                <div class="row rowimg"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></span><span><span class="row-name">Carbonara</span><span class="row-sub">Thursday dinner</span></span><span class="badge ok">Planned</span></div>
+                <div class="row rowimg"><span class="media ithumb loading" aria-label="Photo loading"></span><span><span class="row-name">Store lasagna</span><span class="row-sub">Friday dinner · bought</span></span><span class="badge ok">Planned</span></div>
+                <div class="row rowimg"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></span><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Saturday lunch · 4 portions</span></span><span class="badge a">Leftover</span></div>
               </div></div>
             </div>
             <div class="card">
               <div class="card-head">Use these first</div>
               <div class="card-pad">
-                <div class="plot"><div class="plot-top"><span class="row-name">Milk</span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div>
-                <div class="plot"><div class="plot-top"><span class="row-name">Chicken breast</span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div>
-                <div class="plot"><div class="plot-top"><span class="row-name">Fresh basil</span><span class="badge w">5 days</span></div><div class="meter w"><i style="width:45%"></i></div></div>
+                <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span class="row-name">Milk</span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div></div>
+                <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span class="row-name">Chicken breast</span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div></div>
+                <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span class="row-name">Fresh basil</span><span class="badge w">5 days</span></div><div class="meter w"><i style="width:45%"></i></div></div></div>
               </div>
             </div>
           </div>
@@ -532,19 +701,36 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     </div>
 
   </div>
+  <div class="note">
+    <strong>Nothing here waits on a photo.</strong> Home references several recipes and several ingredients at
+    once, each photo its own row in its own sheet — the greeting, the counts, the meal names and the freshness
+    meters are the dashboard's actual job, and they render immediately from data already in hand. Photos are
+    fetched lazily, per visible row, after that — <b>Store lasagna</b> above shows the loading skeleton mid-fetch,
+    everything else that hasn't resolved yet (or never will, for the typed-in recipes and the 104 seeded
+    ingredients with no photo) shows the calm neutral glyph, and only <b>Tonight</b> — the single most prominent
+    thing on the page — gets a slightly larger 64px thumbnail. Prominence is position and weight; even there,
+    nothing is stretched past what recognition needs. And in "Use these first," the thumbnail sits beside the
+    meter, never behind or instead of it: colour is still the only alarm on this page.
+  </div>
 </section>
 
 <!-- ══ RECIPES ══ -->
 <section id="recipes">
   <h2>Recipes</h2>
-  <p class="sub">Defect: only 2 cards across at 1378px, entire lower page empty. Fix: nothing new — <code>.rgrid</code>
-    already is <code>auto-fill/minmax(168px,1fr)</code> in both the mock and the app. The bug is that
-    <code>/recipes</code> is one of the few routes actually in <code>WIDE_ROUTES</code>, so this screen's only real
-    problem was the tag clip below. The tablet frame here uses the <em>exact same markup</em> as the desktop
-    frame — only the box is narrower — to prove the grid genuinely reflows on its own.</p>
+  <p class="sub">Defect: only 2 cards across at 1378px, entire lower page empty. Fix: <code>.rgrid</code> is
+    <code>auto-fill/minmax(230px,1fr)</code> — <code>/recipes</code> is one of the few routes already in
+    <code>WIDE_ROUTES</code>, so the real bug was the tag clip below. The tablet frame here uses the
+    <em>exact same markup</em> as the desktop frame — only the box is narrower — to prove the grid genuinely
+    reflows on its own. Cards also carry a photo now — see the leading-thumbnail note after the grid for why that
+    changed the card's shape and freed the tag row.</p>
   <div class="tierstrip">
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <p class="tier-note">A single-column <code>.rlist</code>, not the grid — at real phone widths (~390px) two
+        columns of <code>.rgrid</code> at ~170px each would leave an 80px thumbnail almost no room for text next to
+        it. Full-width horizontal cards give the thumbnail and the name equal breathing room, and match the
+        Ingredients list row below it: one <code>[thumb][info]</code> idiom, not a cropped grid on the narrowest
+        tier and a proper one everywhere else.</p>
       <div class="tier-frame"><div class="phone">
         <div class="p-head"><span class="p-title">Recipes</span><span class="p-meta">18</span></div>
         <div class="p-body">
@@ -555,8 +741,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <button class="fchip" aria-pressed="false">Staples</button>
             <button class="fchip" aria-pressed="false">Bought</button>
           </div>
-          <div class="rgrid">
-            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>25 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span><span class="tagpill more">+1</span></div></div></div>
+          <div class="rlist">
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>25 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span><span class="tagpill">Spicy</span></div></div></div>
             <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Carbonara</h4><div class="rmeta"><span>20 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div></div>
             <div class="rcard"><div class="media rcard-media loading" aria-label="Photo loading"></div><div class="rcard-body"><h4>Store lasagna</h4><div class="rmeta"><span>50 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span></div></div></div>
             <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Tomato salad</h4><div class="rmeta"><span>10 min</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Lunch</span></div></div></div>
@@ -574,8 +760,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
       <p class="tier-note">Same 900px-wide reflow the desktop frame below shows, just narrower — 4 columns instead
-        of 2, and the "Staple" tag wraps onto its own line instead of clipping mid-word. Photo, no-photo and
-        loading states are all visible in this one row — see the note below the grid.</p>
+        of 2, and the tag row wraps onto its own line instead of clipping mid-word. Photo, no-photo and loading
+        states are all visible in this one row — see the note below the grid.</p>
       <div class="tier-frame"><div class="tablet">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes</div></div>
         <div class="dt-top">
@@ -592,7 +778,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <button class="fchip">Staples</button><button class="fchip">Bought</button><button class="fchip">Retired</button>
           </div>
           <div class="rgrid">
-            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span><span class="tagpill">Spicy</span></div></div></div>
             <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div></div>
             <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
             <div class="rcard"><div class="media rcard-media loading" aria-label="Photo loading"></div><div class="rcard-body"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div></div>
@@ -603,10 +789,12 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <b>Carbonara</b> never had one and shows a calm cooking-pot glyph on a neutral panel — the same
             <code>--surface-2</code> tone used everywhere else nothing is wrong, never an accent or warning colour,
             because a missing photo isn't an exception, it's the default; <b>Store lasagna</b>'s photo exists but
-            hasn't arrived yet (see the loading note below). Every card reserves the identical 2:1 box regardless
-            of state, so a grid that's mostly text-only still lines up edge to edge — nothing here depends on which
-            cards happen to have a photo. Chili's third tag also demonstrates the cap: past two tags, the row shows
-            <code>+N</code> rather than wrapping to a third line and making that one card taller than its neighbours.
+            hasn't arrived yet (see the loading note below). Every card reserves the identical 80px square
+            regardless of state, so a grid that's mostly text-only still lines up edge to edge — nothing here
+            depends on which cards happen to have a photo. Chili's three tags also show in full now: the earlier
+            pass capped tags at "2 + <code>+N</code>" because a full-width banner was competing with the tag row
+            for height; a leading thumbnail sets no such floor, the card's height is text-driven again, and the tag
+            row just wraps like any other <code>flex-wrap</code> row.
           </div>
         </div>
       </div></div>
@@ -629,7 +817,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <button class="fchip">Staples</button><button class="fchip">Bought</button><button class="fchip">Retired</button>
           </div>
           <div class="rgrid">
-            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
+            <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Chili</h4><div class="rmeta"><span>15 prep</span><span>25 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span><span class="tagpill">Spicy</span></div></div></div>
             <div class="rcard"><div class="media rcard-media empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></div><div class="rcard-body"><h4>Carbonara</h4><div class="rmeta"><span>10 prep</span><span>20 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span></div></div></div>
             <div class="rcard"><div class="media rcard-media photo"></div><div class="rcard-body"><h4>Roast chicken</h4><div class="rmeta"><span>20 prep</span><span>45 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Dinner</span><span class="tagpill">Staple</span></div></div></div>
             <div class="rcard"><div class="media rcard-media loading" aria-label="Photo loading"></div><div class="rcard-body"><h4>Store lasagna</h4><div class="rmeta"><span>0 prep</span><span>50 cook</span><span>serves 4</span></div><div class="rtags"><span class="tagpill">Bought</span><span class="tagpill">Dinner</span></div></div></div>
@@ -687,11 +875,11 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         <div class="p-head"><span class="p-title">Ingredients</span><span class="p-meta">29 of 29</span></div>
         <div class="p-body">
           <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Find an ingredient…</span></div>
-          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Minced beef</span><span class="row-sub">g · fridge · 5d (opened 2d)</span></span></div>
-          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Tinned tomatoes</span><span class="row-sub">piece · pantry · 730d</span></span></div>
-          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Onion</span><span class="row-sub">piece · pantry · 30d</span></span></div>
-          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Rice</span><span class="row-sub">g · pantry · 730d</span></span></div>
-          <div class="irow"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Fresh basil</span><span class="row-sub">g · fridge · 7d</span></span></div>
+          <div class="irow"><span class="media ithumb photo"></span><span><span class="row-name">Minced beef</span><span class="row-sub">g · fridge · 5d (opened 2d)</span></span></div>
+          <div class="irow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Tinned tomatoes</span><span class="row-sub">piece · pantry · 730d</span></span></div>
+          <div class="irow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Onion</span><span class="row-sub">piece · pantry · 30d</span></span></div>
+          <div class="irow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Rice</span><span class="row-sub">g · pantry · 730d</span></span></div>
+          <div class="irow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">Fresh basil</span><span class="row-sub">g · fridge · 7d</span></span></div>
         </div>
         <button class="fab" aria-label="Add ingredient"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         <nav class="tabs">
@@ -725,12 +913,12 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <p class="dt-sub">29 of 29 ingredients</p>
           <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Find an ingredient…</span></div>
           <div class="igrid">
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Minced beef</h4><span class="imeta">g · fridge · 5d (opened 2d)</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Tinned tomatoes</h4><span class="imeta">piece · pantry · 730d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Onion</h4><span class="imeta">piece · pantry · 30d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Rice</h4><span class="imeta">g · pantry · 730d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Fresh basil</h4><span class="imeta">g · fridge · 7d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Kidney beans</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+            <div class="icard"><span class="media ithumb photo"></span><span><h4>Minced beef</h4><span class="imeta">g · fridge · 5d (opened 2d)</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Tinned tomatoes</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Onion</h4><span class="imeta">piece · pantry · 30d</span></span></div>
+            <div class="icard"><span class="media ithumb loading" aria-label="Photo loading"></span><span><h4>Rice</h4><span class="imeta">g · pantry · 730d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Fresh basil</h4><span class="imeta">g · fridge · 7d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Kidney beans</h4><span class="imeta">piece · pantry · 730d</span></span></div>
           </div>
         </div>
       </div></div>
@@ -753,14 +941,14 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <p class="dt-sub">29 of 29 ingredients</p>
           <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Find an ingredient…</span></div>
           <div class="igrid">
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Minced beef</h4><span class="imeta">g · fridge · 5d (opened 2d)</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Tinned tomatoes</h4><span class="imeta">piece · pantry · 730d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Onion</h4><span class="imeta">piece · pantry · 30d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Rice</h4><span class="imeta">g · pantry · 730d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Fresh basil</h4><span class="imeta">g · fridge · 7d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Kidney beans</h4><span class="imeta">piece · pantry · 730d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Cumin</h4><span class="imeta">g · pantry · 1095d</span></span></div>
-            <div class="icard"><span class="iicon"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Olive oil</h4><span class="imeta">ml · pantry · 545d</span></span></div>
+            <div class="icard"><span class="media ithumb photo"></span><span><h4>Minced beef</h4><span class="imeta">g · fridge · 5d (opened 2d)</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Tinned tomatoes</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Onion</h4><span class="imeta">piece · pantry · 30d</span></span></div>
+            <div class="icard"><span class="media ithumb loading" aria-label="Photo loading"></span><span><h4>Rice</h4><span class="imeta">g · pantry · 730d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Fresh basil</h4><span class="imeta">g · fridge · 7d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Kidney beans</h4><span class="imeta">piece · pantry · 730d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Cumin</h4><span class="imeta">g · pantry · 1095d</span></span></div>
+            <div class="icard"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><h4>Olive oil</h4><span class="imeta">ml · pantry · 545d</span></span></div>
           </div>
         </div>
       </div></div>
@@ -774,21 +962,57 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     the right shape for "browse a list of things and open one"; three stacked full-width blocks were never a
     deliberate pattern, they were just what was left after nobody had a mock to build to.
   </div>
+  <div class="note">
+    <strong>A real thumbnail replaces the generic glyph — and for the seeded catalogue, "no photo" IS the
+    catalogue.</strong> The 104 seeded ingredients ship with zero photos; a household adds them one at a time as
+    they happen to matter. So <b>Minced beef</b> (a photo), <b>Rice</b> (still loading — the row rendered
+    immediately, the one visible photo is being fetched lazily) and everything else (the calm neutral square) are
+    all in the row above, and the "everything else" state is the one that actually describes day one, not an edge
+    case to design around later. 52px keeps a fetch-per-visible-row scheme affordable at catalogue scale — Pantry
+    and the pantry-item page reuse the exact same <code>.ithumb</code> at the same size, since they're the same
+    entity (see below); Shopping deliberately does not.
+    <div class="wrapdemo" style="margin-top:12px">
+      <div><span class="capw">Ingredient editor · no photo</span><button class="photo-add" type="button"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add a photo</span></button></div>
+      <div><span class="capw">Ingredient editor · saved</span><div style="width:150px"><div class="media photo-filled photo" style="max-width:none"></div><div class="photo-actions tight"><button class="btn ghost xs">Replace</button><button class="btn ghost xs" style="color:var(--crit)">Remove</button></div></div></div>
+    </div>
+    <p style="margin:10px 0 0;font-size:12.5px;color:var(--text-faint)">Same always-visible add/replace/remove
+      idiom as the recipe editor — a dashed drop-zone empty state, thumbnail + two buttons once saved, never a
+      hover-only control. 240px preview while picking, same as <code>.iprev</code>, well inside the 512px source.</p>
+  </div>
+  <div class="note">
+    <strong>Where else does an ingredient photo earn its place? Argued case by case, not applied by reflex.</strong>
+    <b style="color:var(--accent)">Yes — Pantry list and the pantry-item page.</b> Same entity as Ingredients (a
+    lot of Rice IS Rice), so the identical 52px <code>.ithumb</code> belongs on both, for recognition scanning a
+    long pantry list the same way it helps scanning the catalogue.
+    <b style="color:var(--accent)">Yes, small — a recipe's ingredient lines.</b> The 40px row in <code>.ilist</code>
+    is denser than Pantry's, so a thumbnail there is smaller still (36px) and optional — it earns its place only
+    where the list is genuinely long enough that names alone blur together, which most recipes' 4-6 lines are not;
+    treat it as a nice-to-have, not designed further here.
+    <b style="color:var(--crit)">No — the shopping list.</b> <code>UI_DESIGN.md</code> §1 invariant 5 is explicit:
+    used one-handed, in a supermarket aisle, possibly on a bad connection. The row's job is one thing — a big tap
+    target that toggles checked — and its trailing space already carries the quantity. A thumbnail competing with
+    the tick and the quantity for a touch target that's supposed to be unmissable is noise, not recognition help;
+    you're standing in front of the tomatoes, you don't need a photo of one to identify it.
+  </div>
 </section>
 
 <!-- ══ RECIPE DETAIL ══ -->
 <section id="recipe">
   <h2>A recipe</h2>
-  <p class="sub">No defect reported. Tablet collapses the rail below the reading content instead of squeezing a
-    250px column beside it — household flag and servings are secondary controls, not reference material you need
-    while reading the method, so there's no cost to reading them after ingredients/method rather than beside.</p>
+  <p class="sub">No defect reported, but a correction to an earlier pass of this file: a full-width 16:9 "hero"
+    is wrong at any tier once you do the upscale math — the source is 512px, so nothing may render wider than that,
+    and 320px is the honest working ceiling on a 2x display (see the display-cap rule under Recipes). This screen
+    now gets a <b>contained inset</b>, never a hero: 320px, placed in the secondary column at desktop (beside the
+    content, where that column already exists and is narrower than the cap anyway) and above the reading measure
+    at tablet/phone (no rail to sit beside there). Most recipes have none — see the note below for what the page
+    looks like then.</p>
   <div class="tierstrip">
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
       <div class="tier-frame"><div class="phone">
         <div class="p-head"><span class="p-title">Chili</span><span class="p-meta">Staple</span></div>
         <div class="p-body">
-          <div class="media rhero photo"></div>
+          <div class="media rphoto photo" style="max-width:200px;margin-bottom:13px"></div>
           <div style="display:flex;gap:7px;margin-bottom:13px"><span class="tagpill">Dinner</span><span class="tagpill">15 prep</span><span class="tagpill">25 cook</span></div>
           <span class="field-label">Household flag</span>
           <div class="seg" style="width:100%;margin-bottom:14px"><button aria-pressed="true" style="flex:1">Staple</button><button aria-pressed="false" style="flex:1">Rotation</button><button aria-pressed="false" style="flex:1">Retired</button></div>
@@ -801,6 +1025,32 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
             <div><span>Onion <span class="have">· 3 in pantry</span></span><span class="q">2 piece</span></div>
             <div><span>Kidney beans</span><span class="q">2 piece</span></div>
           </div>
+          <span class="field-label">Method</span>
+          <div class="timerrun">
+            <div><p class="tlabel">Simmering — step 3</p><p class="tcount">18:42</p></div>
+            <div class="tactions">
+              <button aria-label="Pause timer"><svg viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></svg></button>
+              <button aria-label="Cancel timer"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            </div>
+          </div>
+          <ol class="stepslist" style="margin-bottom:14px">
+            <li class="stepitem"><div class="stepbody">
+              <p class="stepline">Brown the mince in a wide pan over high heat.</p>
+              <div class="stepimg-wrap"><div class="media rstepimg empty"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div></div>
+            </div></li>
+            <li class="stepitem"><div class="stepbody">
+              <p class="stepline">Add onion and cumin, cook until soft.</p>
+              <div class="stepmeta"><span class="stepdur">⏱ 6 min</span><button class="timerbtn" type="button">Start timer</button></div>
+            </div></li>
+            <li class="stepitem"><div class="stepbody">
+              <p class="stepline">Add tomatoes and beans, simmer 20 minutes.</p>
+              <div class="stepimg-wrap"><div class="media rstepimg photo"></div></div>
+              <div class="stepmeta"><span class="stepdur">⏱ 20 min · running</span></div>
+              <details class="stepdetail"><summary></summary><p class="detailtext">A lid on but cracked keeps it from
+                reducing too fast — you want it thick enough to coat the back of a spoon, not dry. Stir every
+                5 minutes or so; it catches on the bottom of a thin pan.</p></details>
+            </div></li>
+          </ol>
           <button class="btn full">Mark cooked</button>
         </div>
       </div></div>
@@ -808,8 +1058,8 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
       <p class="tier-note">Single column, capped to a 680px reading measure — ingredients and method are prose-like
-        content, so they get the same treatment §13 already mandates for text. The hero sits above that measure,
-        full width of the tablet frame, since a photo isn't prose and benefits from the extra room.</p>
+        content, so they get the same treatment §13 already mandates for text. The photo sits above that measure at
+        its own 320px cap, not stretched to the measure's width — it's an inset, not a banner.</p>
       <div class="tier-frame"><div class="tablet">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/chili</div></div>
         <div class="dt-top">
@@ -820,7 +1070,7 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         <div class="dt-body">
           <div class="dt-head"><span class="dt-h1">Chili</span><button class="btn sm">Mark cooked</button></div>
           <p class="dt-sub">Cooked 3 times · last on 4 August · 15 min prep · 25 min cook</p>
-          <div class="media rhero photo"></div>
+          <div class="media rphoto photo" style="margin-bottom:16px"></div>
           <div class="measure" style="display:grid;gap:16px">
             <div class="card"><div class="card-head">Ingredients · scaled to 8 servings</div><div class="card-pad-lg">
               <div class="ilist">
@@ -831,10 +1081,23 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               </div>
             </div></div>
             <div class="card"><div class="card-head">Method</div><div class="card-pad-lg">
-              <ol class="steps">
-                <li>Brown the mince in a wide pan over high heat.</li>
-                <li>Add onion and cumin, cook until soft.</li>
-                <li>Add tomatoes and beans, simmer 20 minutes.</li>
+              <ol class="stepslist">
+                <li class="stepitem"><div class="stepbody">
+                  <p class="stepline">Brown the mince in a wide pan over high heat.</p>
+                  <div class="stepimg-wrap"><div class="media rstepimg empty"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div></div>
+                </div></li>
+                <li class="stepitem"><div class="stepbody">
+                  <p class="stepline">Add onion and cumin, cook until soft.</p>
+                  <div class="stepmeta"><span class="stepdur">⏱ 6 min</span><button class="timerbtn" type="button">Start timer</button></div>
+                </div></li>
+                <li class="stepitem"><div class="stepbody">
+                  <p class="stepline">Add tomatoes and beans, simmer 20 minutes.</p>
+                  <div class="stepimg-wrap"><div class="media rstepimg photo"></div></div>
+                  <div class="stepmeta"><span class="stepdur">⏱ 20 min</span><button class="timerbtn" type="button">Start timer</button></div>
+                  <details class="stepdetail"><summary></summary><p class="detailtext">A lid on but cracked keeps it
+                    from reducing too fast — you want it thick enough to coat the back of a spoon, not dry. Stir
+                    every 5 minutes or so; it catches on the bottom of a thin pan.</p></details>
+                </div></li>
               </ol>
             </div></div>
             <div class="card"><div class="card-head">Household flag</div><div class="card-pad-lg">
@@ -849,8 +1112,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     </div>
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
-      <p class="tier-note">Unchanged — the 250px rail is already a capped pixel width here, not a proportion, so it
-        never balloons the way Pantry's did.</p>
+      <p class="tier-note">The photo now lives in the secondary column, beside the content rather than above it —
+        that column is already 250px wide, narrower than the 320px cap, so no extra rule was even needed to keep
+        it contained. The rail itself is unchanged: already a capped pixel width, not a proportion, so it never
+        balloons the way Pantry's did.</p>
       <div class="tier-frame"><div class="browser">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/chili</div></div>
         <div class="dt-top">
@@ -861,7 +1126,6 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         <div class="dt-body">
           <div class="dt-head"><span class="dt-h1">Chili</span><button class="btn sm">Mark cooked</button></div>
           <p class="dt-sub">Cooked 3 times · last on 4 August · 15 min prep · 25 min cook</p>
-          <div class="media rhero photo"></div>
           <div class="dt-cols">
             <div style="display:grid;gap:16px">
               <div class="card"><div class="card-head">Ingredients · scaled to 8 servings</div><div class="card-pad-lg">
@@ -874,15 +1138,31 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
                 </div>
               </div></div>
               <div class="card"><div class="card-head">Method</div><div class="card-pad-lg">
-                <ol class="steps">
-                  <li>Brown the mince in a wide pan over high heat.</li>
-                  <li>Add onion and cumin, cook until soft.</li>
-                  <li>Add tomatoes and beans, simmer 20 minutes.</li>
-                  <li>Season and rest 5 minutes before serving.</li>
+                <ol class="stepslist">
+                  <li class="stepitem"><div class="stepbody">
+                    <p class="stepline">Brown the mince in a wide pan over high heat.</p>
+                    <div class="stepimg-wrap"><div class="media rstepimg empty"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg></div></div>
+                  </div></li>
+                  <li class="stepitem"><div class="stepbody">
+                    <p class="stepline">Add onion and cumin, cook until soft.</p>
+                    <div class="stepmeta"><span class="stepdur">⏱ 6 min</span><button class="timerbtn" type="button">Start timer</button></div>
+                  </div></li>
+                  <li class="stepitem"><div class="stepbody">
+                    <p class="stepline">Add tomatoes and beans, simmer 20 minutes.</p>
+                    <div class="stepimg-wrap"><div class="media rstepimg photo"></div></div>
+                    <div class="stepmeta"><span class="stepdur">⏱ 20 min</span><button class="timerbtn" type="button">Start timer</button></div>
+                    <details class="stepdetail"><summary></summary><p class="detailtext">A lid on but cracked keeps
+                      it from reducing too fast — you want it thick enough to coat the back of a spoon, not dry.
+                      Stir every 5 minutes or so; it catches on the bottom of a thin pan.</p></details>
+                  </div></li>
+                  <li class="stepitem"><div class="stepbody">
+                    <p class="stepline">Season and rest 5 minutes before serving.</p>
+                  </div></li>
                 </ol>
               </div></div>
             </div>
             <div style="display:grid;gap:16px">
+              <div class="media rphoto photo"></div>
               <div class="card"><div class="card-head">Household flag</div><div class="card-pad-lg">
                 <div class="seg" style="width:100%"><button aria-pressed="true" style="flex:1">Staple</button><button style="flex:1">Rotation</button><button style="flex:1">Retired</button></div>
               </div></div>
@@ -898,40 +1178,58 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 
   </div>
   <div class="note">
-    <strong>The detail view doesn't reserve hero space when there's no photo — the grid always does.</strong>
-    Different rule, same reasoning as the grid's placeholder, argued from what each screen actually needs: a card
-    grid has neighbours to line up against, so every card claims the same 2:1 box whether or not a photo fills it.
-    A single recipe page has no row to stay level with — if Chili had no photo, this page would simply start at the
-    tag row, exactly as it does today, rather than opening on an empty glyph panel that offers nothing to a reader
-    who is looking at a recipe, not editing one. The "add a photo" affordance belongs on the editor (next section),
-    not as a dead placeholder on a page whose job is to be read.
+    <strong>No photo, no inset — the page you're reading today, not a placeholder.</strong>
+    Different rule from the grid's, argued from what each screen actually needs: a card grid has neighbours to line
+    up against, so every card claims the same 80px square whether or not a photo fills it. A single recipe page has
+    no row to stay level with — <b>with no photo, this screen has no inset at all</b>; Chili's page would simply
+    start at the tag row, exactly as it does today. An empty glyph panel would offer a reader nothing — they're
+    looking at a recipe, not editing one — so the honest default for most recipes (no photo yet) is that the photo
+    slot doesn't exist on this page until one does. The "add a photo" affordance belongs on the editor, next.
+  </div>
+  <div class="note">
+    <strong>Steps: a short line always, an image and a timer only where they earn it, detail behind a fold.</strong>
+    Step 1 has no image (the default — most steps never get one, same reasoning as everywhere else in this
+    package); step 2 has a duration but no image, so it's just a badge plus a <b>Start timer</b> button; step 3 has
+    all three: a 240px <code>.rstepimg</code> (a clarifying "what it should look like here," not a feature photo —
+    small is honest at this budget), a running timer, and a <code>&lt;details&gt;</code> disclosure for the kind of
+    explanation that would otherwise force every reader to scroll past three sentences to find step 4. Native
+    <code>&lt;details&gt;/&lt;summary&gt;</code>, not a custom toggle: free keyboard and screen-reader behaviour,
+    and it degrades to just-shown if CSS fails to load. The running timer on the phone frame is deliberately the
+    boldest thing on the page — full <code>--accent</code>, 36px tabular digits, 44px pause/cancel targets — because
+    this is used with flour on your hands, glancing from across the counter, and a quiet resting-state badge would
+    be exactly wrong for that moment. Step images load the same lazy-per-visible-item way as everything else in
+    this package: a 6-step recipe with images is 6 more fetches, each behind its own <code>Skeleton</code>,
+    triggered as the step scrolls into view — not fetched with the recipe.
   </div>
 </section>
 
 <!-- ══ PANTRY ══ -->
 <section id="pantry">
   <h2>Pantry</h2>
-  <p class="sub">Defects: the Location segmented control overflows to "FREE" instead of "FREEZER", and the main
+  <p class="sub">Defects: the Location segmented control overflows to "FREE" instead of "FREEZER"; the main
     column shows one row beside hundreds of empty pixels next to a rail that's simultaneously too narrow to fit
-    its own control. Cause: <code>pantry.module.css</code>'s <code>.layout</code> splits
+    its own control; the filter rail's two groups fight for width instead of stacking; and "Show" isn't parallel
+    with "Location" as a label. Cause of the rail bug: <code>pantry.module.css</code>'s <code>.layout</code> splits
     <code>minmax(0,2fr) minmax(220px,1fr)</code> — a <em>proportional</em> third of the viewport, so the rail
     grows unbounded with the window instead of being capped, while <code>SegmentedControl</code> has no wrap
-    behaviour at all. Fix below: at tablet the rail becomes a horizontal bar above the list (freeing full width for
-    the one thing that needs it — the list itself, which stays a single ordered column, unchanged); at desktop the
-    rail returns but capped to a fixed range, never a fraction.</p>
+    behaviour at all. Fixes below: at tablet the rail becomes a <b>vertical</b> bar above the list — one control
+    per line, not two competing side by side — freeing full width for the list itself (unchanged: one ordered
+    column, urgency order is the point); at desktop the rail returns capped to a fixed range, never a fraction;
+    <b>Show</b> is renamed <b>Expiration</b>; and stock now shares the screen with a new <b>Leftovers</b> tab —
+    see the note after this grid for why a leftover doesn't belong in this list at all.</p>
   <div class="tierstrip">
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
       <div class="tier-frame"><div class="phone phone-rel">
         <div class="p-head"><span class="p-title">Pantry</span><span class="p-meta">2 expiring</span></div>
         <div class="p-body">
+          <div class="seg" style="width:100%;margin-bottom:12px"><button aria-pressed="true" style="flex:1">Stock</button><button style="flex:1">Leftovers</button></div>
           <div class="filters"><button class="fchip" aria-pressed="true">All</button><button class="fchip">Fridge</button><button class="fchip">Freezer</button><button class="fchip">Pantry</button></div>
           <div class="rowgroup">Expiring soon</div>
-          <div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tue</span></span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div>
-          <div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g</span></span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div>
+          <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tue</span></span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div></div>
+          <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g</span></span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div></div>
           <div class="rowgroup">Fresh</div>
-          <div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots</span></span><span class="badge ok">2 years</span></div><div class="meter"><i style="width:92%"></i></div></div>
-          <div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Fridge · 4 portions</span></span><span class="badge ok">3 days</span></div><div class="meter"><i style="width:62%"></i></div></div>
+          <div class="plotrow"><span class="media ithumb photo"></span><div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots</span></span><span class="badge ok">2 years</span></div><div class="meter"><i style="width:92%"></i></div></div></div>
         </div>
         <button class="fab" aria-label="Add stock"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         <nav class="tabs">
@@ -945,10 +1243,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     </div>
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Tablet</span><span class="tier-range">768–1439px</span></div>
-      <p class="tier-note">The Filters rail becomes a horizontal bar — same two controls, laid out inline — so the
-        list gets the tablet's full width instead of two-thirds of it. Location is the same 4-option
-        <code>.seg</code>, now with <code>.wrap</code>: plenty of room here, so it renders as one row, exactly like
-        it always has.</p>
+      <p class="tier-note">The Filters rail becomes a bar above the list — but a <b>vertical</b> one now: Location
+        on its own line, Expiration on the next, not two groups wrapping around each other for width. Location is
+        the same 4-option <code>.seg.wrap</code>: plenty of room here, so it renders as one row, exactly like it
+        always has.</p>
       <div class="tier-frame"><div class="tablet">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry</div></div>
         <div class="dt-top">
@@ -957,17 +1255,17 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div class="dt-actions"><button class="btn sm">Add stock</button><button class="avatar">FT</button></div>
         </div>
         <div class="dt-body">
-          <div class="dt-head"><span class="dt-h1">Pantry</span></div>
+          <div class="dt-head"><span style="display:flex;align-items:center;gap:16px"><span class="dt-h1">Pantry</span><div class="seg"><button aria-pressed="true">Stock</button><button>Leftovers</button></div></span></div>
           <p class="dt-sub">36 lots · 2 expiring within 4 days · 1 data warning</p>
-          <div class="filterbar">
+          <div class="filterbar" style="flex-direction:column;align-items:stretch">
             <div class="fb-group"><span class="field-label" style="margin:0">Location</span><div class="seg wrap"><button aria-pressed="true">All</button><button>Pantry</button><button>Fridge</button><button>Freezer</button></div></div>
-            <div class="fb-group grow"><span class="field-label" style="margin:0">Show</span><div class="filters" style="padding:0"><button class="fchip" aria-pressed="true">Expiring</button><button class="fchip">Opened</button><button class="fchip">Leftovers</button></div></div>
+            <div class="fb-group"><span class="field-label" style="margin:0">Expiration</span><div class="filters" style="padding:0"><button class="fchip" aria-pressed="true">Expiring</button><button class="fchip">Opened</button></div></div>
           </div>
           <div class="card"><div class="card-head">All stock</div><div class="card-pad">
-            <div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tuesday</span></span><span class="badge c">Expires 28 Aug</span></div><div class="meter c"><i style="width:14%"></i></div></div>
-            <div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g · bought 24 Aug</span></span><span class="badge w">Expires 30 Aug</span></div><div class="meter w"><i style="width:33%"></i></div></div>
-            <div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots, FIFO</span></span><span class="badge ok">Expires Aug 2028</span></div><div class="meter"><i style="width:92%"></i></div></div>
-            <div class="plot"><div class="plot-top"><span><span class="row-name">Frozen peas</span><span class="row-sub">Freezer · 750 g</span></span><span class="badge ok">Expires May 2027</span></div><div class="meter"><i style="width:86%"></i></div></div>
+            <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tuesday</span></span><span class="badge c">Expires 28 Aug</span></div><div class="meter c"><i style="width:14%"></i></div></div></div>
+            <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g · bought 24 Aug</span></span><span class="badge w">Expires 30 Aug</span></div><div class="meter w"><i style="width:33%"></i></div></div></div>
+            <div class="plotrow"><span class="media ithumb photo"></span><div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots, FIFO</span></span><span class="badge ok">Expires Aug 2028</span></div><div class="meter"><i style="width:92%"></i></div></div></div>
+            <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Frozen peas</span><span class="row-sub">Freezer · 750 g</span></span><span class="badge ok">Expires May 2027</span></div><div class="meter"><i style="width:86%"></i></div></div></div>
           </div></div>
         </div>
       </div></div>
@@ -975,9 +1273,9 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
       <p class="tier-note">The rail returns, but capped at a fixed 260px — never a fraction of the viewport — so it
-        can't balloon on an ultrawide monitor the way the proportional <code>2fr:1fr</code> split does today. The
-        list itself is unchanged from the approved mock: still one ordered column, because urgency order is the
-        point.</p>
+        can't balloon on an ultrawide monitor the way the proportional <code>2fr:1fr</code> split does today. It was
+        already stacked one control per line here — Location above Expiration, each full rail width — so the
+        "broken up" complaint was specific to the tablet bar's horizontal layout, now fixed to match.</p>
       <div class="tier-frame"><div class="browser">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry</div></div>
         <div class="dt-top">
@@ -986,21 +1284,20 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div class="dt-actions"><button class="btn sm">Add stock</button><button class="avatar">FT</button></div>
         </div>
         <div class="dt-body">
-          <div class="dt-head"><span class="dt-h1">Pantry</span></div>
+          <div class="dt-head"><span style="display:flex;align-items:center;gap:16px"><span class="dt-h1">Pantry</span><div class="seg"><button aria-pressed="true">Stock</button><button>Leftovers</button></div></span></div>
           <p class="dt-sub">36 lots · 2 expiring within 4 days · 1 data warning</p>
           <div style="display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start">
             <div class="card"><div class="card-head">All stock</div><div class="card-pad">
-              <div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tuesday</span></span><span class="badge c">Expires 28 Aug</span></div><div class="meter c"><i style="width:14%"></i></div></div>
-              <div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g · bought 24 Aug</span></span><span class="badge w">Expires 30 Aug</span></div><div class="meter w"><i style="width:33%"></i></div></div>
-              <div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots, FIFO</span></span><span class="badge ok">Expires Aug 2028</span></div><div class="meter"><i style="width:92%"></i></div></div>
-              <div class="plot"><div class="plot-top"><span><span class="row-name">Frozen peas</span><span class="row-sub">Freezer · 750 g</span></span><span class="badge ok">Expires May 2027</span></div><div class="meter"><i style="width:86%"></i></div></div>
-              <div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Fridge · 4 portions · cooked 25 Aug</span></span><span class="badge ok">Expires 29 Aug</span></div><div class="meter"><i style="width:62%"></i></div></div>
+              <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Milk</span><span class="row-sub">Fridge · 500 ml · opened Tuesday</span></span><span class="badge c">Expires 28 Aug</span></div><div class="meter c"><i style="width:14%"></i></div></div></div>
+              <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Chicken breast</span><span class="row-sub">Fridge · 400 g · bought 24 Aug</span></span><span class="badge w">Expires 30 Aug</span></div><div class="meter w"><i style="width:33%"></i></div></div></div>
+              <div class="plotrow"><span class="media ithumb photo"></span><div class="plot"><div class="plot-top"><span><span class="row-name">Rice</span><span class="row-sub">Pantry · 1000 g · 2 lots, FIFO</span></span><span class="badge ok">Expires Aug 2028</span></div><div class="meter"><i style="width:92%"></i></div></div></div>
+              <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Frozen peas</span><span class="row-sub">Freezer · 750 g</span></span><span class="badge ok">Expires May 2027</span></div><div class="meter"><i style="width:86%"></i></div></div></div>
             </div></div>
             <div class="card"><div class="card-head">Filters</div><div class="card-pad-lg">
               <span class="field-label">Location</span>
               <div class="seg wrap" style="margin-bottom:14px"><button aria-pressed="true">All</button><button>Pantry</button><button>Fridge</button><button>Freezer</button></div>
-              <span class="field-label">Show</span>
-              <div class="filters" style="padding:0"><button class="fchip" aria-pressed="true">Expiring</button><button class="fchip">Opened</button><button class="fchip">Leftovers</button></div>
+              <span class="field-label">Expiration</span>
+              <div class="filters" style="padding:0"><button class="fchip" aria-pressed="true">Expiring</button><button class="fchip">Opened</button></div>
             </div></div>
           </div>
         </div>
@@ -1008,6 +1305,63 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     </div>
 
   </div>
+
+  <div class="note">
+    <strong>Leftovers get their own tab — a leftover is a meal, not an ingredient.</strong> It has portions, a
+    source recipe, a short fridge or freezer life, and it can fill a plan slot directly (see Plan, below) — none
+    of which is true of flour or tinned tomatoes. Listing "Leftover: Chili" among the stock made both lists worse:
+    it doesn't sort by ingredient location or unit, and it buried a real meal amongst groceries. <code>Stock</code>
+    and <code>Leftovers</code> reuse the exact <code>.seg</code> two-option primitive Recipes/Ingredients just
+    gained — one tab idiom for the whole app, not a second one invented for Pantry. The "Leftovers" chip that used
+    to sit under "Show" is gone for the same reason: once leftovers have their own tab, filtering the stock list
+    for them is a contradiction.
+  </div>
+
+  <div class="tierstrip" style="margin-top:26px">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <p class="tier-note">Leftovers tab, selected. No filter rail at all — a household rarely has more than a
+        handful of leftovers at once, so a location/expiration filter has nothing meaningful to narrow.</p>
+      <div class="tier-frame"><div class="phone phone-rel">
+        <div class="p-head"><span class="p-title">Pantry</span><span class="p-meta">2 leftovers</span></div>
+        <div class="p-body">
+          <div class="seg" style="width:100%;margin-bottom:12px"><button style="flex:1">Stock</button><button aria-pressed="true" style="flex:1">Leftovers</button></div>
+          <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Fridge · 4 portions · from Chili</span></span><span class="badge ok">3 days</span></div><div class="meter"><i style="width:62%"></i></div></div></div>
+          <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Sunday roast</span><span class="row-sub">Freezer · 2 portions · from Sunday roast</span></span><span class="badge ok">89 days</span></div><div class="meter"><i style="width:97%"></i></div></div></div>
+        </div>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Same tab, wider frame — the list stays single column at every tier deliberately (see
+        the Stock tab's note): it's short and it's still an urgency-ish list (soonest use-by first), so a grid
+        would earn nothing here either. Tablet isn't shown separately — it's this same single-column list, just
+        with the top nav a tier earlier, identical to how the Stock tab's own tablet tier behaves.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry/leftovers</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button aria-current="page">Pantry</button><button>Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head"><span style="display:flex;align-items:center;gap:16px"><span class="dt-h1">Pantry</span><div class="seg"><button>Stock</button><button aria-pressed="true">Leftovers</button></div></span></div>
+          <p class="dt-sub">2 leftovers · 4 + 2 portions</p>
+          <div class="card measure" style="max-width:620px"><div class="card-head">Leftovers</div><div class="card-pad">
+            <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Chili</span><span class="row-sub">Fridge · 4 portions · from Chili · cooked 25 Aug</span></span><span class="badge ok">Use by 29 Aug</span></div><div class="meter"><i style="width:62%"></i></div></div></div>
+            <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 11h16v2a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-2z"/><path d="M2 11h20"/><path d="M7 11V8a5 5 0 0 1 10 0v3"/></svg></span><div class="plot"><div class="plot-top"><span><span class="row-name">Leftover: Sunday roast</span><span class="row-sub">Freezer · 2 portions · from Sunday roast · frozen 18 Aug</span></span><span class="badge ok">Use by Nov 15</span></div><div class="meter"><i style="width:97%"></i></div></div></div>
+          </div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
   <div class="note">
     <strong>The segmented control fix, made concrete.</strong> One class, <code>.seg.wrap</code>
     (<code>grid-template-columns:repeat(auto-fit,minmax(72px,1fr))</code> instead of a fixed-row
@@ -1045,6 +1399,19 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div class="relrow" style="margin-bottom:14px"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
           <span class="field-label">Servings</span>
           <div class="qty" style="margin-bottom:14px"><button>−</button><span class="val">4 <span class="unit">servings</span></span><button>+</button></div>
+          <span class="field-label">Steps</span>
+          <div class="stepcard">
+            <div class="stepcard-head"><span class="stepcard-num">Step 1</span><button class="stepcard-del" aria-label="Delete step">✕</button></div>
+            <span class="field-label">Instruction</span>
+            <input type="text" value="Cook covered in foil for 35 minutes" style="margin-bottom:10px">
+            <div class="stepcard-row">
+              <div><span class="field-label">Duration</span><div class="qty" style="max-width:none"><button>−</button><span class="val">35 <span class="unit">min</span></span><button>+</button></div></div>
+              <div><span class="field-label">Photo</span><button class="photo-add" type="button" style="aspect-ratio:2.4/1;max-width:none"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add</span></button></div>
+            </div>
+            <span class="field-label" style="margin-top:10px">Detail <span style="text-transform:none;font-weight:500;color:var(--text-faint)">(markdown, optional)</span></span>
+            <textarea rows="2" placeholder="Extra tips, why it matters…"></textarea>
+          </div>
+          <button class="btn ghost sm full" style="margin-bottom:14px">+ Add step</button>
           <button class="btn full">Save recipe</button>
         </div>
       </div></div>
@@ -1083,9 +1450,27 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
               <div class="qty"><button>−</button><span class="val">50 <span class="unit">min</span></span><button>+</button></div>
             </div></div>
             <div class="card"><div class="card-head">Steps</div><div class="card-pad-lg">
-              <div class="ilist" style="margin-bottom:12px">
-                <div><span>1 · Pre-heat oven to 425</span><span class="q">✕</span></div>
-                <div><span>2 · Cook covered in foil for 35 minutes</span><span class="q">✕</span></div>
+              <div class="stepcard">
+                <div class="stepcard-head"><span class="stepcard-num">Step 1</span><button class="stepcard-del" aria-label="Delete step">✕</button></div>
+                <span class="field-label">Instruction</span>
+                <input type="text" value="Pre-heat oven to 425°F" style="margin-bottom:10px">
+                <div class="stepcard-row">
+                  <div><span class="field-label">Duration</span><div class="qty" style="max-width:none"><button>−</button><span class="val" style="justify-content:center">—</span><button>+</button></div></div>
+                  <div><span class="field-label">Photo</span><button class="photo-add" type="button" style="aspect-ratio:2.4/1;max-width:none"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add</span></button></div>
+                </div>
+                <span class="field-label" style="margin-top:10px">Detail <span style="text-transform:none;font-weight:500;color:var(--text-faint)">(markdown, optional)</span></span>
+                <textarea rows="2" placeholder="Extra tips, why it matters…"></textarea>
+              </div>
+              <div class="stepcard">
+                <div class="stepcard-head"><span class="stepcard-num">Step 2</span><button class="stepcard-del" aria-label="Delete step">✕</button></div>
+                <span class="field-label">Instruction</span>
+                <input type="text" value="Cook covered in foil for 35 minutes" style="margin-bottom:10px">
+                <div class="stepcard-row">
+                  <div><span class="field-label">Duration</span><div class="qty" style="max-width:none"><button>−</button><span class="val">35 <span class="unit">min</span></span><button>+</button></div></div>
+                  <div><span class="field-label">Photo</span><div style="width:100%"><div class="media photo-filled photo" style="max-width:none;aspect-ratio:2.4/1"></div><div class="photo-actions tight" style="margin-top:6px"><button class="btn ghost xs">Replace</button><button class="btn ghost xs" style="color:var(--crit)">Remove</button></div></div></div>
+                </div>
+                <span class="field-label" style="margin-top:10px">Detail <span style="text-transform:none;font-weight:500;color:var(--text-faint)">(markdown, optional)</span></span>
+                <textarea rows="2">Foil traps steam so the peppers soften without drying the tops out.</textarea>
               </div>
               <button class="btn ghost sm">+ Add step</button>
             </div></div>
@@ -1119,10 +1504,36 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
                 <div class="relrow" style="margin:0"><button class="fchip">Breakfast</button><button class="fchip">Lunch</button><button class="fchip" aria-pressed="true">Dinner</button><button class="fchip">Snack</button></div>
               </div></div>
               <div class="card"><div class="card-head">Steps</div><div class="card-pad-lg">
-                <div class="ilist" style="margin-bottom:12px">
-                  <div><span>1 · Pre-heat oven to 425</span><span class="q">✕</span></div>
-                  <div><span>2 · Cook covered in foil for 35 minutes</span><span class="q">✕</span></div>
-                  <div><span>3 · Cook uncovered for 15 minutes</span><span class="q">✕</span></div>
+                <div class="stepcard">
+                  <div class="stepcard-head"><span class="stepcard-num">Step 1</span><button class="stepcard-del" aria-label="Delete step">✕</button></div>
+                  <span class="field-label">Instruction</span>
+                  <input type="text" value="Pre-heat oven to 425°F" style="margin-bottom:10px">
+                  <div class="stepcard-row">
+                    <div><span class="field-label">Duration</span><div class="qty" style="max-width:none"><button>−</button><span class="val" style="justify-content:center">—</span><button>+</button></div></div>
+                    <div><span class="field-label">Photo</span><button class="photo-add" type="button" style="aspect-ratio:2.4/1;max-width:none"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add</span></button></div>
+                  </div>
+                  <span class="field-label" style="margin-top:10px">Detail <span style="text-transform:none;font-weight:500;color:var(--text-faint)">(markdown, optional)</span></span>
+                  <textarea rows="2" placeholder="Extra tips, why it matters…"></textarea>
+                </div>
+                <div class="stepcard">
+                  <div class="stepcard-head"><span class="stepcard-num">Step 2</span><button class="stepcard-del" aria-label="Delete step">✕</button></div>
+                  <span class="field-label">Instruction</span>
+                  <input type="text" value="Cook covered in foil for 35 minutes" style="margin-bottom:10px">
+                  <div class="stepcard-row">
+                    <div><span class="field-label">Duration</span><div class="qty" style="max-width:none"><button>−</button><span class="val">35 <span class="unit">min</span></span><button>+</button></div></div>
+                    <div><span class="field-label">Photo</span><div style="width:100%"><div class="media photo-filled photo" style="max-width:none;aspect-ratio:2.4/1"></div><div class="photo-actions tight" style="margin-top:6px"><button class="btn ghost xs">Replace</button><button class="btn ghost xs" style="color:var(--crit)">Remove</button></div></div></div>
+                  </div>
+                  <span class="field-label" style="margin-top:10px">Detail <span style="text-transform:none;font-weight:500;color:var(--text-faint)">(markdown, optional)</span></span>
+                  <textarea rows="2">Foil traps steam so the peppers soften without drying the tops out.</textarea>
+                </div>
+                <div class="stepcard">
+                  <div class="stepcard-head"><span class="stepcard-num">Step 3</span><button class="stepcard-del" aria-label="Delete step">✕</button></div>
+                  <span class="field-label">Instruction</span>
+                  <input type="text" value="Cook uncovered for 15 minutes" style="margin-bottom:10px">
+                  <div class="stepcard-row">
+                    <div><span class="field-label">Duration</span><div class="qty" style="max-width:none"><button>−</button><span class="val">15 <span class="unit">min</span></span><button>+</button></div></div>
+                    <div><span class="field-label">Photo</span><button class="photo-add" type="button" style="aspect-ratio:2.4/1;max-width:none"><svg viewBox="0 0 24 24"><path d="M4 7h3l1.5-2h7L17 7h3v13H4z"/><circle cx="12" cy="13.5" r="3.5"/></svg><span>Add</span></button></div>
+                  </div>
                 </div>
                 <button class="btn ghost sm">+ Add step</button>
               </div></div>
@@ -1160,6 +1571,20 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     photo belongs with the other two rather than sharing a card with prep-time steppers. Not shown: the crop step
     between picking a file and this state — that's the encoder's 512px/32KB budget being enforced, and it's a
     behavioural detail for whoever builds the upload flow, not a layout one.
+  </div>
+  <div class="note">
+    <strong>One card per step — instruction, duration, photo and detail, never all required.</strong> Only the
+    instruction line is asked for up front; duration defaults to none (no timer offered on the read view unless
+    one's set), photo defaults to the same dashed add-affordance as the recipe's own photo, and "detail" is
+    explicitly labelled <em>(markdown, optional)</em> rather than presented as a second required essay field —
+    step 1 and step 3 above show the same card with different fields actually filled in, which is the point: nothing
+    here forces a household typing in "Chili" from memory to fill out four fields per step just to save one line of
+    text. Two distinct text controls, not one that tries to be both — a single-line <code>input</code> for the
+    instruction that always shows on the read view, a multi-line <code>textarea</code> for markdown detail that's
+    folded behind <code>&lt;details&gt;</code> there. Duration reuses the same <code>QuantityInput</code>-style
+    stepper as servings and cook time (§5's "no native numeric inputs" rule doesn't stop applying per-step), and
+    feeds the read view's <b>Start timer</b> button directly — a step with no duration set simply shows no timer
+    affordance at all.
   </div>
 </section>
 
@@ -1277,10 +1702,16 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
   <div class="tierstrip">
 
     <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <p class="tier-note">A prominent week control replaces the old bare chevrons — the date range is now the
+        thing you tap, flanked by real prev/next targets, with "Today" one tap away instead of several taps back.</p>
       <div class="tier-frame"><div class="phone">
-        <div class="p-head"><span class="p-title">This week</span><span class="p-meta">24–30 Aug</span></div>
+        <div class="p-head"><span class="p-title">Plan</span></div>
         <div class="p-body">
-          <div style="display:flex;gap:7px;margin-bottom:12px"><button class="btn sm" style="flex:1">Generate week</button><button class="btn ghost sm">‹</button><button class="btn ghost sm">›</button></div>
+          <div class="weeknav-row">
+            <div class="weeknav"><button class="weeknav-btn" aria-label="Previous week">‹</button><span class="weeknav-range">24–30 Aug</span><button class="weeknav-btn" aria-label="Next week">›</button></div>
+            <button class="btn ghost sm">Today</button>
+          </div>
+          <button class="btn sm full" style="margin-bottom:12px">Generate week</button>
           <div class="mday">
             <div class="mday-h"><span>Mon 24</span><span>2 slots</span></div>
             <div class="mslot"><span><span class="mt">Lunch</span><span class="mn">Tomato salad</span></span><div style="display:flex;gap:5px"><button class="iconbtn" aria-label="Reroll"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button><button class="iconbtn" aria-label="Pin"><svg viewBox="0 0 24 24"><path d="M12 17v5"/><path d="M9 3h6l-1 8 3 3H7l3-3z"/></svg></button></div></div>
@@ -1314,10 +1745,13 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
         <div class="dt-top">
           <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
           <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button aria-current="page">Plan</button><button>Shopping</button><button>Settings</button></nav>
-          <div class="dt-actions"><button class="chip">‹</button><button class="chip">›</button><button class="btn sm">Generate week</button><button class="avatar">FT</button></div>
+          <div class="dt-actions"><button class="btn sm">Generate week</button><button class="avatar">FT</button></div>
         </div>
         <div class="dt-body">
-          <div class="dt-head"><span class="dt-h1">Week of 24 August</span></div>
+          <div class="dt-head">
+            <div class="weeknav"><button class="weeknav-btn" aria-label="Previous week">‹</button><span class="weeknav-range" style="font-size:19px">Week of 24 August</span><button class="weeknav-btn" aria-label="Next week">›</button></div>
+            <button class="btn ghost sm">Today</button>
+          </div>
           <p class="dt-sub">Household of 4 · 2 staples placed · 1 slot empty</p>
           <div class="weekband">
             <div class="weekband-label">Mon – Thu</div>
@@ -1351,7 +1785,10 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
           <div class="dt-actions"><button class="btn sm">Generate week</button><button class="avatar">FT</button></div>
         </div>
         <div class="dt-body">
-          <div class="dt-head"><span class="dt-h1">Week of 24 August</span></div>
+          <div class="dt-head">
+            <div class="weeknav"><button class="weeknav-btn" aria-label="Previous week">‹</button><span class="weeknav-range" style="font-size:20px">Week of 24 August</span><button class="weeknav-btn" aria-label="Next week">›</button></div>
+            <button class="btn ghost sm">Today</button>
+          </div>
           <p class="dt-sub">Household of 4 · 2 staples placed · 1 slot empty · Carbonara excluded (cooked 1 week ago)</p>
           <div class="week">
             <div class="day"><div class="day-n">Mon 24</div><div class="slot"><span class="t">Lunch</span>Tomato salad</div><div class="slot pin"><span class="t">Dinner · pinned</span>Chili</div></div>
@@ -1377,6 +1814,284 @@ footer{margin-top:76px;padding-top:26px;border-top:1px solid var(--line);color:v
     reads as broken, not responsive. <b>Four columns, banded</b> avoids both: the whole week is still visible (two
     short scans instead of one), no orphaned cell, and "weekdays" / "weekend" is a grouping that's already
     meaningful in a meal planner, not an arbitrary split invented to make the math work.
+  </div>
+
+  <div class="note">
+    <strong>The week-change bug: prev/next existed on phone and tablet, and didn't exist at all on desktop.</strong>
+    On the widest tier — the one this whole package argues deserves the richest treatment — there was, until this
+    revision, no way to change week at all. Fixed the same way everywhere: <code>.weeknav</code> puts the date
+    range itself in the control, flanked by real 34px prev/next targets (not a bare chevron glyph), plus a
+    <b>Today</b> action beside it. On phone and tablet it's a standalone row above the week; at desktop it
+    <em>becomes</em> the page heading — "Week of 24 August" was always static text before, so making it the
+    control costs nothing and makes the most important navigation on the screen impossible to miss.
+  </div>
+
+  <h3 style="font:400 26px/1.2 var(--display);font-variation-settings:'opsz' 60;margin:40px 0 8px">Month — an overview, not an editor</h3>
+  <p class="sub">The owner asked whether a month or quarter view makes sense. Yes, but not as a bigger version of
+    the week grid: a month of recipe names would be illegible at any width. This is a <b>density view</b> — one
+    cell per day, filled/empty/leftover as dots, coloured only where colour means something. Click a day to open
+    its week.</p>
+  <div class="tierstrip">
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <p class="tier-note">Same 7-column grid the week view's day headers already establish — a month is just more
+        rows of the same width. Cells are tap targets, not mini weeks: no slot text, just density.</p>
+      <div class="tier-frame"><div class="phone">
+        <div class="p-head"><span class="p-title">August</span><span class="p-meta">Month</span></div>
+        <div class="p-body">
+          <div class="weeknav-row viewswitch">
+            <div class="weeknav"><button class="weeknav-btn" aria-label="Previous month">‹</button><span class="weeknav-range">August 2026</span><button class="weeknav-btn" aria-label="Next month">›</button></div>
+          </div>
+          <div class="seg" style="width:100%;margin-bottom:12px"><button style="flex:1">Week</button><button aria-pressed="true" style="flex:1">Month</button></div>
+          <div class="monthgrid">
+            <span class="dow">M</span><span class="dow">T</span><span class="dow">W</span><span class="dow">T</span><span class="dow">F</span><span class="dow">S</span><span class="dow">S</span>
+            <div class="mday-cell mute"><div class="dn">27</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell mute"><div class="dn">28</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell mute"><div class="dn">29</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell mute"><div class="dn">30</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell mute"><div class="dn">31</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">1</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">2</div><div class="dots"><i></i><i class="left"></i></div></div>
+            <div class="mday-cell"><div class="dn">3</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">4</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">5</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">6</div><div class="dots"><i></i><i></i></div></div>
+            <div class="mday-cell"><div class="dn">7</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">8</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">9</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">10</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">11</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">12</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">13</div><div class="dots"><i></i><i class="left"></i></div></div>
+            <div class="mday-cell"><div class="dn">14</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">15</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">16</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">17</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">18</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">19</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">20</div><div class="dots"><i></i><i></i></div></div>
+            <div class="mday-cell"><div class="dn">21</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">22</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">23</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">24</div><div class="dots"><i></i><i></i></div></div>
+            <div class="mday-cell istoday"><div class="dn">25</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">26</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">27</div><div class="dots"><i class="empty"></i></div></div>
+            <div class="mday-cell"><div class="dn">28</div><div class="dots"><i></i></div></div>
+            <div class="mday-cell"><div class="dn">29</div><div class="dots"><i></i><i class="left"></i></div></div>
+            <div class="mday-cell"><div class="dn">30</div><div class="dots"><i></i></div></div>
+          </div>
+        </div>
+        <nav class="tabs">
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>Home</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M4 4.5h7v15H4z"/><path d="M13 4.5h7v15h-7z"/></svg>Recipes</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M6 8h12v12H6z"/><path d="M9 8V4.5h6V8"/></svg>Pantry</button>
+          <button class="tab" aria-current="page"><svg viewBox="0 0 24 24"><path d="M4 6.5h16v14H4z"/><path d="M8 3.5v5M16 3.5v5M4 11h16"/></svg>Plan</button>
+          <button class="tab"><svg viewBox="0 0 24 24"><path d="M3 5h2.5l2.5 11h9l2.5-8H7"/><circle cx="10" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg>Shop</button>
+        </nav>
+      </div></div>
+    </div>
+
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Tablet isn't shown separately — same grid, top nav a tier earlier, identical to every
+        other screen's pattern. Desktop adds a <b>quarter</b> strip: the exact same <code>.monthgrid</code>
+        component at a smaller cell size and with day numbers dropped, three months side by side. Design one
+        component, not two — quarter is month at lower density, nothing else changes.</p>
+      <div class="tier-frame"><div class="browser">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/plan/month</div></div>
+        <div class="dt-top">
+          <div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Home</button><button>Recipes</button><button>Pantry</button><button aria-current="page">Plan</button><button>Shopping</button><button>Settings</button></nav>
+          <div class="dt-actions"><div class="seg"><button>Week</button><button aria-pressed="true">Month</button></div><button class="avatar">FT</button></div>
+        </div>
+        <div class="dt-body">
+          <div class="dt-head">
+            <div class="weeknav"><button class="weeknav-btn" aria-label="Previous month">‹</button><span class="weeknav-range" style="font-size:20px">August 2026</span><button class="weeknav-btn" aria-label="Next month">›</button></div>
+          </div>
+          <p class="dt-sub">14 dinners planned · 3 empty slots · 2 leftover-filled</p>
+          <div class="measure" style="max-width:520px;margin-bottom:26px">
+            <div class="monthgrid">
+              <span class="dow">M</span><span class="dow">T</span><span class="dow">W</span><span class="dow">T</span><span class="dow">F</span><span class="dow">S</span><span class="dow">S</span>
+              <div class="mday-cell mute"><div class="dn">27</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell mute"><div class="dn">28</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell mute"><div class="dn">29</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell mute"><div class="dn">30</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell mute"><div class="dn">31</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">1</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">2</div><div class="dots"><i></i><i class="left"></i></div></div>
+              <div class="mday-cell"><div class="dn">3</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">4</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">5</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">6</div><div class="dots"><i></i><i></i></div></div>
+              <div class="mday-cell"><div class="dn">7</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">8</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">9</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">10</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">11</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">12</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">13</div><div class="dots"><i></i><i class="left"></i></div></div>
+              <div class="mday-cell"><div class="dn">14</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">15</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">16</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">17</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">18</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">19</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">20</div><div class="dots"><i></i><i></i></div></div>
+              <div class="mday-cell"><div class="dn">21</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">22</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">23</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">24</div><div class="dots"><i></i><i></i></div></div>
+              <div class="mday-cell istoday"><div class="dn">25</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">26</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">27</div><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dn">28</div><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dn">29</div><div class="dots"><i></i><i class="left"></i></div></div>
+              <div class="mday-cell"><div class="dn">30</div><div class="dots"><i></i></div></div>
+            </div>
+          </div>
+          <div class="card-head" style="padding-left:0;border:0">Quarter — same component, lower density</div>
+          <div class="quartergrid">
+            <div><div class="qmonth-label">August</div><div class="monthgrid">
+              <div class="mday-cell mute"></div><div class="mday-cell mute"></div><div class="mday-cell mute"></div><div class="mday-cell mute"></div><div class="mday-cell mute"></div>
+              <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i class="left"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i><i class="left"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell istoday"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i class="left"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+            </div></div>
+            <div><div class="qmonth-label">September</div><div class="monthgrid">
+              <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+            </div></div>
+            <div><div class="qmonth-label">October</div><div class="monthgrid">
+              <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div>
+              <div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+              <div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div><div class="mday-cell"><div class="dots"><i class="empty"></i></div></div><div class="mday-cell"><div class="dots"><i></i></div></div>
+            </div></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <div class="note">
+    <strong>What a dot means, and why empty is the one worth seeing.</strong> Each dot is one meal slot for that
+    day: filled (accent), a leftover filling the slot (muted, distinct from a recipe), or <b>empty</b> (a hollow
+    outline, not accent, not warning). Per §13's "only exceptions get colour" rule, a filled slot is the normal
+    case and stays neutral-ish; nothing here is a crit/warn colour, because a gap in the plan isn't an emergency —
+    but it's still the thing you're scanning a month for ("did I plan next Tuesday yet?"), so it has to read
+    distinctly from a filled dot at a glance without borrowing the alarm palette. Clicking any day opens that
+    week — this view answers "what's ahead," it doesn't let you edit a slot from here.
+  </div>
+</section>
+
+<!-- ══ COOKING AND LEFTOVERS ══ -->
+<section id="cooking">
+  <h2>Cooking and leftovers</h2>
+  <p class="sub">Two flows the owner asked for directly. Shown at phone (a sheet — the pattern
+    <code>SelectSheet</code> already established) and desktop (a centred dialog); tablet uses the desktop shape,
+    same as every other overlay in this package, so it isn't repeated a third time.</p>
+
+  <h3 style="font:400 22px/1.2 var(--display);font-variation-settings:'opsz' 40;margin:0 0 8px">"I cooked this — how many portions are left?"</h3>
+  <p class="sub">The mark-cooked confirm screen already existed; it gains a servings reconciliation. The maths is a
+    starting point, never the answer — reality disagrees with arithmetic (someone had two helpings, a pepper
+    split), so the leftover count is a real editable field, not a computed label.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone · cooked from scratch</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="sheetframe">
+        <div class="scrim"></div>
+        <div class="sheet2">
+          <div class="grab2"></div>
+          <h4 style="font:500 18px/1.2 var(--display);margin:0 0 3px">Mark Chili cooked</h4>
+          <p class="dsub">Tonight · dinner · 8 servings made</p>
+          <div class="reconcile">
+            <p class="rc-math">8 servings cooked − household of 4 eating tonight</p>
+            <div class="rc-result"><span class="rc-label">→ leftover</span><div class="qty"><button aria-label="Fewer">−</button><span class="val">4 <span class="unit">portions</span></span><button aria-label="More">+</button></div></div>
+          </div>
+          <span class="field-label">Store leftover in</span>
+          <div class="seg" style="width:100%;margin-bottom:14px"><button aria-pressed="true" style="flex:1">Fridge · 3–4 days</button><button style="flex:1">Freezer · ~3 months</button></div>
+          <button class="btn full">Confirm — 4 portions to Fridge</button>
+        </div>
+      </div></div>
+    </div>
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop · bought meal</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Same panel, different source: a bought meal has a package portion count (from the
+        product), so "cooked N of M" pre-fills the leftover as M−N automatically instead of computing from
+        household size — a store lasagna serves 6 by the box, not by who's eating tonight.</p>
+      <div class="tier-frame"><div class="dialogframe">
+        <div class="dialog">
+          <h4>Mark store lasagna eaten</h4>
+          <p class="dsub">Friday dinner · package serves 6</p>
+          <div class="reconcile">
+            <p class="rc-math">6 portions in the package − 4 eaten tonight</p>
+            <div class="rc-result"><span class="rc-label">→ leftover</span><div class="qty"><button aria-label="Fewer">−</button><span class="val">2 <span class="unit">portions</span></span><button aria-label="More">+</button></div></div>
+          </div>
+          <span class="field-label">Store leftover in</span>
+          <div class="seg" style="width:100%"><button aria-pressed="true" style="flex:1">Fridge · 3–4 days</button><button style="flex:1">Freezer · ~3 months</button></div>
+          <div class="dialog-actions"><button class="chip">Cancel</button><button class="btn sm">Confirm — 2 portions to Fridge</button></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="note">
+    <strong>Fridge vs. freezer isn't a footnote — it changes the expiry the pantry shows.</strong> A leftover's
+    shelf life depends on where it's stored (days in the fridge, months in the freezer), so this choice has to be
+    made at the moment of reconciliation, not defaulted silently — the badge on the new Leftovers tab entry reads
+    straight off whichever the household picked here. Defaulting to Fridge (the common case) but never hiding the
+    freezer option keeps the one-tap path fast without making freezing a buried setting.
+  </div>
+
+  <h3 style="font:400 22px/1.2 var(--display);font-variation-settings:'opsz' 40;margin:36px 0 8px">Adding a leftover to a plan slot</h3>
+  <p class="sub">The slot picker (today, a plain recipe list) gains a Leftovers section pinned above it. Two things
+    have to be visible at the point of picking: leftovers are <b>finite</b>, and choosing one <b>generates no
+    shopping need</b> — the engine already knows this, the UI just has to say so.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Phone</span><span class="tier-range">≤767px</span></div>
+      <div class="tier-frame"><div class="sheetframe">
+        <div class="scrim"></div>
+        <div class="sheet2">
+          <div class="grab2"></div>
+          <h4 style="font:500 18px/1.2 var(--display);margin:0 0 10px">Thursday · Dinner</h4>
+          <div class="search" style="max-width:none"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Search recipes…</span></div>
+          <div class="pinsection">
+            <span class="pin-label">Leftovers</span>
+            <div class="leftoverpick"><span><span class="lp-name">Leftover: Chili</span><span class="lp-meta">4 portions · use by Fri · no shopping needed</span></span><span class="badge a">Pick</span></div>
+            <div class="leftoverpick"><span><span class="lp-name">Leftover: Sunday roast</span><span class="lp-meta">2 portions · use by Nov 15 · no shopping needed</span></span><span class="badge a">Pick</span></div>
+          </div>
+          <div class="rowgroup">Recipes</div>
+          <div class="ilist"><div><span>Carbonara</span></div><div><span>Fish pie</span></div><div><span>Tomato salad</span></div></div>
+        </div>
+      </div></div>
+    </div>
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Tablet uses this same popover shape, only narrower — no third rendering needed. Picking a
+        leftover whose portions have already run out (not shown here) would grey the row and drop the "Pick" badge,
+        rather than letting you select a slot the pantry can't actually fill.</p>
+      <div class="tier-frame"><div class="dialogframe">
+        <div class="dialog" style="max-width:360px">
+          <h4>Thursday · Dinner</h4>
+          <div class="search" style="max-width:none;margin-bottom:14px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg><span>Search recipes…</span></div>
+          <div class="pinsection">
+            <span class="pin-label">Leftovers</span>
+            <div class="leftoverpick"><span><span class="lp-name">Leftover: Chili</span><span class="lp-meta">4 portions · use by Fri · no shopping needed</span></span><span class="badge a">Pick</span></div>
+            <div class="leftoverpick"><span><span class="lp-name">Leftover: Sunday roast</span><span class="lp-meta">2 portions · use by Nov 15 · no shopping needed</span></span><span class="badge a">Pick</span></div>
+          </div>
+          <div class="rowgroup">Recipes</div>
+          <div class="ilist"><div><span>Carbonara</span></div><div><span>Fish pie</span></div><div><span>Tomato salad</span></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="note">
+    <strong>"No shopping needed" is stated, not implied.</strong> Every recipe row below the pin implicitly
+    generates shopping needs once placed — that's the normal case, so it says nothing extra. A leftover row is the
+    exception (nothing to buy, it's already made), which is exactly the kind of thing §13's colour rule says
+    deserves calling out rather than leaving the household to infer it from the absence of a "3 items needed" line
+    that never appears. The badge doubles as the finiteness signal: portions shown up front, and a row with zero
+    left greys out instead of vanishing — vanishing would look like a bug, greyed-out reads as "you already used
+    this."
   </div>
 </section>
 
