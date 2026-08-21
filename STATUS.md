@@ -336,8 +336,17 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 - **TypeScript pinned to `^6.0.3`**, not current 7.x: `typescript-eslint@8.67` declares
   peer `<6.1.0`. Revisit as a dedicated dependency-bump task once the ecosystem
   catches up — must not drift in via a feature branch.
-- **Picker API key referrer allowlist still contains `http://localhost:5173/*`.**
-  Needed for development; worth dropping from the production key at WP-31.
+- ~~**Picker API key referrer allowlist contains `http://localhost:5173/*`.**~~
+  **Resolved 2026-08-21.** The note assumed a separate dev key existed; there
+  was only ONE key serving both production and local dev, so dropping the
+  referrer outright would have broken real-Google development on 5173 (the
+  registered OAuth origin). Split instead: a new dev-only key
+  (`7fe988c3-…`, `localhost:5173` only) and the production key
+  (`be2d2e1a-…`) narrowed to `feeder.torchetti.us/*` plus
+  `fabbarix.github.io/feeder-tc/*` — the latter previously allowed **every**
+  project under the account. Both remain scoped to `picker.googleapis.com`.
+  Local dev needs the dev key in `.env.local`; the Actions secret is
+  unchanged. See `CLAUDE.md`.
 
 - **WP-VC4 leftovers.** Three gaps carried out of PR #28: the pantry toolbar has two
   buttons where the mock has one; multi-lot Open/Move/Spoil has no E2E coverage; and

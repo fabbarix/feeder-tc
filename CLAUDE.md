@@ -73,8 +73,8 @@ $G services api-keys update <UID> \
   --allowed-referrers="https://feeder.torchetti.us/*,https://fabbarix.github.io/feeder-tc/*"
 ```
 
-Browser API keys are public by design (this one ships in the JS bundle).
-Referrer restrictions limit quota abuse, not data access.
+Referrer restrictions limit quota abuse, not data access — the OAuth
+`drive.file` scope is what gates actual data.
 
 ### Write operations may be blocked
 
