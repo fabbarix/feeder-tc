@@ -209,6 +209,20 @@ Sheets: three optional columns on `Ingredients`, one on `Recipes`, two on
 - Ingredient editor gains an optional **"How you buy it"** group: a two-option
   segmented control (Whole / Loose) plus a pack-size field shown only for Whole.
   Collapsed and optional — the defaults in §3 mean most ingredients never need it.
+- Ingredient editor also gains an optional **"How you measure it"** group —
+  owner-requested 2026-08-21: **the household can set the conversions themselves.**
+  Two fields, `gramsPerMl` (density) and `gramsPerPiece` (typical item weight),
+  written in the household's own language rather than as jargon:
+  - *"1 cup weighs ___ g"* → stored as `gramsPerMl = value / 240` (§10.2). Asking
+    for a cup weight is answerable from a kitchen scale; asking for "density in
+    g/ml" is not.
+  - *"1 ___ weighs ___ g"* for countables ("1 onion weighs 150 g").
+  - Each field shows the seeded default as its placeholder, so the household sees
+    what the app already assumes and overrides only when it disagrees. **Every
+    seeded ingredient ships with sane defaults** (§10.4 pass 2) — editing is for
+    correction, never a prerequisite.
+  - Leaving a field empty is valid and safe: that ingredient simply does not offer
+    the units it cannot convert (§10.1), rather than guessing.
 - Recipe editor gains an **"Can't be split"** toggle, pre-checked for bought meals,
   with helper text naming the consequence: *"Scales in whole units — extras become
   leftovers."*
@@ -219,19 +233,21 @@ Sheets: three optional columns on `Ingredients`, one on `Recipes`, two on
 
 ## 9. Open decisions — owner
 
-**9.1 — the one that actually needs you: tomatoes.** The seed catalogue has
-`Tomato` as `unit: "piece"`, but the owner's own example says *"200 gr of
-Tomatoes"*. Both are legitimate: a salad wants "2 tomatoes", a sauce wants "400 g".
-Invariant 3 gives each ingredient exactly **one** canonical unit, so:
+**9.1 — tomatoes — ✅ DECIDED by the owner 2026-08-21: re-unit produce to grams.**
+Ambiguous produce (tomato, and the other weighable `piece` seeds) becomes
+`unit: "g"`. Recipes then read "400 g tomatoes", and those ingredients fall into
+`loose` mode, where buying 200 g or 500 g are both valid.
 
-- **(a) Re-unit the ambiguous seeds to `g`** (tomato, potato-like produce). Cheap,
-  no new machinery, recipes then read "400 g tomatoes". Loses "2 tomatoes" phrasing.
-- **(b) Let an ingredient declare a purchase unit different from its canonical unit**,
-  with a conversion (1 tomato ≈ 120 g). Models reality honestly, but adds a
-  conversion surface — and invariant 3 confines conversion to `src/domain/units.ts`
-  at entry time only, so this needs a deliberate amendment.
-- **Recommendation: (a) now, (b) only if it still hurts.** (b) is a real feature,
-  not a tweak, and it would delay the fix for the three symptoms that bite today.
+**This does not delete the "2 onions" problem, it moves it.** A recipe author still
+writes "2 onions", not "300 g onion". So re-uniting to grams *requires* the
+entry-time conversion in §10 — specifically `gramsPerPiece` — or recipe entry gets
+worse, not better. The two decisions are one change, not two.
+
+Note the mode flips as a side effect: a `g` ingredient defaults to `loose`, so
+re-united produce stops rounding to whole items. That is correct for tomatoes
+bought by weight. It is **wrong for anything genuinely countable** — eggs, lemons,
+a lettuce — so those must stay `piece`. §10.4 lists which seeds move and which
+do not; that list needs an eye before it ships.
 
 **9.2 — Pack sizes: ingredient-level now, or wait for M6 barcodes?**
 Recommend ingredient-level now, with `Product` overriding later (§3). Waiting for
@@ -245,3 +261,101 @@ because reality disagrees with arithmetic) rather than inventing a second path.
 **9.4 — Should `roundTo` ship in v1, or is `whole` + `loose` enough?**
 Recommend deferring `roundTo`. Scenario 10 is the weakest of the twelve, and
 `packSize` on a `whole` ingredient already covers most real rounding.
+
+---
+
+## 10. Recipe entry units: cups, pounds and spoons → grams
+
+Owner-requested 2026-08-21, alongside §9.1. A recipe author writes "1 cup flour",
+"2 lb mince", "1 tbsp oil", "2 onions". The workbook must store grams, because
+grams are what pantry depletion and shopping arithmetic run on.
+
+This is **entry-time conversion**, the exception already carved out for M6-A: store
+canonical, keep what the human typed for display, and confine every conversion to
+`src/domain/units.ts` — the sole sanctioned module, lint-enforced. Nothing new is
+being invented here; the same pattern `Product` already uses is being applied to
+`RecipeIngredient`.
+
+### 10.1 Three conversion classes — only one is free
+
+The critical distinction, and the thing to get wrong quietly:
+
+| Class | Example | Needs per-ingredient data? |
+|---|---|---|
+| **Mass → mass** | `kg`, `lb`, `oz` → `g` | **No.** Exact universal constants (1 lb = 453.592 g). |
+| **Volume → volume** | `l`, `fl oz`, `cup`, `tbsp`, `tsp` → `ml` | **No.** Exact (1 tbsp = 15 ml, 1 cup = 240 ml — see 10.2). |
+| **Volume → mass** | `cup`, `tbsp`, `tsp`, `ml` → `g` | **Yes — density.** |
+| **Count → mass** | `piece` → `g` | **Yes — per-item weight.** |
+
+A cup of flour is ~130 g; a cup of honey is ~340 g; a cup of water is 237 g. **A
+default density of 1.0 would overstate flour by ~80%.** So:
+
+> **Never silently guess a density or an item weight.** If the constant is missing,
+> the editor must either not offer that unit for that ingredient, or ask for the
+> weight inline — never convert on an assumption. A wrong conversion here corrupts
+> the pantry ledger and the shopping list at once, and does so invisibly.
+
+### 10.2 Which cup?
+
+A US legal cup is 240 ml, a US customary cup 236.6 ml, a metric cup 250 ml,
+an Imperial cup 284 ml. Pick **one** and state it in the UI, rather than letting
+the household guess which one the app means. Recommend **240 ml**, `tbsp` = 15 ml,
+`tsp` = 5 ml — the US legal set, internally consistent (1 cup = 16 tbsp = 48 tsp).
+This wants an explicit owner nod (§11.1) because it is a silent-1%-error class of
+decision that is painful to change later.
+
+### 10.3 Contract additions (still additive-only)
+
+- `EntryUnit` gains `"cup" | "tbsp" | "tsp"`. Additive to a union; existing values
+  untouched.
+- `Ingredient` gains `gramsPerMl?: number` (density — enables volume → mass) and
+  `gramsPerPiece?: number` (typical item weight — enables "2 onions" → 300 g).
+- `RecipeIngredient` gains `displayQuantity?: number` and `displayUnit?: EntryUnit`,
+  exactly mirroring `Product`'s settled pattern: `quantity` stays canonical and is
+  the **only** field arithmetic touches; the display pair is provenance, never read
+  by any engine or fold.
+- Sheets: two optional columns on `Ingredients`, two on `RecipeIngredients`.
+  No new sheet.
+
+### 10.4 Seed catalogue work
+
+Two data passes, no logic:
+
+1. **Re-unit weighable produce** `piece` → `g` per §9.1. Moves: tomato, potato-like
+   produce, and similar. **Stays `piece`:** egg, lemon, lettuce, banana, apple —
+   things a person genuinely counts and a shop genuinely sells as items. This list
+   is a judgement call per item and should be reviewed, not bulk-applied.
+2. **Populate conversion constants** for the common cases — `gramsPerMl` for flour,
+   sugar, oil, honey, milk, water-like liquids; `gramsPerPiece` for anything
+   re-united in pass 1, plus countables a recipe might weigh. Missing constants are
+   fine and safe — they simply mean that ingredient does not offer volume or count
+   entry (§10.1), so this can land incrementally.
+
+### 10.5 Display
+
+Recipes show what was typed, with the canonical value alongside — *"1 cup flour
+(130 g)"* — so the household sees both the instruction they wrote and the number
+the app is actually reasoning about. The owner asked for the gram value to be
+visible; showing it next to the typed value, rather than replacing it, keeps the
+recipe readable while making the arithmetic auditable.
+
+Pantry check-off and consumption already run on canonical grams, so no change is
+needed there — the fix is upstream: a recipe entered in cups now *stores* grams,
+so depletion stops being wrong in the first place.
+
+---
+
+## 11. Open decisions — round two
+
+**11.1 — Which cup?** Recommend the US legal set: cup 240 ml, tbsp 15 ml, tsp 5 ml
+(§10.2). Needs an explicit nod because it is hard to change once recipes exist.
+
+**11.2 — Which seeds move to grams, and which stay countable?** §10.4 pass 1 is a
+per-item judgement (tomato → g, but egg → stays piece). Worth your eye on the list
+before it ships, since re-uniting a genuinely countable item silently turns off its
+whole-unit rounding.
+
+**11.3 — Still open from round one:** §9.2 (ingredient-level pack sizes now vs.
+waiting for M6 barcodes), §9.3 (leftover created at mark-cooked vs. plan time),
+§9.4 (defer `roundTo`). Recommendations unchanged and unblocking — say nothing and
+I will take the recommendation.
