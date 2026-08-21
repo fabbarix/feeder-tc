@@ -24,6 +24,38 @@ function requireEnvVar(name: keyof ImportMetaEnv, value: string | undefined): st
   return value;
 }
 
+/**
+ * Every `env.*` getter that throws on a missing value — the set
+ * `missingEnvVars` below checks. A literal union rather than `keyof
+ * ImportMetaEnv`: Vite's own ambient type extends `Record<string, any>` (for
+ * user-defined vars it can't know about statically), which makes `keyof
+ * ImportMetaEnv` widen to `string | number` and defeats exhaustiveness here.
+ */
+type RequiredEnvVarName = "VITE_GOOGLE_CLIENT_ID" | "VITE_GOOGLE_API_KEY";
+const REQUIRED_ENV_VARS = ["VITE_GOOGLE_CLIENT_ID", "VITE_GOOGLE_API_KEY"] as const satisfies readonly RequiredEnvVarName[];
+
+/**
+ * Names of every required `VITE_GOOGLE_*` var that is unset or empty —
+ * checked WITHOUT ever throwing, unlike the getters below. `App.tsx` reads
+ * this once, before constructing any Google wiring, so a build missing them
+ * (a fresh clone with no `.env.local`, a fork that forgot to set the repo
+ * Actions variables) can render an informative screen instead of hitting
+ * `requireEnvVar`'s throw mid-render: `ShellContainer`'s
+ * `useState(createGoogleWiring)` calls `env.googleClientId`/
+ * `env.googleApiKey` on the very first render, and an uncaught throw there
+ * unmounts the whole React tree with nothing on screen (see
+ * `ConfigMissingScreen`'s doc comment, and STATUS.md "Known debt").
+ *
+ * Returns an empty array in the common case: local dev with `.env.local`
+ * filled in, or production, which always supplies both (see this file's
+ * header) — every other caller of `env.googleClientId`/`env.googleApiKey`
+ * still gets `requireEnvVar`'s throw as defence in depth if it skips this
+ * check.
+ */
+export function missingEnvVars(): readonly RequiredEnvVarName[] {
+  return REQUIRED_ENV_VARS.filter((name) => !import.meta.env[name]);
+}
+
 export const env = {
   get googleClientId(): string {
     return requireEnvVar("VITE_GOOGLE_CLIENT_ID", import.meta.env.VITE_GOOGLE_CLIENT_ID);
