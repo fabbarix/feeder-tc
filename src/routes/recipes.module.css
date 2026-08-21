@@ -41,14 +41,22 @@
   filter: brightness(1.06);
 }
 
+/* Compact, not full-bleed (owner-reported: the mock's own desktop Recipes
+   screen has no full-width search bar at all — only the phone view carries
+   one — so the app's version must not dominate the vertical rhythm the way
+   a full-width bar does). Search stays (it's genuinely useful for 18+
+   recipes), just capped to a sensible reading width and a smaller,
+   `.fchip`-scale footprint instead of the touch-target-tall full-width bar
+   this used to be. */
 .search {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  max-width: 320px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 999px;
-  padding: var(--space-2) var(--space-4);
+  padding: 9px var(--space-3);
   margin-bottom: var(--space-3);
 }
 
@@ -64,7 +72,7 @@
   outline: none;
   background: transparent;
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 13.5px;
   color: var(--text-h);
 }
 
@@ -96,10 +104,17 @@
   color: var(--accent);
 }
 
+/* Literal px below, not `rem` (WP-VC4: root font-size is 18px —
+   src/index.css — so a naive `rem` value renders ~15% oversized against
+   the mock's own literal px declarations, same trap recipe-detail.module.css's
+   own doc comment already calls out). This is what fixes the meta line's
+   wrap-to-two-lines and the tag row's wrap-to-two-rows the owner reported:
+   the app's old `0.75rem` (13.5px) meta text plus `--space-2` (8px) gaps
+   didn't fit `168px` cards the way the mock's own `12px`/`9px` do. */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-  gap: var(--space-3);
+  gap: 11px;
 }
 
 .card {
@@ -107,7 +122,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: var(--space-3);
+  padding: 13px;
   text-align: left;
   text-decoration: none;
   color: inherit;
@@ -123,33 +138,37 @@
 
 .cardTitle {
   font-weight: 500;
-  font-size: 1rem;
+  font-size: 15.5px;
   line-height: 1.2;
   color: var(--text-h);
-  margin: 0 0 var(--space-1);
+  margin: 0 0 5px;
 }
 
+/* One line — `15 prep  25 cook  serves 4` — never two (owner-reported). */
 .cardMeta {
   display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  font-size: 0.75rem;
+  gap: 9px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
 .tagRow {
   display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  margin-top: var(--space-2);
+  gap: 5px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  margin-top: 9px;
 }
 
 .tagPill {
-  font-size: 0.6rem;
+  flex: none;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 3px 6px;
+  padding: 4px 7px;
   border-radius: 5px;
   background: var(--surface-2);
   color: var(--text-muted);

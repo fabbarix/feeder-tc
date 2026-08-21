@@ -3,8 +3,14 @@ import { EmptyState, ErrorState, Skeleton } from "../ui/components";
 import { ThemeControl } from "../ui/theme/ThemeControl";
 import { useSettings } from "./settings/useSettings.ts";
 import { DaySlotEditor } from "./settings/DaySlotEditor.tsx";
-import { Stepper } from "./settings/Stepper.tsx";
-import { WEEKDAY_ORDER, layoutFromSlotsByDay, slotsByDay, withSlotAdded, withSlotRemoved } from "./settings/slot-layout.ts";
+import { Stepper } from "./Stepper.tsx";
+import {
+  WEEKDAY_ORDER,
+  layoutFromSlotsByDay,
+  slotsByDay,
+  withSlotAdded,
+  withSlotRemoved,
+} from "./settings/slot-layout.ts";
 import type { MealTag, Weekday } from "../domain/index.ts";
 import styles from "./settings/settings.module.css";
 
@@ -52,7 +58,9 @@ export function Settings() {
         </>
       ) : null}
 
-      {!loading && error ? <ErrorState title="Couldn't load settings" description={error} onRetry={retry} /> : null}
+      {!loading && error ? (
+        <ErrorState title="Couldn't load settings" description={error} onRetry={retry} />
+      ) : null}
 
       {!loading && !error && !settings ? (
         <EmptyState
@@ -83,7 +91,13 @@ export function Settings() {
             <div className={styles.card}>
               <div className={styles.cardHead}>Household</div>
               <div className={styles.cardBody}>
-                <Stepper label="Size" unit="people" min={1} value={settings.householdSize} onChange={updateHouseholdSize} />
+                <Stepper
+                  label="Size"
+                  unit="people"
+                  min={1}
+                  value={settings.householdSize}
+                  onChange={updateHouseholdSize}
+                />
                 <Stepper
                   label="Don't repeat within"
                   unit="weeks"

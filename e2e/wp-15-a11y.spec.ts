@@ -22,6 +22,10 @@ const ROUTES = [
   "recipes/ingredients",
   "recipes/ingredients/new",
   "pantry",
+  // WP-VC4: the pantry-item detail route, added this WP — "rice" is always
+  // present (the seeded ingredient catalog), even with zero lots yet, so
+  // this scans the route's real "no stock" shape rather than an error page.
+  "pantry/rice",
   "plan",
   "shopping",
   "settings",

@@ -5,6 +5,7 @@ import { useToast } from "../ui/components/Toast/useToast.ts";
 import { EmptyState, ErrorState, RouteTabs, Skeleton } from "../ui/components";
 import { BookOpen, MagnifyingGlass, Plus } from "../ui/icons";
 import type { MealTag, Recipe } from "../domain/index.ts";
+import { RECIPE_SECTION_TABS } from "./recipe-tabs.ts";
 import styles from "./recipes.module.css";
 
 function messageOf(err: unknown): string {
@@ -17,13 +18,13 @@ interface FilterDef {
   readonly test: (recipe: Recipe) => boolean;
 }
 
-const MEAL_TAG_FILTERS: readonly FilterDef[] = (["breakfast", "lunch", "dinner", "snack"] as const satisfies readonly MealTag[]).map(
-  (tag) => ({
-    key: tag,
-    label: tag[0]!.toUpperCase() + tag.slice(1),
-    test: (recipe: Recipe) => recipe.mealTags.includes(tag),
-  }),
-);
+const MEAL_TAG_FILTERS: readonly FilterDef[] = (
+  ["breakfast", "lunch", "dinner", "snack"] as const satisfies readonly MealTag[]
+).map((tag) => ({
+  key: tag,
+  label: tag[0]!.toUpperCase() + tag.slice(1),
+  test: (recipe: Recipe) => recipe.mealTags.includes(tag),
+}));
 
 const OTHER_FILTERS: readonly FilterDef[] = [
   { key: "staples", label: "Staples", test: (r) => r.status === "staple" },
@@ -103,8 +104,13 @@ export function Recipes() {
   const retiredCount = recipes.filter((r) => r.status === "retired").length;
 
   return (
-    <section>
+    <>
       <div className={styles.headerRow}>
+        {/* One h1 for the whole "Recipes" area (WP-VC4) — the tab strip
+            below is the section header now; a second "Recipes" label
+            immediately under an "Recipes" h1 was exactly the redundancy
+            the owner flagged ("the repetition of 'Recipes' at the top and
+            'Ingredients' is a waste of space"). */}
         <h1>Recipes</h1>
         {!loading && !error && recipes.length > 0 ? (
           <Link to="/recipes/new" className={styles.newButton}>
@@ -113,106 +119,108 @@ export function Recipes() {
           </Link>
         ) : null}
       </div>
-      <RouteTabs
-        aria-label="Recipes section"
-        items={[
-          { to: "/recipes", label: "Recipes", end: true },
-          { to: "/recipes/ingredients", label: "Ingredients" },
-        ]}
-      />
-      {!loading && !error && recipes.length > 0 ? (
-        <p className={styles.subtitle}>
-          {recipes.length} recipe{recipes.length === 1 ? "" : "s"} · {staplesCount} staple{staplesCount === 1 ? "" : "s"} ·{" "}
-          {retiredCount} retired
-        </p>
-      ) : null}
+      <RouteTabs aria-label="Recipes section" items={RECIPE_SECTION_TABS} />
+      <section role="tabpanel" id="recipes-panel" aria-labelledby="recipes-panel-tab" tabIndex={-1}>
+        {!loading && !error && recipes.length > 0 ? (
+          <p className={styles.subtitle}>
+            {recipes.length} recipe{recipes.length === 1 ? "" : "s"} · {staplesCount} staple
+            {staplesCount === 1 ? "" : "s"} · {retiredCount} retired
+          </p>
+        ) : null}
 
-      {loading ? (
-        <div className={styles.grid}>
-          <Skeleton height="7em" />
-          <Skeleton height="7em" />
-          <Skeleton height="7em" />
-        </div>
-      ) : null}
-      {!loading && error ? (
-        <ErrorState
-          title="Couldn't load your recipes"
-          description={error}
-          onRetry={() => window.location.reload()}
-        />
-      ) : null}
-      {!loading && !error && recipes.length === 0 ? (
-        <EmptyState
-          icon={BookOpen}
-          title="No recipes yet"
-          description="Add your first recipe — cooked or store-bought — to start building a rotation."
-          action={
-            <Link to="/recipes/new" className={styles.newButton}>
-              Add recipe
-            </Link>
-          }
-        />
-      ) : null}
-      {!loading && !error && recipes.length > 0 ? (
-        <>
-          <div className={styles.search}>
-            <MagnifyingGlass size={16} aria-hidden="true" />
-            <input
-              type="text"
-              className={styles.searchInput}
-              placeholder="Search recipes"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              aria-label="Search recipes"
-            />
+        {loading ? (
+          <div className={styles.grid}>
+            <Skeleton height="7em" />
+            <Skeleton height="7em" />
+            <Skeleton height="7em" />
           </div>
-          <div className={styles.filters}>
-            <button
-              type="button"
-              className={`${styles.fchip}${activeFilter === null ? ` ${styles.fchipActive}` : ""}`}
-              aria-pressed={activeFilter === null}
-              onClick={() => setActiveFilter(null)}
-            >
-              All
-            </button>
-            {FILTERS.map((filter) => (
+        ) : null}
+        {!loading && error ? (
+          <ErrorState
+            title="Couldn't load your recipes"
+            description={error}
+            onRetry={() => window.location.reload()}
+          />
+        ) : null}
+        {!loading && !error && recipes.length === 0 ? (
+          <EmptyState
+            icon={BookOpen}
+            title="No recipes yet"
+            description="Add your first recipe — cooked or store-bought — to start building a rotation."
+            action={
+              <Link to="/recipes/new" className={styles.newButton}>
+                Add recipe
+              </Link>
+            }
+          />
+        ) : null}
+        {!loading && !error && recipes.length > 0 ? (
+          <>
+            <div className={styles.search}>
+              <MagnifyingGlass size={16} aria-hidden="true" />
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder="Search recipes"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label="Search recipes"
+              />
+            </div>
+            <div className={styles.filters}>
               <button
-                key={filter.key}
                 type="button"
-                className={`${styles.fchip}${activeFilter === filter.key ? ` ${styles.fchipActive}` : ""}`}
-                aria-pressed={activeFilter === filter.key}
-                onClick={() => setActiveFilter((current) => (current === filter.key ? null : filter.key))}
+                className={`${styles.fchip}${activeFilter === null ? ` ${styles.fchipActive}` : ""}`}
+                aria-pressed={activeFilter === null}
+                onClick={() => setActiveFilter(null)}
               >
-                {filter.label}
+                All
               </button>
-            ))}
-          </div>
-
-          {filtered.length === 0 ? (
-            <EmptyState icon={MagnifyingGlass} title="No recipes match" description="Try a different search or filter." />
-          ) : (
-            <div className={styles.grid}>
-              {filtered.map((recipe) => (
-                <Link key={recipe.id} to={`/recipes/${recipe.id}`} className={styles.card}>
-                  <p className={styles.cardTitle}>{recipe.name}</p>
-                  <div className={styles.cardMeta}>
-                    <span>{recipe.prepMinutes} prep</span>
-                    <span>{recipe.cookMinutes} cook</span>
-                    <span>serves {recipe.baseServings}</span>
-                  </div>
-                  <div className={styles.tagRow}>
-                    {tagPills(recipe).map((tag) => (
-                      <span key={tag} className={styles.tagPill}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </Link>
+              {FILTERS.map((filter) => (
+                <button
+                  key={filter.key}
+                  type="button"
+                  className={`${styles.fchip}${activeFilter === filter.key ? ` ${styles.fchipActive}` : ""}`}
+                  aria-pressed={activeFilter === filter.key}
+                  onClick={() =>
+                    setActiveFilter((current) => (current === filter.key ? null : filter.key))
+                  }
+                >
+                  {filter.label}
+                </button>
               ))}
             </div>
-          )}
-        </>
-      ) : null}
-    </section>
+
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon={MagnifyingGlass}
+                title="No recipes match"
+                description="Try a different search or filter."
+              />
+            ) : (
+              <div className={styles.grid}>
+                {filtered.map((recipe) => (
+                  <Link key={recipe.id} to={`/recipes/${recipe.id}`} className={styles.card}>
+                    <p className={styles.cardTitle}>{recipe.name}</p>
+                    <div className={styles.cardMeta}>
+                      <span>{recipe.prepMinutes} prep</span>
+                      <span>{recipe.cookMinutes} cook</span>
+                      <span>serves {recipe.baseServings}</span>
+                    </div>
+                    <div className={styles.tagRow}>
+                      {tagPills(recipe).map((tag) => (
+                        <span key={tag} className={styles.tagPill}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </>
+        ) : null}
+      </section>
+    </>
   );
 }

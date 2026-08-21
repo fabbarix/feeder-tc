@@ -20,12 +20,17 @@ test("Creating a bought meal", async ({ page }) => {
   // time 50 minutes and steps "375 degrees, 30 min covered, 20 uncovered"
   await page.getByRole("textbox", { name: "Name" }).fill("Store lasagna");
   await page.getByRole("radio", { name: "Store-bought" }).click();
-  // Selecting "bought" hides the prep-time field entirely and replaces it
-  // with a fixed "0 min" hint (RecipeEditor.tsx) — prep is not user-entered.
-  await expect(page.getByText("0 min — store-bought meals have no prep step.")).toBeVisible();
+  // Selecting "bought" locks prep time at 0 — the SAME control
+  // (`QuantityInput`) as every other numeric field on this screen, just
+  // disabled, never swapped out for a sentence (WP-VC4, RecipeEditor.tsx).
+  const prepTimeField = page.getByRole("textbox", { name: "Prep time (min)" });
+  await expect(prepTimeField).toBeDisabled();
+  await expect(prepTimeField).toHaveValue("0");
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill("50");
   // One empty step field exists by default — no need to add another.
-  await page.getByRole("textbox", { name: "Step 1" }).fill("375 degrees, 30 min covered, 20 uncovered");
+  await page
+    .getByRole("textbox", { name: "Step 1" })
+    .fill("375 degrees, 30 min covered, 20 uncovered");
 
   await page.getByRole("button", { name: "Save recipe" }).click();
 
@@ -39,26 +44,29 @@ test("Creating a bought meal", async ({ page }) => {
   // ...confirmed directly on the recipe itself: clicking the card now opens
   // the read-only recipe view (WP-VC2 — design/mock-screens.html #recipe),
   // not straight into the editor. Its own "Edit" action is what reaches the
-  // editor, where bought recipes never show an editable prep-time field,
-  // only the fixed "0 min" hint.
+  // editor, where bought recipes show prep time locked at 0, never an
+  // editable field.
   await page.getByRole("link", { name: "Store lasagna" }).click();
   await expect(page.getByRole("heading", { name: "Store lasagna" })).toBeVisible();
   await page.getByRole("link", { name: "Edit" }).click();
   await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "Store-bought" })).toBeChecked();
-  await expect(page.getByText("0 min — store-bought meals have no prep step.")).toBeVisible();
+  const editPrepTimeField = page.getByRole("textbox", { name: "Prep time (min)" });
+  await expect(editPrepTimeField).toBeDisabled();
+  await expect(editPrepTimeField).toHaveValue("0");
   await expect(page.getByRole("textbox", { name: "Cook time (min)" })).toHaveValue("50");
 
   // And a catalog ingredient "Store lasagna" with unit "piece" is linked —
-  // via the primary nav (exact match: the page also has a "← Recipes"
-  // breadcrumb, which would otherwise ambiguously match too). The
-  // ingredients catalog is now a proper tab of Recipes (RouteTabs,
-  // UI_DESIGN.md — owner-reported, comparing production to the approved
-  // mock: it was a stray unstyled `<Link>` before), not a standalone
+  // via the primary nav (the editor's own "← Recipes" breadcrumb is gone —
+  // WP-VC4 moved Save/Cancel into the top bar instead). The ingredients
+  // catalog is reached as a real TAB of Recipes now (`role="tablist"`/
+  // `"tab"`, WP-VC4 — owner-reported, comparing production to the approved
+  // mock: it used to be a stray unstyled `<Link>`, then a pill
+  // `SegmentedControl`-look; now real tab headers), not a standalone
   // "Ingredients catalog" link.
   await page.getByRole("link", { name: "Recipes", exact: true }).click();
-  await page.getByRole("link", { name: "Ingredients", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Ingredients" })).toBeVisible();
+  await page.getByRole("tab", { name: "Ingredients", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Ingredients" })).toHaveAttribute("aria-selected", "true");
   await page.getByRole("textbox", { name: "Search" }).fill("Store lasagna");
   await expect(page.getByRole("link", { name: "Store lasagna" })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("piece");
@@ -75,7 +83,8 @@ test("Retiring a recipe", async ({ page }) => {
   // Arrange: a recipe "Liver stew" to retire (the scenario's own Given —
   // an existing recipe — is out of scope for a fresh workbook, so this
   // creates it via the same UI as any other recipe). Base servings defaults
-  // to 4 already (ServingsStepper's initial value), so nothing to fill there.
+  // to 4 already (the Timing & servings card's initial value), so nothing
+  // to fill there.
   await page.getByRole("link", { name: "Add recipe" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill("Liver stew");
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill("40");

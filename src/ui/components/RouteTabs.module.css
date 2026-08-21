@@ -1,37 +1,38 @@
-/* Segmented-pill sub-navigation between sibling routes (e.g. Recipes /
-   Ingredients catalog) — visually the mock's `.seg` control
-   (design/mock-reference.css / mock-screens.html, used there for the
-   household-flag/location/theme toggles), but built on real `<NavLink>`s
-   rather than `SegmentedControl`'s radio-group semantics: these are
-   different PAGES (distinct URLs, back-button/deep-link behaviour), not a
-   single control's mutually-exclusive value, so anchor-with-aria-current is
-   the correct role, not role="radiogroup". */
+/* Real tab headers between sibling routes (WP-VC4 — see RouteTabs.tsx's
+   doc comment for why this replaced the earlier pill `SegmentedControl`
+   look). The underline indicator borrows AppShell.module.css's
+   `.navItemActive` language exactly: colour + a 2px accent border-bottom,
+   never a filled pill — "the same visual language as the top nav's active
+   item" (owner's own words). The whole strip sits on one hairline baseline
+   so it reads as attached to the content region directly beneath it,
+   rather than floating above it as a separate control. */
 
 .group {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  margin-bottom: var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  display: flex;
+  gap: var(--space-5);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--space-4);
 }
 
 .tab {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-height: calc(var(--touch-target) - 8px);
-  padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-sm);
+  min-height: var(--touch-target);
+  padding: 0 2px;
+  margin-bottom: -1px;
   color: var(--text-muted);
   font-weight: 500;
   font-size: 0.9rem;
   text-decoration: none;
   cursor: pointer;
+  /* Reserve the underline's space at all times (a 2px transparent border)
+     so only its COLOUR transitions in on activation (UI_DESIGN.md §13
+     motion rule: colour/opacity only, never layout or position) — same
+     technique as AppShell.module.css's `.navItem`. */
+  border-bottom: 2px solid transparent;
   transition:
-    background var(--motion-fast) ease-in-out,
-    color var(--motion-fast) ease-in-out;
+    color var(--motion-fast) ease-in-out,
+    border-color var(--motion-entry) var(--ease-standard);
 }
 
 .tab:hover {
@@ -40,7 +41,7 @@
 
 .tabActive,
 .tabActive:hover {
-  background: var(--accent);
-  color: var(--accent-text);
+  color: var(--accent);
   font-weight: 600;
+  border-bottom-color: var(--accent);
 }

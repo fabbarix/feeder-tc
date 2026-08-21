@@ -173,3 +173,91 @@
   color: var(--text-muted);
   margin: 0;
 }
+
+/* One row per ingredient IS a link to its own detail route (WP-VC4) — an
+   ancestor's `color`/`text-decoration` never cascades onto a nested `<a>`
+   (the UA stylesheet's `a:link` rule outranks it), so this needs its own
+   explicit override same as every other real link in this app
+   (forms.module.css's `.itemLink`/`.addButton`). */
+.aggregateLink {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+
+.aggregateLink:hover {
+  background: var(--surface-2);
+}
+
+.aggregateLink:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -1px;
+}
+
+/* Pantry-item detail route (WP-VC4, design/mock-screens.html #lot's
+   `.dt-cols`) — same "content + 290px rail" shape as recipe-detail.module.css's
+   `.cols`/`.rail`, kept local rather than imported cross-feature since this
+   card pairing (Lots / Record-an-event+History) is pantry-specific. */
+.pantryItemCols {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+@media (min-width: 768px) {
+  .pantryItemCols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 290px;
+    align-items: start;
+    gap: var(--space-5);
+  }
+}
+
+.pantryItemRail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.eventRail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.eventRail .actionButton {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.eventRail .actionButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* FIFO order badges on the Lots card — plain coloured text, same
+   "exceptions get colour" discipline as `.expiryWarn`/`.expiryCrit` above,
+   not an invented pill component. */
+.nextOutBadge {
+  flex: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.queuedBadge {
+  flex: none;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.historyList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  font-size: 13px;
+  color: var(--text-muted);
+}

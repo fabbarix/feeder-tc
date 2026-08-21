@@ -20,7 +20,8 @@ async function openIngredientSheet(page: Page, name: string): Promise<void> {
 /** Clicks the day-of-month cell in the currently-open React Aria calendar, advancing months first if `target` isn't in the visible (current) month. */
 async function pickCalendarDate(page: Page, target: Date): Promise<void> {
   const now = new Date();
-  const monthsAhead = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  const monthsAhead =
+    (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
   for (let i = 0; i < monthsAhead; i += 1) {
     await page.getByRole("button", { name: "Next month" }).click();
   }
@@ -46,18 +47,29 @@ test("Adding existing pantry stock", async ({ page }) => {
   await page.getByRole("textbox", { name: /amount/i }).fill("500");
   // Rice's catalog default location is "pantry" already; select it
   // explicitly so the scenario's "located in the pantry" is asserted, not
-  // just inherited silently from the catalog default.
-  await page.getByRole("radio", { name: "Pantry" }).click();
+  // just inherited silently from the catalog default. Scoped to the FIRST
+  // "Location" radiogroup (DOM order: the add-lot form's own control, in
+  // `.main`, precedes the FILTERS rail's identically-labelled one in
+  // `.rail` — WP-VC4 added that second control, so an unscoped `radio`
+  // query now matches two "Pantry" options).
+  await page.getByRole("radiogroup", { name: "Location" }).first().getByRole("radio", { name: "Pantry" }).click();
 
   await page.getByRole("button", { name: "Add to pantry" }).click();
 
-  // Then the pantry shows a rice lot of 500 g with expiry from catalog defaults
-  await expect(page.getByRole("heading", { name: "Rice" })).toBeVisible();
+  // Then the pantry shows a rice lot of 500 g with expiry from catalog
+  // defaults — as ONE aggregated row (WP-VC4: one row per ingredient, not
+  // one row per lot), which links to its own pantry-item detail route.
+  const riceRow = page.getByRole("link", { name: /Rice/ });
+  await expect(riceRow).toBeVisible();
   await expect(page.getByRole("main")).toContainText("500 g");
   await expect(page.getByRole("main")).toContainText("Pantry");
   // Rice's catalog shelf_life_days is 730 — the row must show a computed
   // expiry, not a blank/placeholder value.
-  await expect(page.getByRole("main")).toContainText(/Expires in \d+ days?/);
+  await expect(page.getByRole("main")).toContainText(/Expires/);
+
+  await riceRow.click();
+  await expect(page.getByRole("heading", { name: "Rice", level: 1 })).toBeVisible();
+  await expect(page.getByRole("main")).toContainText("500 g");
 });
 
 test("Expiring items are surfaced", async ({ page }) => {
@@ -100,30 +112,39 @@ test("Manual usage records a use event FIFO, with no lot picker", async ({ page 
   await expect(page.getByRole("main")).toContainText("700 g");
 });
 
+// WP-VC4: the four lot-scoped actions moved off the pantry LIST page onto
+// the pantry-item DETAIL route (`/pantry/:ingredientId`, "Record an event"
+// rail) — this scenario now navigates into Rice's own page first, same as
+// a person following the aggregated row's link would.
 test("Lot actions: move, open, correct (never 'Edit'), and spoil", async ({ page }) => {
   await enterReadyShell(page, "pantry");
   await page.getByRole("button", { name: "Add to pantry" }).click();
   await openIngredientSheet(page, "Rice");
   await page.getByRole("textbox", { name: /amount/i }).fill("1000");
-  await page.getByRole("radio", { name: "Pantry" }).click();
+  // Scoped to the first "Location" radiogroup — see the identical comment
+  // on "Adding existing pantry stock" above.
+  await page.getByRole("radiogroup", { name: "Location" }).first().getByRole("radio", { name: "Pantry" }).click();
   await page.getByRole("button", { name: "Add to pantry" }).click();
+
+  await page.getByRole("link", { name: /Rice/ }).click();
+  await expect(page.getByRole("heading", { name: "Rice", level: 1 })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("1000 g");
 
   // Move: pantry -> fridge.
-  await page.getByRole("button", { name: "Move" }).click();
+  await page.getByRole("button", { name: "Move location" }).click();
   await page.getByRole("radio", { name: "Fridge" }).click();
   await page.getByRole("button", { name: "Confirm move" }).click();
   await expect(page.getByRole("main")).toContainText("Fridge");
 
   // Open: shortens shelf life to the opened default; no lot delete, no "Edit".
-  await page.getByRole("button", { name: "Open" }).click();
+  await page.getByRole("button", { name: "Open a lot" }).click();
   await page.getByRole("button", { name: "Mark opened" }).click();
-  await expect(page.getByRole("main")).toContainText(/opened \d{4}-\d{2}-\d{2}/);
+  await expect(page.getByRole("main")).toContainText(/opened \d{1,2} \w+/);
 
   // Correct — never "Edit" (invariant 1): a manual quantity + expiry
   // correction, recorded as a brand-new `adjust` event.
   await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Correct" }).click();
+  await page.getByRole("button", { name: "Correct quantity or expiry" }).click();
   await page.getByRole("textbox", { name: /adjust amount by/i }).fill("-100");
   const expiryGroup = page.getByRole("group", { name: /new expiry/i });
   await expiryGroup.getByRole("button", { name: "+1w" }).click();
@@ -131,9 +152,13 @@ test("Lot actions: move, open, correct (never 'Edit'), and spoil", async ({ page
   await expect(page.getByRole("main")).toContainText("900 g");
 
   // Spoil — names this specific lot; the dialog defaults to the full
-  // remaining amount, editable for a partial loss.
-  await page.getByRole("button", { name: "Spoil" }).click();
-  await page.getByRole("textbox", { name: /amount/i }).fill("100");
+  // remaining amount, editable for a partial loss. The rail's opener button
+  // and the dialog's own confirm button carry deliberately distinct
+  // accessible names ("Mark spoiled" vs "Confirm spoilage") — ConfirmDialog
+  // doesn't hide the page behind it, so two controls both named "Mark
+  // spoiled" at once would be ambiguous for a screen-reader user.
   await page.getByRole("button", { name: "Mark spoiled" }).click();
+  await page.getByRole("textbox", { name: /amount/i }).fill("100");
+  await page.getByRole("button", { name: "Confirm spoilage" }).click();
   await expect(page.getByRole("main")).toContainText("800 g");
 });

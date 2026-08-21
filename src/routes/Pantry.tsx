@@ -1,103 +1,178 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { EmptyState, ErrorState, ListSection, Skeleton } from "../ui/components";
-import { Package, Plus } from "../ui/icons";
-import { compareLotsForFifo, daysBetween } from "../domain/index.ts";
-import type { Ingredient, Lot } from "../domain/index.ts";
+import {
+  EmptyState,
+  ErrorState,
+  FreshnessMeter,
+  ListRow,
+  ListSection,
+  SegmentedControl,
+  Skeleton,
+  ToggleChips,
+} from "../ui/components";
+import { CaretRight, Package, Plus, Snowflake } from "../ui/icons";
+import { daysBetween, formatQuantity } from "../domain/index.ts";
+import type { StorageLocation } from "../domain/index.ts";
 import { usePantryInventory } from "./pantry/usePantryInventory.ts";
 import { AddLotForm, UseSomeForm } from "./pantry/PantryForms.tsx";
-import { PantryLotRow } from "./pantry/PantryLotRow.tsx";
+import { aggregateByIngredient, type PantryAggregate } from "./pantry/pantry-aggregate.ts";
+import { expiryBadge, expiryTone } from "./pantry/pantry-format.ts";
 import { EXPIRING_SOON_DAYS, locationLabel, LOCATION_OPTIONS } from "./pantry/pantry-options.ts";
+import { weekdayLabel } from "./date-format.ts";
 import styles from "./pantry/pantry.module.css";
 import forms from "./forms.module.css";
 
 type ActiveForm = "add" | "use" | null;
+type LocationFilter = "all" | StorageLocation;
+type ShowFilter = "expiring" | "opened" | "leftovers";
 
-interface LotWithIngredient {
-  readonly lot: Lot;
-  readonly ingredient: Ingredient;
+const LOCATION_FILTER_OPTIONS: readonly { value: LocationFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  ...LOCATION_OPTIONS,
+];
+
+const SHOW_FILTER_OPTIONS: readonly { value: ShowFilter; label: string }[] = [
+  { value: "expiring", label: "Expiring" },
+  { value: "opened", label: "Opened" },
+  { value: "leftovers", label: "Leftovers" },
+];
+
+const TONE_CLASS: Record<"ok" | "warn" | "crit", string | undefined> = {
+  ok: styles.expiryText,
+  warn: styles.expiryWarn,
+  crit: styles.expiryCrit,
+};
+
+/** "Pantry · 1000 g · 2 lots, FIFO" / "Fridge · 500 ml · opened Tuesday" / "Freezer · 750 g" — the aggregated row's one-line summary (design/mock-screens.html #pantry). */
+function aggregateSubtitle(aggregate: PantryAggregate): string {
+  const location = locationLabel(aggregate.soonestLot.location);
+  const quantity = formatQuantity({
+    amount: aggregate.totalAmount,
+    unit: aggregate.ingredient.unit,
+  });
+  if (aggregate.lotCount > 1) return `${location} · ${quantity} · ${aggregate.lotCount} lots, FIFO`;
+  const onlyLot = aggregate.lots[0];
+  if (onlyLot?.openedAt)
+    return `${location} · ${quantity} · opened ${weekdayLabel(onlyLot.openedAt)}`;
+  return `${location} · ${quantity}`;
 }
 
 /**
- * Pantry view (WP-21): grouped by ingredient with lots/quantities/
- * locations/expiry, an "Expiring soon" section surfaced ahead of everything
- * else (UI_DESIGN.md §13 "group by urgency first, location second" — the
- * question a user opens the pantry with is "what must I use"), manual
- * add-lot, and the four lot-scoped actions (open/move/spoil/correct) plus
- * ingredient-level "use some" (FIFO, invariant 4). Every write goes through
- * `usePantryInventory`'s outbox (invariant 9) — this component never talks
- * to `WorkbookStore.inventoryEvents` directly.
+ * Pantry view (WP-21, restructured WP-VC4). The mock shows ONE ROW PER
+ * INGREDIENT — total quantity, lot count, soonest expiry — not one row per
+ * lot: the old version did `group.lots.map(renderRow)`, so two lots of the
+ * same product produced two near-identical rows, each carrying its own
+ * four action buttons (Open/Move/Spoil/Correct) inline. Those buttons now
+ * live on the pantry-item detail route (`PantryItem.tsx`,
+ * `/pantry/:ingredientId`) this row links to; this page keeps only the
+ * ingredient-level actions (add stock, record FIFO usage) and its own
+ * "Expiring soon" grouping (real and useful — UI_DESIGN.md §13 "group by
+ * urgency first").
  */
 export function Pantry() {
   const { clock } = useWorkbookContext();
   const pantry = usePantryInventory();
   const [activeForm, setActiveForm] = useState<ActiveForm>(null);
+  const [locationFilter, setLocationFilter] = useState<LocationFilter>("all");
+  const [showFilters, setShowFilters] = useState<readonly ShowFilter[]>([]);
 
   const today = clock.today();
 
-  const lotsWithIngredient = useMemo<readonly LotWithIngredient[]>(() => {
-    const result: LotWithIngredient[] = [];
-    for (const lot of pantry.lots) {
-      const ingredient = pantry.ingredientsById.get(lot.ingredientId);
-      if (ingredient) result.push({ lot, ingredient });
-    }
-    return result;
-  }, [pantry.lots, pantry.ingredientsById]);
+  const aggregates = useMemo(
+    () => aggregateByIngredient(pantry.ingredientsById, pantry.lots),
+    [pantry.ingredientsById, pantry.lots],
+  );
+
+  const ingredientsWithStock = useMemo(() => aggregates.map((a) => a.ingredient), [aggregates]);
+
+  // FILTERS rail (design/mock-screens.html #pantry desktop card: "Location"
+  // segmented control + "Show" chips) — replaces the old "At a glance"
+  // count-only rail, which the mock never showed at all.
+  const filtered = useMemo(
+    () =>
+      aggregates.filter((aggregate) => {
+        if (locationFilter !== "all" && aggregate.soonestLot.location !== locationFilter)
+          return false;
+        if (
+          showFilters.includes("expiring") &&
+          daysBetween(today, aggregate.soonestLot.expiry) > EXPIRING_SOON_DAYS
+        )
+          return false;
+        if (showFilters.includes("opened") && aggregate.soonestLot.openedAt === undefined)
+          return false;
+        if (showFilters.includes("leftovers") && aggregate.ingredient.unit !== "portion")
+          return false;
+        return true;
+      }),
+    [aggregates, locationFilter, showFilters, today],
+  );
 
   const expiring = useMemo(
     () =>
-      lotsWithIngredient
-        .filter(({ lot }) => lot.location !== "freezer" && daysBetween(today, lot.expiry) <= EXPIRING_SOON_DAYS)
-        .sort((a, b) => daysBetween(today, a.lot.expiry) - daysBetween(today, b.lot.expiry)),
-    [lotsWithIngredient, today],
+      filtered
+        .filter(
+          (aggregate) =>
+            aggregate.soonestLot.location !== "freezer" &&
+            daysBetween(today, aggregate.soonestLot.expiry) <= EXPIRING_SOON_DAYS,
+        )
+        .sort(
+          (a, b) =>
+            daysBetween(today, a.soonestLot.expiry) - daysBetween(today, b.soonestLot.expiry),
+        ),
+    [filtered, today],
+  );
+  const expiringIds = useMemo(() => new Set(expiring.map((a) => a.ingredient.id)), [expiring]);
+
+  const fresh = useMemo(
+    () =>
+      filtered
+        .filter((aggregate) => !expiringIds.has(aggregate.ingredient.id))
+        .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name)),
+    [filtered, expiringIds],
   );
 
-  const groupedByIngredient = useMemo(() => {
-    const groups = new Map<string, { ingredient: Ingredient; lots: LotWithIngredient[] }>();
-    for (const entry of lotsWithIngredient) {
-      const existing = groups.get(entry.ingredient.id);
-      if (existing) {
-        existing.lots.push(entry);
-      } else {
-        groups.set(entry.ingredient.id, { ingredient: entry.ingredient, lots: [entry] });
-      }
-    }
-    return [...groups.values()]
-      .sort((a, b) => a.ingredient.name.localeCompare(b.ingredient.name))
-      .map((group) => ({
-        ingredient: group.ingredient,
-        lots: group.lots.slice().sort((a, b) => compareLotsForFifo(a.lot, b.lot)),
-      }));
-  }, [lotsWithIngredient]);
+  function renderRow(aggregate: PantryAggregate) {
+    const { ingredient, soonestLot } = aggregate;
+    const frozen = soonestLot.location === "freezer";
+    const daysLeft = daysBetween(today, soonestLot.expiry);
+    const badge = expiryBadge(daysLeft, soonestLot.expiry);
 
-  const ingredientsWithStock = useMemo(
-    () => groupedByIngredient.map((group) => group.ingredient),
-    [groupedByIngredient],
-  );
+    const reference = soonestLot.openedAt ?? soonestLot.purchaseDate;
+    const totalDays = Math.max(1, daysBetween(reference, soonestLot.expiry));
+    const fraction = daysLeft / totalDays;
 
-  const locationCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const { lot } of lotsWithIngredient) {
-      counts.set(lot.location, (counts.get(lot.location) ?? 0) + 1);
-    }
-    return counts;
-  }, [lotsWithIngredient]);
-
-  function renderRow(entry: LotWithIngredient) {
-    const { lot, ingredient } = entry;
     return (
-      <PantryLotRow
-        key={lot.id}
-        lot={lot}
-        ingredient={ingredient}
-        today={today}
-        failed={pantry.failedLot?.lotId === lot.id}
-        onRetryFailed={pantry.retryFlush}
-        onOpen={() => void pantry.open({ ingredientId: lot.ingredientId, lotId: lot.id })}
-        onMove={(location) => void pantry.move({ ingredientId: lot.ingredientId, lotId: lot.id, location })}
-        onSpoil={(quantity) => void pantry.markSpoiled({ ingredientId: lot.ingredientId, lotId: lot.id, quantity })}
-        onCorrect={(input) => void pantry.correct({ ingredientId: lot.ingredientId, lotId: lot.id, ...input })}
-      />
+      <Link key={ingredient.id} to={`/pantry/${ingredient.id}`} className={styles.aggregateLink}>
+        <ListRow
+          leading={frozen ? <Snowflake size={20} aria-hidden="true" /> : undefined}
+          primary={ingredient.name}
+          secondary={
+            <div className={styles.lotDetail}>
+              <span>{aggregateSubtitle(aggregate)}</span>
+              {frozen ? (
+                <span className={styles.frozenBadge}>
+                  <Snowflake size={14} aria-hidden="true" />
+                  Frozen — expiry paused
+                </span>
+              ) : (
+                <>
+                  <span className={TONE_CLASS[expiryTone(daysLeft)]}>{badge.label}</span>
+                  <div className={styles.meter}>
+                    <FreshnessMeter
+                      fractionRemaining={fraction}
+                      label={
+                        daysLeft >= 0 ? `${daysLeft} of ${totalDays} days remaining` : "Expired"
+                      }
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          }
+          trailing={<CaretRight size={18} aria-hidden="true" />}
+        />
+      </Link>
     );
   }
 
@@ -114,7 +189,11 @@ export function Pantry() {
       ) : null}
 
       {!pantry.loading && pantry.error ? (
-        <ErrorState title="Couldn't load your pantry" description={pantry.error} onRetry={pantry.retry} />
+        <ErrorState
+          title="Couldn't load your pantry"
+          description={pantry.error}
+          onRetry={pantry.retry}
+        />
       ) : null}
 
       {!pantry.loading && !pantry.error ? (
@@ -126,7 +205,7 @@ export function Pantry() {
                 is, or EmptyState's action while there's nothing yet — never
                 two at once, since a duplicate accessible name is confusing
                 for a screen-reader user most of all. */}
-            {lotsWithIngredient.length > 0 && activeForm === null ? (
+            {aggregates.length > 0 && activeForm === null ? (
               <div className={styles.toolbar}>
                 <button
                   type="button"
@@ -170,13 +249,17 @@ export function Pantry() {
               />
             ) : null}
 
-            {lotsWithIngredient.length === 0 && activeForm === null ? (
+            {aggregates.length === 0 && activeForm === null ? (
               <EmptyState
                 icon={Package}
                 title="Your pantry is empty"
                 description="Add what's already in your kitchen to start tracking quantities and expiry."
                 action={
-                  <button type="button" className={forms.addButton} onClick={() => setActiveForm("add")}>
+                  <button
+                    type="button"
+                    className={forms.addButton}
+                    onClick={() => setActiveForm("add")}
+                  >
                     <Plus size={18} aria-hidden="true" />
                     Add to pantry
                   </button>
@@ -187,28 +270,46 @@ export function Pantry() {
                 {expiring.length > 0 ? (
                   <ListSection heading="Expiring soon">{expiring.map(renderRow)}</ListSection>
                 ) : null}
-                {groupedByIngredient.map((group) => (
-                  <ListSection key={group.ingredient.id} heading={group.ingredient.name}>
-                    {group.lots.map(renderRow)}
-                  </ListSection>
-                ))}
+                {fresh.length > 0 ? (
+                  <ListSection heading="Fresh">{fresh.map(renderRow)}</ListSection>
+                ) : null}
+                {filtered.length === 0 && aggregates.length > 0 ? (
+                  <EmptyState
+                    icon={Package}
+                    title="Nothing matches these filters"
+                    description="Try a different location or clear the show filters."
+                  />
+                ) : null}
               </>
             )}
           </div>
 
+          {/* FILTERS rail (design/mock-screens.html #pantry desktop card) —
+              replaces the old "At a glance" count-only rail, which the mock
+              never showed. */}
           <aside className={styles.rail}>
             <div className={styles.railCard}>
-              <p className={styles.railTitle}>At a glance</p>
-              <div className={styles.railStat}>
-                <span>Expiring soon</span>
-                <strong>{expiring.length}</strong>
-              </div>
-              {LOCATION_OPTIONS.map((option) => (
-                <div className={styles.railStat} key={option.value}>
-                  <span>{locationLabel(option.value)}</span>
-                  <strong>{locationCounts.get(option.value) ?? 0}</strong>
+              <p className={styles.railTitle}>Filters</p>
+              <div className={forms.field}>
+                <span className={forms.fieldLabel}>Location</span>
+                <div className={forms.fullWidthControl}>
+                  <SegmentedControl<LocationFilter>
+                    aria-label="Location"
+                    options={LOCATION_FILTER_OPTIONS}
+                    value={locationFilter}
+                    onChange={setLocationFilter}
+                  />
                 </div>
-              ))}
+              </div>
+              <div className={forms.field}>
+                <span className={forms.fieldLabel}>Show</span>
+                <ToggleChips<ShowFilter>
+                  aria-label="Show"
+                  options={SHOW_FILTER_OPTIONS}
+                  value={showFilters}
+                  onChange={setShowFilters}
+                />
+              </div>
             </div>
           </aside>
         </div>
