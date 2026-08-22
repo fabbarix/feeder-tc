@@ -1,0 +1,100 @@
+/* Month/quarter density grid (design/mock-responsive.html's `.monthgrid`/
+   `.mday-cell`, ported onto this app's own tokens — see plan.module.css's
+   own header comment on that convention). Literal px throughout, not
+   `rem` — this app's root font-size is 18px, not the usual 16px, so a
+   `rem`-based value here would render larger than the mock's own px
+   measurements intended (WP-VC4 established this convention; see e.g.
+   recipes.module.css's identical note). */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.dense {
+  gap: 2px;
+}
+
+.dow {
+  font: 600 9px/1 var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+  padding-bottom: 4px;
+}
+
+.cell {
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  min-height: 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color var(--motion-micro) var(--ease-standard);
+}
+
+.cell:hover {
+  border-color: var(--accent-border);
+}
+
+.cell:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.cellMute {
+  opacity: 0.4;
+}
+
+.cellToday {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.dense .cell {
+  min-height: 22px;
+  padding: 2px;
+  border-radius: 4px;
+  gap: 0;
+}
+
+.dayNumber {
+  font: 600 10.5px/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.dots {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.dense .dots {
+  justify-content: center;
+  flex: 1;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: block;
+}
+
+.dotEmpty {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.dotLeftover {
+  background: var(--text-muted);
+}

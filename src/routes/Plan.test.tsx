@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Plan } from "./Plan.tsx";
 import { ToastProvider } from "../ui/components/Toast/ToastProvider.tsx";
 import { WorkbookContext, type WorkbookContextValue } from "../workbook-context.ts";
@@ -66,10 +67,17 @@ function renderPlan(store: WorkbookStore) {
     workbookId: "wb-1",
     outbox: createFakeOutbox(),
   };
+  const router = createMemoryRouter(
+    [
+      { path: "/plan", element: <Plan /> },
+      { path: "/plan/month", element: <Plan /> },
+    ],
+    { initialEntries: ["/plan"] },
+  );
   return render(
     <WorkbookContext.Provider value={contextValue}>
       <ToastProvider>
-        <Plan />
+        <RouterProvider router={router} />
       </ToastProvider>
     </WorkbookContext.Provider>,
   );

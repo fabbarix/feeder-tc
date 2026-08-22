@@ -6,6 +6,7 @@
  */
 import {
   addDays,
+  expandWeekSlots,
   isIndivisible,
   isOnOrAfter,
   makePlanSlotId,
@@ -23,6 +24,7 @@ import type {
   PlanSlot,
   Recipe,
   RecipeId,
+  Settings,
   WeekSlotSpec,
 } from "../../domain/index.ts";
 
@@ -163,6 +165,57 @@ export function computeIndivisibleForecast(
 ): IndivisibleScaling | undefined {
   if (!recipe || !isIndivisible(recipe)) return undefined;
   return scaleIndivisible(recipe, targetServings);
+}
+
+/**
+ * One day's density for the month/quarter view (design/mock-responsive.html
+ * §"Month — an overview, not an editor": "one cell per day ... filled
+ * (accent), a leftover filling the slot (muted, distinct from a recipe), or
+ * empty (a hollow outline)"). Ordered by `slotIndex`, same as
+ * `groupSlotsByDay` — a day with two dinner slots always renders its dots
+ * in the same left-to-right order the week view lists them.
+ */
+export type DensityDot = "filled" | "leftover" | "empty";
+
+/** `PlanDay.slots` (already `slotIndex`-ordered by `groupSlotsByDay`) -> one dot per slot. A slot's `state` (planned/cooked/skipped) doesn't change its dot — cooked-vs-not is a week-view concern, density is just "is something here". */
+export function densityDots(day: PlanDay): readonly DensityDot[] {
+  return day.slots.map((view) => {
+    if (view.slot.filling.kind === "leftover") return "leftover";
+    if (view.slot.filling.kind === "empty") return "empty";
+    return "filled";
+  });
+}
+
+/**
+ * `PlanDay`s for an arbitrary multiple-of-7 date range (a month or quarter
+ * grid — `plan-month.ts`'s `monthGridDates`), not just one calendar week.
+ * `expandWeekSlots` only ever walks exactly 7 days from whatever start date
+ * it's given, so this chunks `dates` into consecutive 7-day windows and
+ * concatenates their specs before handing everything to `mergeWeekSlots` —
+ * that function matches by `date|slotType|slotIndex`, not by week, so
+ * feeding it a bigger spec/row set than one week's is already exactly what
+ * it's for.
+ */
+export function buildCalendarDays(
+  dates: readonly IsoDate[],
+  settings: Settings,
+  allSlots: readonly PlanSlot[],
+  recipesById: ReadonlyMap<RecipeId, Recipe>,
+  ingredientsById: ReadonlyMap<IngredientId, Ingredient>,
+  lotsById: ReadonlyMap<LotId, Lot>,
+  today: IsoDate,
+): readonly PlanDay[] {
+  const specs: WeekSlotSpec[] = [];
+  for (let offset = 0; offset < dates.length; offset += 7) {
+    const chunkStart = dates[offset];
+    if (chunkStart === undefined) continue;
+    specs.push(...expandWeekSlots(settings, chunkStart));
+  }
+  const dateSet = new Set(dates);
+  const existing = allSlots.filter((s) => dateSet.has(s.date));
+  const merged = mergeWeekSlots(specs, existing);
+  const views = merged.map((slot) => buildSlotView(slot, recipesById, ingredientsById, lotsById, today));
+  return groupSlotsByDay(dates, views);
 }
 
 /** Ingredient ids with a (non-freezer) pantry lot expiring within the 7-day window starting `weekStart` — WP-13's `GenerateWeekInput.expiringIngredientIds`. */

@@ -1,8 +1,38 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
 .root {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
+}
+
+/* "Today" — a ghost/ghost-sm button (design/mock-responsive.html's
+   `.btn.ghost.sm`), deliberately the least visually prominent button on
+   the page: it's a shortcut back to a default, not an action the layout
+   should draw the eye to the way "Generate week" does. */
+.todayButton {
+  display: inline-flex;
+  align-items: center;
+  min-height: calc(var(--touch-target) - 8px);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-h);
+  font: 600 15px/1 var(--sans);
+  cursor: pointer;
+}
+
+.todayButton:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 
 .navButton {

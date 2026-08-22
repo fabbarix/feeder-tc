@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { useButton } from "react-aria";
 import { resolveTargetServings } from "../../domain/index.ts";
 import type { PlanSlotId, Settings } from "../../domain/index.ts";
-import { ArrowsClockwise, CookingPot, Minus, Plus, PushPin, PushPinSlash, type IconComponent } from "../../ui/icons.ts";
+import { ArrowsClockwise, CookingPot, Minus, Plus, PushPin, PushPinSlash, Trash, type IconComponent } from "../../ui/icons.ts";
 import { mealTagLabel } from "./plan-week.ts";
 import { computeIndivisibleForecast, type PlanSlotView } from "./plan-derive.ts";
 import styles from "./plan.module.css";
@@ -13,12 +13,16 @@ function IconButton({
   onPress,
   disabled = false,
   active = false,
+  danger = false,
+  pushRight = false,
 }: {
   readonly icon: IconComponent;
   readonly label: string;
   readonly onPress: () => void;
   readonly disabled?: boolean;
   readonly active?: boolean;
+  readonly danger?: boolean;
+  readonly pushRight?: boolean;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const { buttonProps } = useButton({ "aria-label": label, isDisabled: disabled, onPress }, ref);
@@ -27,11 +31,23 @@ function IconButton({
       {...buttonProps}
       ref={ref}
       type="button"
-      className={`${styles.iconButton}${active ? ` ${styles.iconButtonActive}` : ""}`}
+      className={`${styles.iconButton}${active ? ` ${styles.iconButtonActive}` : ""}${danger ? ` ${styles.iconButtonDanger}` : ""}${pushRight ? ` ${styles.iconButtonPushRight}` : ""}`}
     >
       <Icon size={15} aria-hidden="true" />
     </button>
   );
+}
+
+/**
+ * "Remove from plan" (design/mock-responsive.html — every filled slot,
+ * including past/leftover ones). Same generic, non-recipe-specific
+ * aria-label as `Reroll`/`Pin` above, deliberately — one label reachable
+ * per day card via a day-scoped locator, matching how this file's other
+ * icon actions already work. `Plan.tsx` owns the actual removal (it opens
+ * the two-variant confirm dialog first — never fires on a bare click).
+ */
+function RemoveButton({ onPress, disabled }: { readonly onPress: () => void; readonly disabled: boolean }) {
+  return <IconButton icon={Trash} label="Remove from plan" onPress={onPress} disabled={disabled} danger pushRight />;
 }
 
 export interface PlanSlotRowProps {
@@ -43,6 +59,8 @@ export interface PlanSlotRowProps {
   readonly onCook: (slotId: PlanSlotId) => void;
   readonly onOpenPicker: (slotId: PlanSlotId) => void;
   readonly onScaleChange: (slotId: PlanSlotId, servings: number | undefined) => void;
+  /** Opens the remove confirm (Plan.tsx) — never called for an empty slot, which has nothing to remove. */
+  readonly onRemove: (slotId: PlanSlotId) => void;
 }
 
 /**
@@ -50,7 +68,14 @@ export interface PlanSlotRowProps {
  * the mobile stacked day-card list (parent supplies the outer `.day`/
  * `.dayCard` wrapper; this renders what goes inside it). Visually distinct
  * per state (pinned/leftover/empty/normal — UI_DESIGN.md §13), matching
- * design/mock-screens.html's Plan section.
+ * design/mock-responsive.html's Plan section.
+ *
+ * Every filled variant below (leftover, past/read-only, planned-recipe)
+ * splits its body into `.slotRow1` (name + whatever quantity info that slot
+ * has — a servings stepper, a leftover-forecast badge, or a status badge)
+ * and `.slotRow2` (buttons). `plan.module.css` lays those two out side by
+ * side on one line at tablet/desktop and stacked on phone — "two-line
+ * mobile slot" (mock, § owner request) without forking this markup in two.
  */
 export function PlanSlotRow({
   view,
@@ -61,6 +86,7 @@ export function PlanSlotRow({
   onCook,
   onOpenPicker,
   onScaleChange,
+  onRemove,
 }: PlanSlotRowProps) {
   const { slot } = view;
   const tagLabel = mealTagLabel(slot.slotType);
@@ -88,12 +114,17 @@ export function PlanSlotRow({
       <div className={`${styles.slot} ${styles.slotLeftover}`}>
         <span className={styles.slotTag}>{tagLabel} · leftover</span>
         <div className={styles.slotBody}>
-          <span>{view.leftoverIngredient?.name ?? "Leftover"}</span>
-          {portions !== undefined ? (
-            <span className={styles.badge}>
-              {portions} {portions === 1 ? "portion" : "portions"}
-            </span>
-          ) : null}
+          <div className={styles.slotRow1}>
+            <span>{view.leftoverIngredient?.name ?? "Leftover"}</span>
+            {portions !== undefined ? (
+              <span className={styles.badge}>
+                {portions} {portions === 1 ? "portion" : "portions"}
+              </span>
+            ) : null}
+          </div>
+          <div className={styles.slotRow2}>
+            <RemoveButton onPress={() => onRemove(slot.id)} disabled={isBusy} />
+          </div>
         </div>
       </div>
     );
@@ -110,18 +141,25 @@ export function PlanSlotRow({
   // slot ("→ 2 leftover") in place of the +/- servings control.
   const forecast = computeIndivisibleForecast(view.recipe, targetServings);
 
-  // Past "planned" (cooked/skipped): a read-only card, no actions. WP-13's
-  // own generator already refuses to touch a non-"planned" slot when
-  // regenerating (generator.ts's header comment) — rerolling one from here
-  // would silently rewrite history the same way, so the controls simply
-  // aren't offered once a slot has moved past "planned".
+  // Past "planned" (cooked/skipped): a read-only card, no reroll/pin/Cook —
+  // WP-13's own generator already refuses to touch a non-"planned" slot
+  // when regenerating (generator.ts's header comment) — rerolling one from
+  // here would silently rewrite history the same way. It still gets
+  // Remove: "the user commits forever" otherwise (design mock) — removing
+  // it corrects the plan without touching the InventoryEvents already
+  // recorded for it (Plan.tsx's confirm copy says so explicitly).
   if (slot.state !== "planned") {
     return (
       <div className={styles.slot}>
         <span className={styles.slotTag}>{badgeText}</span>
         <div className={styles.slotBody}>
-          <span>{view.recipe?.name ?? "Unknown recipe"}</span>
-          <span className={styles.badge}>{slot.state === "cooked" ? "Cooked" : "Skipped"}</span>
+          <div className={styles.slotRow1}>
+            <span>{view.recipe?.name ?? "Unknown recipe"}</span>
+            <span className={styles.badge}>{slot.state === "cooked" ? "Cooked" : "Skipped"}</span>
+          </div>
+          <div className={styles.slotRow2}>
+            <RemoveButton onPress={() => onRemove(slot.id)} disabled={isBusy} />
+          </div>
         </div>
       </div>
     );
@@ -131,27 +169,15 @@ export function PlanSlotRow({
     <div className={`${styles.slot}${slot.pinned ? ` ${styles.slotPinned}` : ""}`}>
       <span className={styles.slotTag}>{badgeText}</span>
       <div className={styles.slotBody}>
-        <button
-          type="button"
-          className={styles.slotNameButton}
-          onClick={() => onOpenPicker(slot.id)}
-        >
-          {view.recipe?.name ?? "Unknown recipe"}
-        </button>
-        <div className={styles.slotActions}>
+        <div className={styles.slotRow1}>
+          <button type="button" className={styles.slotNameButton} onClick={() => onOpenPicker(slot.id)}>
+            {view.recipe?.name ?? "Unknown recipe"}
+          </button>
           {forecast ? (
-            forecast.surplusServings > 0 ? (
-              <span className={styles.scaleBadge}>
-                → {forecast.surplusServings} leftover
-              </span>
-            ) : null
+            forecast.surplusServings > 0 ? <span className={styles.scaleBadge}>→ {forecast.surplusServings} leftover</span> : null
           ) : (
-            <>
-              {isOverridden ? (
-                <span className={styles.scaleBadge}>
-                  {targetServings} servings
-                </span>
-              ) : null}
+            <div className={styles.stepper}>
+              {isOverridden ? <span className={styles.scaleBadge}>{targetServings} servings</span> : null}
               <IconButton
                 icon={Minus}
                 label={`Fewer servings for ${view.recipe?.name ?? tagLabel}`}
@@ -164,8 +190,10 @@ export function PlanSlotRow({
                 disabled={isBusy}
                 onPress={() => onScaleChange(slot.id, targetServings + 1)}
               />
-            </>
+            </div>
           )}
+        </div>
+        <div className={styles.slotRow2}>
           {/* Cook is offered on any still-planned recipe slot, not gated to
               "today" — a household marks meals cooked after the fact too
               (e.g. logging yesterday's dinner). "tonight" in the tag line
@@ -184,6 +212,7 @@ export function PlanSlotRow({
             disabled={isBusy}
             onPress={() => onTogglePin(slot.id)}
           />
+          <RemoveButton onPress={() => onRemove(slot.id)} disabled={isBusy} />
         </div>
       </div>
     </div>
