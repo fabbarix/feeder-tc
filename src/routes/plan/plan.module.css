@@ -353,6 +353,14 @@
   color: var(--text-h);
   cursor: pointer;
   text-align: left;
+  /* Grow to fill `.slotRow1`'s full width once the stepper/badge sibling
+     wraps to its own line (tablet's narrower cards) — without this a plain
+     flex item only sizes to its own text, so a long name got LESS width
+     than the row actually had free, wrapping one line earlier than
+     necessary. `min-width: 0` is required alongside `flex: 1` for a text
+     child to shrink/wrap at all, rather than forcing the row wider. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .slotNameButton:hover {
