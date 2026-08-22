@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCalendarDays,
   buildSlotView,
   computeExpiringIngredientIds,
   computeIndivisibleForecast,
   computeWeekSummary,
+  densityDots,
   groupSlotsByDay,
   mergeWeekSlots,
 } from "./plan-derive.ts";
@@ -15,7 +17,7 @@ import {
   makeQuantity,
   makeRecipeId,
 } from "../../domain/index.ts";
-import type { Ingredient, Lot, PlanSlot, Recipe } from "../../domain/index.ts";
+import type { Ingredient, Lot, PlanSlot, Recipe, Settings } from "../../domain/index.ts";
 
 function recipe(id: string, status: Recipe["status"] = "in-rotation"): Recipe {
   return {
@@ -292,5 +294,89 @@ describe("computeIndivisibleForecast", () => {
 
   it("returns undefined when there's no recipe at all (e.g. a dangling reference)", () => {
     expect(computeIndivisibleForecast(undefined, 2)).toBeUndefined();
+  });
+});
+
+describe("densityDots", () => {
+  const day = makeIsoDate("2026-08-24");
+
+  function viewOf(filling: PlanSlot["filling"], slotIndex: number): ReturnType<typeof buildSlotView> {
+    const slot: PlanSlot = {
+      id: makePlanSlotId(`s-${slotIndex}`),
+      date: day,
+      slotType: "dinner",
+      slotIndex,
+      filling,
+      state: "planned",
+      pinned: false,
+    };
+    return buildSlotView(slot, new Map(), new Map(), new Map(), day);
+  }
+
+  it("maps a recipe filling to 'filled', an empty one to 'empty', and a leftover one to 'leftover'", () => {
+    const planDay = { date: day, slots: [viewOf({ kind: "recipe", recipeId: makeRecipeId("chili") }, 0)] };
+    expect(densityDots(planDay)).toEqual(["filled"]);
+    expect(densityDots({ date: day, slots: [viewOf({ kind: "empty" }, 0)] })).toEqual(["empty"]);
+    expect(densityDots({ date: day, slots: [viewOf({ kind: "leftover", lotId: makeLotId("lot1") }, 0)] })).toEqual([
+      "leftover",
+    ]);
+  });
+
+  it("returns one dot per slot, in the day's existing (slotIndex) order", () => {
+    const planDay = {
+      date: day,
+      slots: [viewOf({ kind: "empty" }, 0), viewOf({ kind: "recipe", recipeId: makeRecipeId("chili") }, 1)],
+    };
+    expect(densityDots(planDay)).toEqual(["empty", "filled"]);
+  });
+
+  it("returns no dots for a day with no configured slots", () => {
+    expect(densityDots({ date: day, slots: [] })).toEqual([]);
+  });
+});
+
+describe("buildCalendarDays", () => {
+  const settings: Settings = {
+    householdSize: 2,
+    slotLayout: [{ day: "monday", slots: ["dinner"] }],
+    repeatExclusionWeeks: 3,
+    currency: "$",
+  };
+
+  it("covers a date range spanning more than one week, filling configured positions with placeholders when nothing was ever generated", () => {
+    // Two Mondays, 14 days apart — only Monday has a configured slot.
+    const dates = Array.from({ length: 14 }, (_, i) => makeIsoDate(`2026-08-${String(i + 1).padStart(2, "0")}`));
+    const days = buildCalendarDays(dates, settings, [], new Map(), new Map(), new Map(), makeIsoDate("2026-08-01"));
+    expect(days).toHaveLength(14);
+    const withSlots = days.filter((d) => d.slots.length > 0);
+    // 2026-08-03 and 2026-08-10 are Mondays.
+    expect(withSlots.map((d) => d.date)).toEqual(["2026-08-03", "2026-08-10"]);
+    expect(withSlots[0]!.slots[0]!.slot.filling.kind).toBe("empty");
+  });
+
+  it("resolves a real PlanSlot row (not a placeholder) for a position that has one, even outside a single 7-day window", () => {
+    const chili = recipe("chili");
+    const dates = [makeIsoDate("2026-08-10")]; // a Monday, but not a multiple of 7 by itself — exercises the offset<dates.length loop with one short trailing "chunk".
+    const existing: PlanSlot = {
+      id: makePlanSlotId("real"),
+      date: dates[0]!,
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id },
+      state: "planned",
+      pinned: false,
+    };
+    const days = buildCalendarDays(
+      dates,
+      settings,
+      [existing],
+      new Map([[chili.id, chili]]),
+      new Map(),
+      new Map(),
+      makeIsoDate("2026-08-01"),
+    );
+    expect(days[0]!.slots).toHaveLength(1);
+    expect(days[0]!.slots[0]!.slot).toEqual(existing);
+    expect(days[0]!.slots[0]!.recipe).toBe(chili);
   });
 });

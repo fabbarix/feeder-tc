@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Plan } from "./Plan.tsx";
@@ -149,5 +149,124 @@ describe("Plan — per-slot stale-save protection (refresh-before-edit merge)", 
     expect(screen.queryByRole("heading", { name: "This week changed elsewhere" })).not.toBeInTheDocument();
     const stillMidway = (await store.planSlots.readAll()).rows.find((s) => s.id === slot().id);
     expect(stillMidway?.pinned).toBe(false);
+  });
+});
+
+/**
+ * design/mock-responsive.html § "Removing a plan entry — corrects the
+ * record, never erases it silently": Remove is reachable on every filled
+ * slot, with two confirm variants. `MONDAY` (2026-08-17) is both "today"
+ * (the fixed clock) and the only configured slot day (`SETTINGS.slotLayout`),
+ * so the future-slot case uses it directly and the past/cooked case reuses
+ * the same weekday a week earlier via "Previous week".
+ */
+describe("Plan — Remove from plan", () => {
+  it("future slot: one-sentence confirm; removing empties the slot and leaves it plannable again", async () => {
+    const store = createFakeWorkbookStore();
+    await seed(store, slot());
+    renderPlan(store);
+    await screen.findAllByText("Weeknight Pasta");
+
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole("button", { name: "Remove from plan" })[0]!);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Remove Weeknight Pasta — Monday dinner?" })).toBeInTheDocument();
+    expect(within(dialog).getByText("Nothing's been cooked yet — this just clears the slot.")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/doesn.t undo the cooking/)).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Remove from plan" }));
+
+    await waitFor(async () => {
+      const saved = (await store.planSlots.readAll()).rows.find((s) => s.id === slot().id);
+      expect(saved?.filling).toEqual({ kind: "empty" });
+    });
+    const saved = (await store.planSlots.readAll()).rows.find((s) => s.id === slot().id);
+    expect(saved?.state).toBe("planned");
+    expect(saved?.pinned).toBe(false);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByRole("button", { name: "Pick a meal for Dinner" }).length).toBeGreaterThan(0);
+    });
+  });
+
+  it("past, already-cooked slot: confirm names invariant 1; removing corrects the plan without touching any InventoryEvent", async () => {
+    const pastMonday = makeIsoDate("2026-08-10");
+    const pastSlot = slot({ id: makePlanSlotId("slot-past-mon-dinner"), date: pastMonday, state: "cooked" });
+    const store = createFakeWorkbookStore();
+    await seed(store, pastSlot);
+    renderPlan(store);
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Previous week" }));
+    await screen.findAllByText("Weeknight Pasta");
+    await screen.findAllByText("Cooked");
+
+    const eventsBefore = (await store.inventoryEvents.readFrom(0)).rows.length;
+
+    await user.click(screen.getAllByRole("button", { name: "Remove from plan" })[0]!);
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Remove Weeknight Pasta — Monday dinner?" })).toBeInTheDocument();
+    expect(within(dialog).getByText(/Monday has already passed/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/doesn.t undo the cooking/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Remove from plan" }));
+
+    await waitFor(async () => {
+      const saved = (await store.planSlots.readAll()).rows.find((s) => s.id === pastSlot.id);
+      expect(saved?.filling).toEqual({ kind: "empty" });
+    });
+    const saved = (await store.planSlots.readAll()).rows.find((s) => s.id === pastSlot.id);
+    // Corrected back to "planned" (plannable again), not left dangling as a
+    // "cooked" row with nothing in it — see `removeSlot`'s own doc comment.
+    expect(saved?.state).toBe("planned");
+
+    // Invariant 1: no InventoryEvent was appended, edited, or removed.
+    const eventsAfter = (await store.inventoryEvents.readFrom(0)).rows.length;
+    expect(eventsAfter).toBe(eventsBefore);
+  });
+});
+
+describe("Plan — Today button", () => {
+  it("returns to the current week after navigating away", async () => {
+    const store = createFakeWorkbookStore();
+    await seed(store, slot());
+    renderPlan(store);
+    await screen.findAllByText("Weeknight Pasta");
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Next week" }));
+    await user.click(await screen.findByRole("button", { name: "Next week" }));
+    // Navigated away: this week's Monday recipe is no longer on screen.
+    expect(screen.queryAllByText("Weeknight Pasta")).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Today" }));
+    await screen.findAllByText("Weeknight Pasta");
+  });
+});
+
+describe("Plan — month/quarter view", () => {
+  it("switches to /plan/month via the Week/Month toggle and shows the month grid plus a 3-month quarter strip", async () => {
+    const store = createFakeWorkbookStore();
+    await seed(store, slot());
+    renderPlan(store);
+    await screen.findAllByText("Weeknight Pasta");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Month" }));
+
+    await screen.findByText("August 2026");
+    // The quarter strip: same month plus the following two.
+    expect(screen.getByText("August")).toBeInTheDocument();
+    expect(screen.getByText("September")).toBeInTheDocument();
+    expect(screen.getByText("October")).toBeInTheDocument();
+
+    // Clicking a day cell opens that week and switches back to /plan. Two
+    // matches exist (the main month grid's cell and the quarter strip's
+    // own August mini-grid renders the same date) — the main grid's is
+    // first in the DOM.
+    await user.click(screen.getAllByRole("button", { name: /2026-08-17 \(today\)/ })[0]!);
+    await screen.findAllByText("Weeknight Pasta");
+    expect(screen.getByRole("radio", { name: "Week" })).toBeChecked();
   });
 });

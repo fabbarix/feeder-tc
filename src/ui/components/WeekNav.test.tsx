@@ -30,4 +30,18 @@ describe("WeekNav", () => {
     const { container } = render(<WeekNav label="Aug 17 – Aug 23" onPrevious={() => {}} onNext={() => {}} />);
     expect(await axe(container)).toHaveNoViolations();
   });
+
+  it("omits the Today button entirely when onToday isn't supplied", () => {
+    render(<WeekNav label="Aug 17 – Aug 23" onPrevious={() => {}} onNext={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Today" })).not.toBeInTheDocument();
+  });
+
+  it("renders and wires up a Today button when onToday is supplied", async () => {
+    const user = userEvent.setup();
+    const onToday = vi.fn();
+    render(<WeekNav label="Aug 17 – Aug 23" onPrevious={() => {}} onNext={() => {}} onToday={onToday} />);
+    const button = screen.getByRole("button", { name: "Today" });
+    await user.click(button);
+    expect(onToday).toHaveBeenCalledOnce();
+  });
 });
