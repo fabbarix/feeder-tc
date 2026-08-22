@@ -313,17 +313,38 @@ test("A household's first week", async ({ page }) => {
   await page.getByRole("link", { name: /Riso Gallo Arborio/ }).click();
   await expect(page.getByRole("heading", { name: "Riso Gallo Arborio 1 kg" })).toBeVisible();
 
-  // ---- Leftovers: visible in the default list at every tier; the
-  // narrowing "Leftovers" filter chip is a tablet/desktop-only convenience
-  // (Pantry.tsx's filters rail — display:none below 768px) ----
+  // ---- Leftovers: visible in the default list, and the narrowing
+  // "Leftovers" filter reachable, at EVERY tier.
+  //
+  // This block previously asserted the filter group was ABSENT below 768px
+  // — encoding the bug as expected behaviour, because when this suite was
+  // written `pantry.module.css`'s `.rail` was `display:none` on phone with
+  // no replacement, leaving no route to Leftovers at all on the primary
+  // device. That gap is fixed (the phone tier now gets the Stock/Leftovers
+  // tab and filter row the approved mock specifies), so the assertion is
+  // now the same at every tier: the filter is REACHABLE and it works.
+  //
+  // Worth keeping in mind generally: a test written against a buggy app can
+  // quietly cement the bug. This one did, and only failed once the bug was
+  // fixed. ----
+  //
+  // The CONTROL differs by tier, deliberately, and the mock says so: phone
+  // gets a "Stock"/"Leftovers" section tab (a two-option segmented control
+  // reads better than a chip buried in a filter row on a 390px screen),
+  // while tablet/desktop keep "Leftovers" as a chip inside the "Show"
+  // filter group. Both drive the same state. What must NOT differ by tier
+  // is that Leftovers is reachable at all — that is the property this
+  // asserts.
   await goToPantry(page);
   await expect(page.getByRole("link", { name: /Leftover: Chili/ })).toBeVisible();
-  if (width >= WIDE_BREAKPOINT_PX) {
-    await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Leftovers" }).click();
-    await expect(page.getByRole("link", { name: /Leftover: Chili/ })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Rice", exact: true })).toHaveCount(0);
-    await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Leftovers" }).click();
-  } else {
-    await expect(page.getByRole("group", { name: "Show" })).toHaveCount(0);
-  }
+
+  const leftoversControl =
+    width >= WIDE_BREAKPOINT_PX
+      ? page.getByRole("group", { name: "Show" }).getByRole("button", { name: "Leftovers" })
+      : page.getByRole("radiogroup", { name: "Pantry section" }).getByRole("radio", { name: "Leftovers" });
+
+  await expect(leftoversControl, `no reachable route to Leftovers at ${width}px`).toBeVisible();
+  await leftoversControl.click();
+  await expect(page.getByRole("link", { name: /Leftover: Chili/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Rice", exact: true })).toHaveCount(0);
 });

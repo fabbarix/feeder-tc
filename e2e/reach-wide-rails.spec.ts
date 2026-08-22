@@ -15,21 +15,25 @@ import { goToShopping, seedShoppingNeed } from "./support/shopping.ts";
 // are cosmetic or already DOM-duplicated for accessibility and covered by
 // the existing role-based specs regardless of viewport.
 
-test.describe("Pantry's filters rail (Location + \"Show\"/Leftovers) — CSS-hidden below 768px, NO replacement", () => {
-  // KNOWN GAP, same shape as the barcode-scanner bug this whole suite exists
-  // to catch (commit af73a08's own history): pantry.module.css's `.rail`
-  // (Pantry.tsx:304-322) is `display:none` below 768px with nothing standing
-  // in for it — a household member on a phone cannot filter by storage
-  // location, cannot see "Expiring"/"Opened" only, and CANNOT reach the
-  // "Leftovers" view of the pantry at all. Landed as `test.fail()` (same
-  // precedent as WP-30's outbox-bug scenario, STATUS.md) so this stays
-  // loudly visible in CI as an expected-to-fail case instead of either
-  // silently passing (if asserted as "absent = fine") or blocking the whole
-  // suite (if asserted as a hard failure with no test.fail marker). Report
-  // this to the owner for routing — do NOT fix pantry.module.css/Pantry.tsx
-  // from this PR (frozen-scope instruction).
-  test.fail(
-    "the Location/Show filters (and therefore Leftovers) are reachable at phone width (390px) — currently they are NOT",
+test.describe("Pantry's filters (Location + \"Show\"/Leftovers) are reachable at every tier", () => {
+  // WAS a known gap, same shape as the barcode-scanner bug this suite exists
+  // to catch: pantry.module.css's `.rail` is `display:none` below 768px and
+  // nothing stood in for it, so a household member on a phone could not
+  // filter by storage location, could not see "Expiring"/"Opened" only, and
+  // could not reach the "Leftovers" view of the pantry AT ALL.
+  //
+  // FIXED — this branch adds the phone-tier controls the approved mock
+  // specifies (a Stock/Leftovers segmented tab plus a filter row) on the
+  // exact inverse media query, the same mirror-image invariant `af73a08`
+  // used for the scan FAB and its page action.
+  //
+  // The `test.fail()` marker was removed once Playwright reported "Expected
+  // to fail, but passed" against the fix — the same handover this project
+  // used for the outbox duplicate-append bug. Kept as a permanent
+  // regression guard: it is what proves the phone tier still has a route to
+  // Leftovers at all.
+  test(
+    "the Location/Show filters (and therefore Leftovers) are reachable at phone width (390px)",
     async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await enterReadyShell(page, "pantry");
