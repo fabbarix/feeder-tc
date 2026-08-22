@@ -865,6 +865,7 @@ export function RecipeEditor() {
                   <QuantityInput<"servings">
                     label="Servings"
                     unit="servings"
+                    unitOne="serving"
                     value={baseServings}
                     onChange={(q) => setBaseServings(q?.amount ?? null)}
                     showSteppers

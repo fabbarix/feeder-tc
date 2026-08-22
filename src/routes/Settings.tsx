@@ -153,6 +153,7 @@ export function Settings() {
                 <Stepper
                   label="Size"
                   unit="people"
+                  unitOne="person"
                   min={1}
                   value={settings.householdSize}
                   onChange={updateHouseholdSize}
@@ -160,6 +161,7 @@ export function Settings() {
                 <Stepper
                   label="Don't repeat within"
                   unit="weeks"
+                  unitOne="week"
                   min={0}
                   value={settings.repeatExclusionWeeks}
                   onChange={updateRepeatExclusionWeeks}
