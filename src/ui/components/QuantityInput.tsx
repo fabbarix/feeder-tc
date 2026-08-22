@@ -24,6 +24,13 @@ export interface QuantityInputProps<U extends string = Unit> {
    * render a second `QuantityInput` for a different ingredient instead.
    */
   readonly unit: U;
+  /**
+   * Singular form of `unit`, shown when the amount is exactly 1. Optional:
+   * the canonical units this field usually carries ("g", "ml") do not
+   * inflect, but a generic caller can pass a word that does — the recipe
+   * editor's servings field rendered "1 servings" until this existed.
+   */
+  readonly unitOne?: string;
   /** Current amount, or `null` while empty/invalid. Controlled. */
   readonly value: number | null;
   /**
@@ -103,6 +110,7 @@ function validate<U extends string>(
 export function QuantityInput<U extends string = Unit>({
   label,
   unit,
+  unitOne,
   value,
   onChange,
   id,
@@ -179,7 +187,7 @@ export function QuantityInput<U extends string = Unit>({
           <SuffixIcon size={18} className={styles.suffixIcon} aria-hidden="true" />
         ) : null}
         <span className={styles.suffix} aria-hidden="true">
-          {unit}
+          {value === 1 && unitOne !== undefined ? unitOne : unit}
         </span>
         {showSteppers ? (
           <Stepper

@@ -5,6 +5,13 @@ export interface StepperProps {
   readonly label: string;
   readonly value: number;
   readonly unit: string;
+  /**
+   * Singular form, used when `value === 1`. Optional because not every unit
+   * inflects — "min" is "1 min" and "5 min" alike — and naive de-pluralizing
+   * would turn it into "1 mi". Supply it wherever the plural reads wrong:
+   * "1 people", "1 weeks", "1 servings" were all reachable and all shipped.
+   */
+  readonly unitOne?: string;
   readonly min?: number;
   readonly disabled?: boolean;
   readonly onChange: (value: number) => void;
@@ -23,7 +30,7 @@ export interface StepperProps {
  * RecipeEditor.tsx needed the exact same control for three fields instead
  * of a mix of a stepper, a plain number box and a sentence).
  */
-export function Stepper({ label, value, unit, min = 0, disabled = false, onChange }: StepperProps) {
+export function Stepper({ label, value, unit, unitOne, min = 0, disabled = false, onChange }: StepperProps) {
   return (
     <div className={forms.field}>
       <span className={forms.fieldLabel}>{label}</span>
@@ -37,7 +44,7 @@ export function Stepper({ label, value, unit, min = 0, disabled = false, onChang
           <Minus size={16} aria-hidden="true" />
         </button>
         <span className={forms.qtyValue}>
-          {value} <span className={forms.qtyUnit}>{unit}</span>
+          {value} <span className={forms.qtyUnit}>{value === 1 && unitOne !== undefined ? unitOne : unit}</span>
         </span>
         <button
           type="button"

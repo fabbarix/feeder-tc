@@ -324,7 +324,7 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
           const unit = canonical.get(line.ingredientId);
           if (unit !== undefined && unit !== line.quantity.unit) {
             throw new Error(
-              `Cannot save recipe ingredient: "${line.ingredientId}"'s canonical unit is "${unit}", but this line specifies "${line.quantity.unit}" (invariant 3: one canonical unit per ingredient, no conversions).`,
+              `Cannot save recipe ingredient: "${line.ingredientId}"'s canonical unit is "${unit}", but this line specifies "${line.quantity.unit}" — each ingredient has one unit, and amounts are never converted.`,
             );
           }
         }

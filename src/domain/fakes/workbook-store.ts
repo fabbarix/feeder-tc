@@ -164,7 +164,7 @@ export function createFakeWorkbookStore(): WorkbookStore {
         // the real backend would give, not a false pass.
         if (photo.dataUrl.length > MAX_PHOTO_DATA_URL_LENGTH) {
           throw new Error(
-            `Photo data URL is ${photo.dataUrl.length} characters, over the ${MAX_PHOTO_DATA_URL_LENGTH}-character Google Sheets cell limit (DESIGN_PHOTOS.md §4). Refusing to write — re-encode at a smaller byte budget rather than truncating.`,
+            `Photo data URL is ${photo.dataUrl.length} characters, over the ${MAX_PHOTO_DATA_URL_LENGTH}-character Google Sheets cell limit. Refusing to write — re-encode at a smaller byte budget rather than truncating.`,
           );
         }
         photos.set(photoKey(photo.ownerKind, photo.ownerId), photo);

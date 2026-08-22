@@ -16,7 +16,17 @@
   border-radius: 999px;
 }
 
+/* Segments SHARE the pill's width rather than packing left.
+   `.group` is `inline-flex`, but a segmented control placed in a form
+   `.field` (a column flex, so `align-items: stretch`) gets stretched to the
+   full field width — ~720px in the ingredient editor. With the segments
+   content-sized, ~70% of the pill was an inert trough that still looked
+   clickable. Growing them fills the control instead, which is also what the
+   approved mock does wherever it renders a full-width segmented control
+   (its segments carry `flex:1`). `1 1 auto` grows but will not shrink a
+   segment below its own label, so nothing clips. */
 .segment {
+  flex: 1 1 auto;
   position: relative;
   display: flex;
   align-items: center;

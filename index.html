@@ -16,13 +16,13 @@
          and the canvas are painted for the active one instead of defaulting light. -->
     <meta name="color-scheme" content="light dark" />
 
-    <!-- Browser UI colour. Static in the document; UI_DESIGN.md §3 makes the accent
+    <!-- Browser UI colour. Static in the document; the design system makes the accent
          user-selectable, so the theme provider rewrites this at runtime to follow the
          chosen hue. These two are the pre-JS defaults. -->
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#1c9b5e" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#16171d" />
 
-    <!-- ── Theme pre-paint (UI_DESIGN.md §2) ─────────────────────────────────
+    <!-- ── Theme pre-paint (the design system) ─────────────────────────────────
          Synchronous, BLOCKING, inline — not a module, not deferred. A module
          import (src/main.tsx) runs after the browser has already painted the
          initial frame, so setting data-theme there would flash the wrong
