@@ -39,6 +39,33 @@
   }
 }
 
+/*
+ * Phone's replacement for `.rail` (Pantry.tsx's `.phoneFilters` block) — the
+ * rail is `display: none` below 768px and until now nothing replaced it, so
+ * on a phone there was no way to filter by location, filter by
+ * Expiring/Opened, or reach Leftovers at all (owner-reported). Deliberately
+ * the exact inverse of `.rail`'s media query, same invariant as
+ * shopping.module.css's `.fab`/`.scanAction`: precisely one filter surface
+ * exists at every width, never two, never none.
+ *
+ * `order: -1` puts this ahead of `.main` visually (matching the mock's phone
+ * tier: filters sit above the list) while its DOM position stays AFTER
+ * `.main` — see the comment at its call site for why that DOM position
+ * matters for an existing test.
+ */
+.phoneFilters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  order: -1;
+}
+
+@media (min-width: 768px) {
+  .phoneFilters {
+    display: none;
+  }
+}
+
 .railCard {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);

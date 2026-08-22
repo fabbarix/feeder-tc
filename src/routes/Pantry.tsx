@@ -28,6 +28,7 @@ import forms from "./forms.module.css";
 type ActiveForm = "add" | "use" | null;
 type LocationFilter = "all" | StorageLocation;
 type ShowFilter = "expiring" | "opened" | "leftovers";
+type PantrySection = "stock" | "leftovers";
 
 const LOCATION_FILTER_OPTIONS: readonly { value: LocationFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -39,6 +40,17 @@ const SHOW_FILTER_OPTIONS: readonly { value: ShowFilter; label: string }[] = [
   { value: "opened", label: "Opened" },
   { value: "leftovers", label: "Leftovers" },
 ];
+
+// Phone-only "Stock"/"Leftovers" tab (design/mock-responsive.html #pantry
+// phone tier's `.seg`) and its matching "Show" subset — see the `.phoneFilters`
+// block in Pantry() for why these exist as a second surface rather than a
+// rename of the rail's own controls.
+const SECTION_OPTIONS: readonly { value: PantrySection; label: string }[] = [
+  { value: "stock", label: "Stock" },
+  { value: "leftovers", label: "Leftovers" },
+];
+
+const PHONE_SHOW_FILTER_OPTIONS = SHOW_FILTER_OPTIONS.filter((option) => option.value !== "leftovers");
 
 const TONE_CLASS: Record<"ok" | "warn" | "crit", string | undefined> = {
   ok: styles.expiryText,
@@ -87,6 +99,30 @@ export function Pantry() {
   );
 
   const ingredientsWithStock = useMemo(() => aggregates.map((a) => a.ingredient), [aggregates]);
+
+  // Phone's "Stock"/"Leftovers" tab (see `.phoneFilters` below) is a second
+  // control surface over the SAME `showFilters` state the rail's "Show"
+  // ToggleChips already write to — not a new filter dimension. Selecting
+  // "Leftovers" here is exactly selecting the rail's "Leftovers" chip;
+  // there is one source of truth either way.
+  const pantrySection: PantrySection = showFilters.includes("leftovers") ? "leftovers" : "stock";
+
+  function handleSectionChange(next: PantrySection): void {
+    setShowFilters((current) =>
+      next === "leftovers"
+        ? current.includes("leftovers")
+          ? current
+          : [...current, "leftovers"]
+        : current.filter((filter) => filter !== "leftovers"),
+    );
+  }
+
+  // The phone "Show" row omits "Leftovers" (that's the tab above now), so its
+  // onChange must preserve whatever the "leftovers" flag currently is rather
+  // than overwrite it with a value that can never include it.
+  function handlePhoneShowFilterChange(next: readonly ShowFilter[]): void {
+    setShowFilters((current) => (current.includes("leftovers") ? [...next, "leftovers"] : next));
+  }
 
   // FILTERS rail (design/mock-screens.html #pantry desktop card: "Location"
   // segmented control + "Show" chips) — replaces the old "At a glance"
@@ -292,6 +328,46 @@ export function Pantry() {
                 ) : null}
               </>
             )}
+          </div>
+
+          {/* Phone's replacement for the rail below, which is `display:
+              none` below 768px with nothing else taking its place — the
+              reachability bug this block fixes (owner-reported: on a phone
+              there was no way to filter by location, filter by
+              Expiring/Opened, or reach Leftovers at all).
+              design/mock-responsive.html #pantry's phone tier: a "Stock" /
+              "Leftovers" segmented tab above a horizontal filter row, no
+              rail. Kept AFTER `.main` in DOM (same position `.rail` already
+              occupies) purely so the add-lot form's own "Location"
+              radiogroup — rendered inside `.main` — still resolves first for
+              `.first()` queries (wp-21-pantry-management.spec.ts); `order:
+              -1` in pantry.module.css puts it above `.main` visually. Same
+              "exactly one surface reachable" invariant as
+              shopping.module.css's `.fab`/`.scanAction`: this and `.rail`
+              are exact mirror-image media queries. */}
+          <div className={styles.phoneFilters}>
+            <div className={forms.fullWidthControl}>
+              <SegmentedControl<PantrySection>
+                aria-label="Pantry section"
+                options={SECTION_OPTIONS}
+                value={pantrySection}
+                onChange={handleSectionChange}
+              />
+            </div>
+            <div className={forms.fullWidthControl}>
+              <SegmentedControl<LocationFilter>
+                aria-label="Location"
+                options={LOCATION_FILTER_OPTIONS}
+                value={locationFilter}
+                onChange={setLocationFilter}
+              />
+            </div>
+            <ToggleChips<ShowFilter>
+              aria-label="Show"
+              options={PHONE_SHOW_FILTER_OPTIONS}
+              value={showFilters.filter((filter) => filter !== "leftovers")}
+              onChange={handlePhoneShowFilterChange}
+            />
           </div>
 
           {/* FILTERS rail (design/mock-screens.html #pantry desktop card) —
