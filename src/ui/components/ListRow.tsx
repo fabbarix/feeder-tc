@@ -17,6 +17,15 @@ export interface ListRowProps {
    */
   readonly failed?: boolean;
   readonly onRetry?: () => void;
+  /**
+   * "card" swaps the border-bottom list-row treatment for a bordered,
+   * rounded card — the pairing for `ListSection`'s `layout="grid"` (see
+   * that component's doc comment). Like the grid it belongs inside, this
+   * only takes visual effect within the 768-1439px tablet band
+   * (ListRow.module.css); outside it, `.row`'s ordinary list styling
+   * applies regardless of this prop. Ingredients is the only caller.
+   */
+  readonly variant?: "row" | "card";
 }
 
 /**
@@ -27,9 +36,9 @@ export interface ListRowProps {
  * inside a pressable row would be invalid HTML). Wrap it in whatever
  * interaction the caller needs (a link, a button around just the text).
  */
-export function ListRow({ leading, primary, secondary, trailing, failed = false, onRetry }: ListRowProps) {
+export function ListRow({ leading, primary, secondary, trailing, failed = false, onRetry, variant = "row" }: ListRowProps) {
   return (
-    <div className={`${styles.row}${failed ? ` ${styles.failed}` : ""}`}>
+    <div className={`${styles.row}${variant === "card" ? ` ${styles.card}` : ""}${failed ? ` ${styles.failed}` : ""}`}>
       {leading ? <div className={styles.leading}>{leading}</div> : null}
       <div className={styles.text}>
         <div className={styles.primary}>{primary}</div>

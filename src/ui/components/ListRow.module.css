@@ -69,3 +69,21 @@
 .failed .primary {
   color: var(--danger);
 }
+
+/*
+ * Card variant (ListRowProps.variant === "card") — used only inside
+ * ListSection's matching `layout="grid"` (Ingredients, tablet UI/UX review
+ * finding 3; see ListSection.module.css). Gated to the same 768-1439px
+ * tablet band: outside it this class has no visual effect and `.row`'s
+ * ordinary border-bottom list styling applies. The internal layout
+ * (leading/text/trailing as a flex row) is unchanged from `.row` — only the
+ * box treatment differs, matching the mock's `.icard`.
+ */
+@media (min-width: 768px) and (max-width: 1439.98px) {
+  .row.card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    min-height: 0;
+  }
+}

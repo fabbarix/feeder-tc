@@ -14,3 +14,30 @@
 .rows > :last-child {
   border-bottom: none;
 }
+
+/*
+ * Opt-in reflowing card grid (ListSectionProps.layout === "grid") — see
+ * ListSection.tsx's doc comment for who uses this and why. Gated to the
+ * 768-1439px tablet band: below it there's no room for more than one
+ * column anyway, and above it AppShell.tsx narrows Ingredients' own
+ * container back to the 840px reading measure, where the desktop
+ * single-column list is deliberately unchanged. Same `auto-fill,
+ * minmax(230px, 1fr)` mechanism as recipes.module.css's `.grid`/the mock's
+ * `.igrid` — not a bespoke breakpoint invented for this one screen.
+ */
+@media (min-width: 768px) and (max-width: 1439.98px) {
+  .rowsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 11px;
+  }
+
+  /* Undoes the plain-list rule above: every card needs its own full border
+     in grid mode, including the last one (there's no trailing "list" edge
+     to avoid doubling here). Same specificity as `.rows > :last-child`
+     above — this wins on source order (it's declared after it), not by
+     accident. */
+  .rowsGrid > :last-child {
+    border-bottom: 1px solid var(--border);
+  }
+}

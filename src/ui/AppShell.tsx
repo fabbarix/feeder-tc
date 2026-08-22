@@ -80,13 +80,19 @@ const NAV_ITEMS: readonly NavItem[] = [
  * (`/recipes/:id`) is a detail/edit view, not a grid, so it deliberately
  * keeps the measure even though it nests under `/recipes`.
  *
- * `/recipes/ingredients` is deliberately NOT here even though it is a
- * "browse" screen and a `RouteTabs` sibling of `/recipes`: it renders as a
- * single-column `ListSection`/`ListRow` (one short line of text per
- * ingredient), not a grid — going wide would only stretch each row's own
- * border/hover target across ~1600px of mostly blank trailing space, which
- * is padding, not information (UI_DESIGN.md §13's own rule for why width
- * is worth spending at all). It keeps the reading measure.
+ * `/recipes/ingredients` is deliberately NOT here, even though it is a
+ * "browse" screen and a `RouteTabs` sibling of `/recipes`: at DESKTOP width
+ * it renders as a single-column `ListSection`/`ListRow` (one short line of
+ * text per ingredient), not a grid — going wide would only stretch each
+ * row's own border/hover target across ~1600px of mostly blank trailing
+ * space, which is padding, not information (UI_DESIGN.md §13's own rule for
+ * why width is worth spending at all). See `TABLET_WIDE_ROUTES` just below
+ * for the tablet-only exception: that reasoning was calibrated for
+ * desktop's 1680px cap and never evaluated at 768-1439px, where the same
+ * narrow measure instead left up to ~540px of dead margin next to the list
+ * (tablet UI/UX review) — `ListSection`'s `grid` prop turns the list into a
+ * three-column card grid there, and `TABLET_WIDE_ROUTES` is what gives it
+ * the room to do that.
  */
 // `/plan` (WP-22) joins this set too: design/mock-screens.html's Plan
 // section is explicitly seven columns wide on desktop ("the week planner
@@ -100,6 +106,25 @@ const NAV_ITEMS: readonly NavItem[] = [
 // not padding") — the 840px reading measure would squeeze list+rail into a
 // column narrower than either wants.
 const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/pantry", "/plan", "/shopping"]);
+
+/**
+ * Wide ONLY within the tablet band (768-1439px; `.mainTabletWide` below) —
+ * distinct from `WIDE_ROUTES`, which is wide at every width from 768px up.
+ * `/recipes/ingredients` is the only member: its list is capped at the
+ * 840px reading measure at both phone and desktop widths (unchanged — see
+ * `WIDE_ROUTES`'s own doc comment for why desktop stays narrow), but widens
+ * in between so `ListSection`'s tablet-only `grid` prop (design/mock-
+ * responsive.html's Ingredients tier note) has real width to lay out three
+ * columns in, instead of reflowing inside the same 840px a single-column
+ * list already fit in.
+ */
+const TABLET_WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes/ingredients"]);
+
+function mainContainerClass(pathname: string): string | undefined {
+  if (WIDE_ROUTES.has(pathname)) return styles.mainWide;
+  if (TABLET_WIDE_ROUTES.has(pathname)) return styles.mainTabletWide;
+  return styles.mainMeasure;
+}
 
 export interface AppShellProps {
   readonly state: ShellState;
@@ -149,7 +174,7 @@ export function AppShell({
   authStatusSlot,
   workbookSwitcherSlot,
 }: AppShellProps) {
-  const isWide = WIDE_ROUTES.has(useLocation().pathname);
+  const mainClass = mainContainerClass(useLocation().pathname);
   return (
     <div className={styles.shell}>
       <a className={styles.skipLink} href="#main-content">
@@ -233,9 +258,7 @@ export function AppShell({
       ) : null}
 
       <main id="main-content" className={styles.main} tabIndex={-1}>
-        <div className={isWide ? styles.mainWide : styles.mainMeasure}>
-          {renderGate(state, { onSignIn, onCreateWorkbook, onPickWorkbook })}
-        </div>
+        <div className={mainClass}>{renderGate(state, { onSignIn, onCreateWorkbook, onPickWorkbook })}</div>
       </main>
 
       {/*

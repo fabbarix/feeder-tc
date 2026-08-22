@@ -28,15 +28,20 @@ export const TIERS: readonly Tier[] = [
 ];
 
 /**
- * The app's own (single) layout breakpoint — `AppShell`'s nav switches from
- * a mobile bottom tab bar to an inline top bar at 768px, and every other
- * route-level "wide rail" (Pantry's filters, Shopping's why-rail, the
- * two-column Settings/Recipe-detail grid) reuses that SAME 768px query
- * (confirmed by grepping every `*.module.css` in `src/routes/` and
- * `src/ui/` — there is no second, higher breakpoint anywhere in the actual
- * CSS, only in `design/mock-responsive.html`'s own tier-strip narrative).
- * Exported so a spec can say "is this tier wide enough for the rail" without
- * re-deriving the number.
+ * The app's main layout breakpoint — `AppShell`'s nav switches from a mobile
+ * bottom tab bar to an inline top bar at 768px, and most route-level "wide
+ * rail" treatments (Pantry's filters, Shopping's why-rail, the two-column
+ * Settings/Recipe-detail grid) reuse that SAME 768px query. Exported so a
+ * spec can say "is this tier wide enough for the rail" without re-deriving
+ * the number.
+ *
+ * NOT the only breakpoint any more (updated, tablet UI/UX review): Plan's
+ * `.week`/`.weekBands` and Ingredients' tablet-only card grid
+ * (plan.module.css, AppShell.module.css's `.mainTabletWide`,
+ * ListRow/ListSection's `variant="card"`/`layout="grid"`) also switch at
+ * 1440px, splitting 768px+ into a genuine tablet band (768-1439px) and a
+ * desktop band (>=1440px) — `design/mock-responsive.html`'s tier-strip
+ * narrative is no longer purely aspirational for those two screens.
  */
 export const WIDE_BREAKPOINT_PX = 768;
 
