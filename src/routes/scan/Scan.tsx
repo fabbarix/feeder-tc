@@ -95,7 +95,21 @@ export function Scan() {
   async function handleSaveNewProduct(barcode: Barcode, input: ProductEditorSaveInput): Promise<void> {
     setSavingNew(true);
     try {
-      await flow.saveProduct(input.product);
+      const saved = await flow.saveProduct(input.product);
+      if (saved.status === "conflict") {
+        // WP-stale-save: someone else already added this exact barcode
+        // between this device's scan and this save — see useScanFlow.ts's
+        // `saveProduct` doc comment. Falls back to the normal known-product
+        // flow against THEIR definition rather than overwriting it with
+        // this device's (possibly different) one.
+        showToast({
+          variant: "warning",
+          title: "Someone already added this product",
+          description: "Using the product they already added instead of overwriting it.",
+        });
+        setPhase({ kind: "known", product: saved.existing });
+        return;
+      }
       if (input.photoDataUrl !== undefined) {
         await flow.savePhoto("product", barcode, input.photoDataUrl);
       }

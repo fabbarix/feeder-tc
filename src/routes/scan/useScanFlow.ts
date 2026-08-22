@@ -101,6 +101,16 @@ export interface RecordPriceInput {
   readonly source?: string;
 }
 
+/**
+ * WP-stale-save: `saveProduct` only ever runs for a barcode THIS device
+ * scanned as unrecognised (`Scan.tsx`'s `phase: "new"`) — see that
+ * function's own doc comment. `"conflict"` means the barcode was created
+ * by someone else in the interval between this device's scan and its save
+ * — `existing` is the row Sheets already has, so the caller can switch to
+ * the normal known-product flow against it instead of overwriting it.
+ */
+export type SaveProductResult = { readonly status: "created" } | { readonly status: "conflict"; readonly existing: Product };
+
 export interface ScanFlow {
   readonly loading: boolean;
   readonly error: string | undefined;
@@ -114,7 +124,7 @@ export interface ScanFlow {
   /** This week's live shopping need, keyed by ingredient — see the module doc comment. */
   readonly shoppingNeedByIngredient: ReadonlyMap<IngredientId, ShoppingListLine>;
   readonly retry: () => void;
-  readonly saveProduct: (product: Product) => Promise<void>;
+  readonly saveProduct: (product: Product) => Promise<SaveProductResult>;
   readonly savePhoto: (ownerKind: PhotoOwnerKind, ownerId: Barcode, dataUrl: string) => Promise<void>;
   readonly recordPurchase: (input: RecordPurchaseInput) => Promise<void>;
   readonly recordPrice: (input: RecordPriceInput) => Promise<void>;
@@ -133,6 +143,12 @@ export function useScanFlow(): ScanFlow {
   const [recipeIngredients, setRecipeIngredients] = useState<readonly RecipeIngredient[]>([]);
   const [planSlots, setPlanSlots] = useState<readonly PlanSlot[]>([]);
   const [settings, setSettings] = useState<Settings | undefined>(undefined);
+  // WP-stale-save: this hook's own already-synced snapshot of `ShoppingItems`
+  // — see `recordPurchase`'s doc comment for why. Read at boot/refresh, same
+  // cadence as `useShoppingList.ts`'s own `shoppingItems` state, never a
+  // live read at write time (this is the same in-store, one-handed path
+  // UI_DESIGN.md §1 invariant 5 covers for manual check-off).
+  const [shoppingItems, setShoppingItems] = useState<readonly ShoppingItem[]>([]);
   const [confirmed, setConfirmed] = useState<Snapshot | undefined>(undefined);
   const [meta, setMeta] = useState<Meta | undefined>(undefined);
   const [pending, setPending] = useState<readonly InventoryEvent[]>([]);
@@ -142,14 +158,16 @@ export function useScanFlow(): ScanFlow {
   const refresh = useCallback(async (): Promise<void> => {
     if (!engine) return;
     const snapshotStore = createLocalStorageSnapshotStore();
-    const [nextConfirmed, nextMeta, nextPending] = await Promise.all([
+    const [nextConfirmed, nextMeta, nextPending, shoppingItemsResult] = await Promise.all([
       syncSnapshot({ workbookStore: store, snapshotStore, applyNewEvents: engine.applyNewEvents }, workbookId),
       store.meta.read(),
       engine.outbox.pending(),
+      store.shoppingItems.readAll(),
     ]);
     setConfirmed(nextConfirmed);
     setMeta(nextMeta);
     setPending(nextPending);
+    setShoppingItems(shoppingItemsResult.rows);
   }, [engine, store, workbookId]);
 
   const refreshRef = useRef(refresh);
@@ -165,15 +183,23 @@ export function useScanFlow(): ScanFlow {
     let releaseSharedSync: (() => void) | undefined;
 
     async function boot(): Promise<void> {
-      const [ingredientsResult, productsResult, recipesResult, recipeIngredientsResult, planSlotsResult, settingsResult] =
-        await Promise.all([
-          store.ingredients.readAll(),
-          store.products.readAll(),
-          store.recipes.readAll(),
-          store.recipeIngredients.readAll(),
-          store.planSlots.readAll(),
-          store.settings.read(),
-        ]);
+      const [
+        ingredientsResult,
+        productsResult,
+        recipesResult,
+        recipeIngredientsResult,
+        planSlotsResult,
+        settingsResult,
+        shoppingItemsResult,
+      ] = await Promise.all([
+        store.ingredients.readAll(),
+        store.products.readAll(),
+        store.recipes.readAll(),
+        store.recipeIngredients.readAll(),
+        store.planSlots.readAll(),
+        store.settings.read(),
+        store.shoppingItems.readAll(),
+      ]);
       if (cancelled) return;
 
       setError(undefined);
@@ -183,6 +209,7 @@ export function useScanFlow(): ScanFlow {
       setRecipeIngredients(recipeIngredientsResult.rows);
       setPlanSlots(planSlotsResult.rows);
       setSettings(settingsResult);
+      setShoppingItems(shoppingItemsResult.rows);
 
       const allWarnings = [
         ...ingredientsResult.warnings,
@@ -279,14 +306,44 @@ export function useScanFlow(): ScanFlow {
 
   const currencySymbol = settings?.currency ?? "$";
 
+  /**
+   * WP-stale-save: this only ever creates a product THIS device believed
+   * was unrecognised — there is no prior row this device loaded and is now
+   * editing (the recipe/ingredient forms' "re-read, compare,
+   * ConfirmDialog" shape doesn't apply — nothing here is stale by that
+   * definition). The real, narrower risk: two people scanning the SAME
+   * unknown barcode around the same time would each mint a DIFFERENT
+   * product definition for it, and `products.upsert` (insert-or-replace by
+   * barcode, contracts.ts) would let whichever write lands last silently
+   * overwrite the other's choice of name/ingredient/package size with no
+   * warning. This re-read (once, on a multi-field form submit — not a
+   * one-handed tap, so not the invariant-5 latency concern the shopping/
+   * scan check-off paths are) catches that: if the barcode already exists
+   * by the time of this save, this does NOT overwrite it — it reports the
+   * conflict so the caller can fall back to the normal known-product flow
+   * against whichever definition Sheets already has.
+   */
   const saveProduct = useCallback(
-    async (product: Product): Promise<void> => {
+    async (product: Product): Promise<SaveProductResult> => {
+      const latest = await store.products.readAll();
+      const existing = latest.rows.find((p) => p.barcode === product.barcode);
+      if (existing) {
+        setProducts((current) => [...current.filter((p) => p.barcode !== existing.barcode), existing]);
+        return { status: "conflict", existing };
+      }
       await store.products.upsert(product);
       setProducts((current) => [...current.filter((p) => p.barcode !== product.barcode), product]);
+      return { status: "created" };
     },
     [store],
   );
 
+  // WP-stale-save: no stale-save protection here — a `Photo` row IS the
+  // image (`ownerKind`/`ownerId`/`dataUrl`/`updatedAt`, contracts.ts), no
+  // adjacent field a concurrent write could clobber, so last-write-wins is
+  // simply "whichever photo was saved last shows" — the same reasoning
+  // `photo-save.ts`'s `applyPhotoDraft` documents for the recipe/ingredient
+  // photo forms.
   const savePhoto = useCallback(
     async (ownerKind: PhotoOwnerKind, ownerId: Barcode, dataUrl: string): Promise<void> => {
       await store.photos.upsert({ ownerKind, ownerId, dataUrl, updatedAt: clock.now() });
@@ -294,8 +351,24 @@ export function useScanFlow(): ScanFlow {
     [store, clock],
   );
 
+  // WP-stale-save: same deliberate "merge onto the already-synced local
+  // snapshot, no live re-read" shape as `useShoppingList.ts`'s own
+  // `persistShoppingItem` — see that hook's doc comment for the full
+  // UI_DESIGN.md §1 invariant 5 reasoning (scan-and-buy is the same
+  // in-store, one-handed, bad-connection path as manual check-off).
   const persistShoppingItem = useCallback(
     async (item: ShoppingItem): Promise<void> => {
+      setShoppingItems((current) => [
+        ...current.filter(
+          (existing) =>
+            !(
+              existing.ingredientId === item.ingredientId &&
+              existing.rangeStart === item.rangeStart &&
+              existing.rangeEnd === item.rangeEnd
+            ),
+        ),
+        item,
+      ]);
       try {
         await store.shoppingItems.upsert(item);
       } catch (err) {
@@ -346,6 +419,28 @@ export function useScanFlow(): ScanFlow {
       void engine.controller.flushNow();
 
       if (need) {
+        // WP-stale-save: `need` (this week's ENGINE-computed shopping line)
+        // never carries a `purchaseOverride` — only `withPurchaseOverride`
+        // (called by `useShoppingList.ts`, not this hook) merges one onto
+        // an engine line. Writing straight from `need` alone used to
+        // silently ERASE whatever `purchaseOverride`/`suggestedPurchase`
+        // the ALREADY-PERSISTED `ShoppingItems` row for this ingredient +
+        // range had (DESIGN_PURCHASING.md §7: `purchaseOverride` is
+        // specifically meant to "survive a plan recompute" — a scan is not
+        // a recompute either), because this is a full-row upsert
+        // (contracts.ts) with no partial-field update. `existingItem` is
+        // this hook's own already-synced local snapshot of that row
+        // (`shoppingItems` state, above) — merging onto it, not a fresh
+        // read, keeps this exact same non-blocking shape check-off itself
+        // uses (see `persistShoppingItem`'s doc comment).
+        const existingItem = shoppingItems.find(
+          (item) =>
+            item.ingredientId === need.ingredientId &&
+            item.rangeStart === need.rangeStart &&
+            item.rangeEnd === need.rangeEnd,
+        );
+        const suggestedPurchase = need.suggestedPurchase ?? existingItem?.suggestedPurchase;
+        const purchaseOverride = existingItem?.purchaseOverride;
         await persistShoppingItem({
           ingredientId: need.ingredientId,
           rangeStart: need.rangeStart,
@@ -353,10 +448,12 @@ export function useScanFlow(): ScanFlow {
           neededQuantity: need.neededQuantity,
           checked: true,
           boughtQuantity: input.buyQuantity,
+          ...(suggestedPurchase !== undefined ? { suggestedPurchase } : {}),
+          ...(purchaseOverride !== undefined ? { purchaseOverride } : {}),
         });
       }
     },
-    [engine, shoppingNeedByIngredient, clock, rng, showToast, persistShoppingItem],
+    [engine, shoppingNeedByIngredient, shoppingItems, clock, rng, showToast, persistShoppingItem],
   );
 
   const recordPrice = useCallback(

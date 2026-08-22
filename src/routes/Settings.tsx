@@ -43,32 +43,49 @@ const NO_SETTINGS_ROW_ERROR =
  * Household settings (WP-22): meal-slot layout per day, household size, and
  * the repeat-exclusion window — all stored in the workbook's `Settings` row
  * and shared by everyone in the household (DESIGN.md §2). Plain-row write
- * via `useSettings`, same pattern as `RecipeEditor.tsx`.
+ * via `useSettings` — WP-stale-save: refresh-before-edit merge rather than
+ * `RecipeEditor.tsx`'s re-read-and-confirm, see that hook's own doc comment
+ * for why (every write here is one rapid tap, not a discrete form Save).
  */
 export function Settings() {
   const { loading, error, settings, saving, retry, save } = useSettings();
   const missingSettingsRow = error === NO_SETTINGS_ROW_ERROR;
 
+  // Each of these builds its next `Settings` from `current` — the freshest
+  // row `save` re-reads (see useSettings.ts's own doc comment) — not from
+  // this render's `settings` closure, so a concurrent household member's
+  // change to a DIFFERENT field (e.g. someone else adding a meal slot while
+  // this device bumps household size) survives instead of being reset by
+  // this tap. The outer `settings` is only ever a type-safe fallback: `save`
+  // only calls `edit` with `undefined` when `settings` is itself
+  // `undefined`, and every call site here is already guarded on `settings`
+  // being defined.
   function updateHouseholdSize(size: number): void {
     if (!settings) return;
-    void save({ ...settings, householdSize: Math.max(1, size) });
+    void save((current) => ({ ...(current ?? settings), householdSize: Math.max(1, size) }));
   }
 
   function updateRepeatExclusionWeeks(weeks: number): void {
     if (!settings) return;
-    void save({ ...settings, repeatExclusionWeeks: Math.max(0, weeks) });
+    void save((current) => ({ ...(current ?? settings), repeatExclusionWeeks: Math.max(0, weeks) }));
   }
 
   function addSlot(day: Weekday, tag: MealTag): void {
     if (!settings) return;
-    const byDay = withSlotAdded(slotsByDay(settings.slotLayout), day, tag);
-    void save({ ...settings, slotLayout: layoutFromSlotsByDay(byDay) });
+    void save((current) => {
+      const base = current ?? settings;
+      const byDay = withSlotAdded(slotsByDay(base.slotLayout), day, tag);
+      return { ...base, slotLayout: layoutFromSlotsByDay(byDay) };
+    });
   }
 
   function removeSlot(day: Weekday, index: number): void {
     if (!settings) return;
-    const byDay = withSlotRemoved(slotsByDay(settings.slotLayout), day, index);
-    void save({ ...settings, slotLayout: layoutFromSlotsByDay(byDay) });
+    void save((current) => {
+      const base = current ?? settings;
+      const byDay = withSlotRemoved(slotsByDay(base.slotLayout), day, index);
+      return { ...base, slotLayout: layoutFromSlotsByDay(byDay) };
+    });
   }
 
   /**
@@ -79,7 +96,7 @@ export function Settings() {
    * remedy. The household can edit every value immediately afterwards.
    */
   function setUpDefaults(): void {
-    void save(DEFAULT_SETTINGS);
+    void save(() => DEFAULT_SETTINGS);
   }
 
   const byDay = settings ? slotsByDay(settings.slotLayout) : undefined;

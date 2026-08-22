@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Settings } from "./Settings.tsx";
 import { ToastProvider } from "../ui/components/Toast/ToastProvider.tsx";
 import { ThemeProvider } from "../ui/theme/ThemeProvider.tsx";
 import { WorkbookContext, type WorkbookContextValue } from "../workbook-context.ts";
 import { createFakeOutbox, createFakeRng, createFakeWorkbookStore, createFixedClock } from "../domain/fakes/index.ts";
-import { makeIsoDate, makeIsoTimestamp, type WorkbookStore } from "../domain/index.ts";
+import { makeIsoDate, makeIsoTimestamp, type Settings as SettingsRow, type WorkbookStore } from "../domain/index.ts";
 
 const NO_SETTINGS_ROW_ERROR =
   'Settings sheet has no valid "general" row — the workbook was not bootstrapped correctly.';
@@ -84,5 +84,53 @@ describe("Settings — no Settings row yet (WP-31)", () => {
     expect(await screen.findByText(/couldn't load settings/i)).toBeInTheDocument();
     expect(screen.getByText("Network request failed")).toBeInTheDocument();
     expect(screen.queryByText(/set up defaults/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * WP-stale-save: `useSettings.ts`'s `settings.write` was one of the blind
+ * write sites this workstream closes. Unlike the whole-form editors
+ * (RecipeEditor.tsx/IngredientEditor.tsx), Settings never gets a
+ * ConfirmDialog — see that hook's own doc comment for why (rapid taps, no
+ * discrete Save). Instead this proves the refresh-before-edit MERGE: a
+ * concurrent household member's slot-layout change survives a household-
+ * size tap on a different device that loaded the row before that change
+ * landed.
+ */
+describe("Settings — stale-save protection (refresh-before-edit merge)", () => {
+  it("a household-size tap doesn't revert a meal slot another client already added", async () => {
+    const store = createFakeWorkbookStore();
+    const initial: SettingsRow = {
+      householdSize: 2,
+      slotLayout: [{ day: "monday", slots: ["breakfast", "lunch", "dinner"] }],
+      repeatExclusionWeeks: 3,
+      currency: "$",
+    };
+    await store.settings.write(initial);
+
+    renderSettings(store);
+    await screen.findByText("Meal slots per day");
+
+    // Another household member (or another tab) adds a Tuesday breakfast
+    // slot AFTER this route loaded its own copy of `settings`.
+    await store.settings.write({
+      ...initial,
+      slotLayout: [...initial.slotLayout, { day: "tuesday", slots: ["breakfast"] }],
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByLabelText("More — Size"));
+
+    await waitFor(async () => {
+      const saved = await store.settings.read();
+      expect(saved.householdSize).toBe(3);
+    });
+
+    // The concurrent slot addition is NOT clobbered by this tap's write —
+    // this is the "protect other fields, not the toggle itself" case, not a
+    // whole-row blind overwrite.
+    const saved = await store.settings.read();
+    expect(saved.slotLayout).toHaveLength(2);
+    expect(saved.slotLayout.some((d) => d.day === "tuesday")).toBe(true);
   });
 });

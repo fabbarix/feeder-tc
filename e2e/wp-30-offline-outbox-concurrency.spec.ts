@@ -166,6 +166,6 @@ test("two events enqueued while offline are not stranded — both land once reco
     await expect(page.getByRole("main")).toContainText("500 g");
     await expect(page.getByRole("main")).toContainText("200 ml");
   } finally {
-    backend.close();
+    await backend.close();
   }
 });

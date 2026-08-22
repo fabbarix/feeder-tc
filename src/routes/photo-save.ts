@@ -10,6 +10,15 @@
  * only ever holds its edit locally (see that component's own doc comment),
  * matching every other field on these forms: Cancel never leaves an
  * orphaned `Photos` row behind.
+ *
+ * WP-stale-save: deliberately NO stale-save protection on `photos.upsert`/
+ * `photos.remove` here. A `Photo` row (contracts.ts) IS the image —
+ * `ownerKind`/`ownerId`/`dataUrl`/`updatedAt`, no adjacent field a
+ * concurrent write could clobber — so last-write-wins is simply "whichever
+ * photo was saved last is the one that shows", the same as any other
+ * single-value field. The recipe/ingredient forms that call this already
+ * run their OWN stale-save check on the entity's other fields
+ * (name/status/shelf-life/...) before ever reaching this call.
  */
 import type { Clock, PhotoOwnerId, PhotoOwnerKind, WorkbookStore } from "../domain/index.ts";
 import type { PhotoDraft } from "../ui/photo/index.ts";

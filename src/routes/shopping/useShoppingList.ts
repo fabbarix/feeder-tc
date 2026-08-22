@@ -356,6 +356,26 @@ export function useShoppingList(range: DateRange): ShoppingListState {
     return map;
   }, [shoppingItems, range]);
 
+  /**
+   * WP-stale-save: `shoppingItems.upsert` is one of the blind write sites
+   * this workstream closes — but deliberately WITHOUT a fresh
+   * `store.shoppingItems.readAll()` in front of it, unlike every
+   * whole-entity form this workstream also fixes. UI_DESIGN.md §1
+   * invariant 5 is explicit that this exact screen is used "one-handed, in
+   * a supermarket aisle" on a possibly bad connection — a live re-read per
+   * tick would put a network round trip on the single most latency-
+   * sensitive tap in the app.
+   *
+   * Protection instead comes from `checkOff`/`uncheck`/`setPurchaseOverride`
+   * below always building `item` from the ALREADY-SYNCED local snapshot at
+   * call time (`checkedByIngredient`/`overrideByIngredient`, both derived
+   * from the `shoppingItems` state this hook keeps current via `refresh()`
+   * on every outbox flush) rather than a value captured once at mount —
+   * so a field this exact tap doesn't touch (`purchaseOverride`,
+   * `suggestedPurchase`, `boughtQuantity`) is never blindly reset to a
+   * default. `checked` itself is intentionally NOT protected the same
+   * way — per HANDOVER's decision register, the last tick correctly wins.
+   */
   const persistShoppingItem = useCallback(
     async (item: ShoppingItem): Promise<void> => {
       setShoppingItems((current) => {

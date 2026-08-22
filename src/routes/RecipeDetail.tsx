@@ -188,12 +188,32 @@ export function RecipeDetail() {
     [cookedSlots],
   );
 
+  /**
+   * WP-stale-save: this used to spread the LOCAL `recipe` (loaded once at
+   * mount) into the write — a blind full-row write that could revert
+   * whatever else a concurrent household member had since edited on this
+   * recipe (name, servings, a photo...) back to this route's stale copy.
+   * Re-reads and applies just the `status` flag to the freshest row instead
+   * — the toggle's own value is still correctly last-write-wins (tapping
+   * the flag again is the obvious "undo"), this only protects every OTHER
+   * field. No ConfirmDialog: this is a one-tap flag, not a multi-field form
+   * Save (RecipeEditor.tsx's own `/edit` route already covers that case for
+   * this exact recipe).
+   */
   async function handleStatusChange(status: RecipeStatus): Promise<void> {
     if (!recipe) return;
     const previous = recipe;
-    const updated: Recipe = { ...recipe, status };
-    setRecipe(updated);
+    const optimistic: Recipe = { ...recipe, status };
+    setRecipe(optimistic);
     try {
+      const latest = (await store.recipes.readAll()).rows.find((r) => r.id === recipe.id);
+      if (!latest) {
+        setRecipe(previous);
+        showToast({ variant: "error", title: "Couldn't update the household flag", description: "This recipe no longer exists." });
+        return;
+      }
+      const updated: Recipe = { ...latest, status };
+      setRecipe(updated);
       await store.recipes.upsert(updated);
     } catch (err) {
       setRecipe(previous);
@@ -201,13 +221,24 @@ export function RecipeDetail() {
     }
   }
 
+  /**
+   * WP-stale-save: `existing` used to come from `planSlots` — this route's
+   * OWN local snapshot, loaded once at mount — so a save here could revert
+   * a pin/scale/recipe-swap another household member made to today's exact
+   * slot since this page opened, or (worse) create a SECOND "cooked" slot
+   * for today alongside one someone else already logged, if this route's
+   * copy hadn't caught up. Re-reads `planSlots` fresh and redoes the exact
+   * same "is there already a planned slot for this recipe today" search
+   * over THAT, so the create-vs-update decision is made on current data.
+   */
   async function handleMarkCooked(): Promise<void> {
     if (!recipe) return;
     setMarking(true);
     try {
       const targetServings = servings ?? recipe.baseServings;
       const scaleOverride = targetServings !== recipe.baseServings ? { scaleServings: targetServings } : {};
-      const existing = planSlots.find(
+      const latestPlanSlots = (await store.planSlots.readAll()).rows;
+      const existing = latestPlanSlots.find(
         (s) =>
           s.date === today &&
           s.state === "planned" &&

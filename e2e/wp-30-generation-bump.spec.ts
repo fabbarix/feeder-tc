@@ -76,6 +76,6 @@ test("a client whose cached generation no longer matches Meta discards its snaps
     );
     expect(generationAfter).toBe(2);
   } finally {
-    backend.close();
+    await backend.close();
   }
 });

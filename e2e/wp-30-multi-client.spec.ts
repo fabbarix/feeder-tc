@@ -56,7 +56,7 @@ test.describe("Multi-client: two browser contexts, one workbook", () => {
       await enterReadyShell(pageA, bridgedPath("pantry"));
       await expect(pageA.getByRole("main")).toContainText("1200 g");
     } finally {
-      backend.close();
+      await backend.close();
     }
   });
 
@@ -126,7 +126,7 @@ test.describe("Multi-client: two browser contexts, one workbook", () => {
       await enterReadyShell(pageA, bridgedPath("recipes"));
       await expect(pageA.getByRole("link", { name: /Weeknight Pasta \(B's edit\)/ })).toBeVisible();
     } finally {
-      backend.close();
+      await backend.close();
     }
   });
 });

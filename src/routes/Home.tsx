@@ -236,11 +236,37 @@ export function Home() {
     return undefined;
   }
 
+  /**
+   * WP-stale-save: this used to spread the LOCAL `tonightSlot` (loaded once
+   * at mount) into the write — a full-row blind write that could revert
+   * whatever ELSE another household member had since changed on this exact
+   * slot (a pin, a scale override, a recipe swap). Re-reads and applies
+   * `state: "cooked"` to the freshest row instead — the "protect other
+   * fields, not the toggle itself" merge (`usePlanWeek.ts`'s `persistSlot`
+   * doc comment is the fuller version of this same reasoning; this route
+   * doesn't share that hook, so it's inlined here). If the slot is gone, or
+   * its filling is now empty, by the time of the fresh read (cleared
+   * elsewhere — `PlanSlot` rows are never deleted, only emptied), this does
+   * NOT resurrect a "cooked" recipe slot out of it — that would be
+   * recreating state someone else deliberately removed — it toasts instead
+   * and leaves the dashboard to catch up on its next load.
+   */
   async function handleMarkTonightCooked(): Promise<void> {
     if (!tonightSlot) return;
-    setMarkingSlotId(tonightSlot.id);
+    const slotId = tonightSlot.id;
+    setMarkingSlotId(slotId);
     try {
-      const updated: PlanSlot = { ...tonightSlot, state: "cooked" };
+      const latestRows = (await store.planSlots.readAll()).rows;
+      const latest = latestRows.find((s) => s.id === slotId);
+      if (!latest || latest.filling.kind === "empty") {
+        showToast({
+          variant: "warning",
+          title: "This meal changed elsewhere",
+          description: "Reload to see tonight's current plan.",
+        });
+        return;
+      }
+      const updated: PlanSlot = { ...latest, state: "cooked" };
       await store.planSlots.upsert(updated);
       setPlanSlots((current) => current.map((s) => (s.id === updated.id ? updated : s)));
       showToast({ variant: "success", title: "Marked cooked.", durationMs: 4000 });
