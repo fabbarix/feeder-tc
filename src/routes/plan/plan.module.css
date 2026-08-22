@@ -59,17 +59,65 @@
 }
 
 /* ---- Desktop: seven columns, the whole week visible (UI_DESIGN.md §13 "the
-   week planner is the screen that justifies desktop"). Hidden below 768px. ---- */
+   week planner is the screen that justifies desktop"). Visible only at
+   >=1440px (design/mock-responsive.html's tablet/desktop split) — below
+   that, `.weekBands` (tablet, four columns banded) or `.dayList` (mobile)
+   takes over. Seven columns used to switch on at 768px, straight from the
+   mobile day-list to `repeat(7,minmax(0,1fr))` with no tablet step in
+   between — that was the tablet-review defect (~135px/column, a normal
+   recipe name wraps three lines, reroll/pin/Remove stack under Cook for
+   lack of width). ---- */
 .week {
   display: none;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1440px) {
   .week {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: var(--space-2);
   }
+}
+
+/* ---- Tablet: four columns, banded Mon–Thu / Fri–Sun (design/mock-
+   responsive.html's Plan tier note — see Plan.tsx's own comment on this
+   block for why banded-four beats a scroll strip or auto-fill/minmax).
+   Visible only 768–1439px: `.week` (desktop, seven columns) takes over
+   above it, `.dayList` (mobile, stacked cards) below it. ---- */
+.weekBands {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1439.98px) {
+  .weekBands {
+    display: block;
+  }
+}
+
+.weekBand {
+  margin-bottom: var(--space-3);
+}
+
+.weekBand:last-child {
+  margin-bottom: 0;
+}
+
+.weekBandLabel {
+  font: 600 0.6rem/1 var(--sans);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 var(--space-2) 1px;
+}
+
+/* Both bands share this identical 4-track grid (Plan.tsx renders the
+   weekend band's 3 real days plus one `aria-hidden` filler div) — that's
+   what keeps Fri/Sat/Sun the same width as Mon–Thu instead of stretching
+   to fill a short row. */
+.week4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
 }
 
 .day {
@@ -81,16 +129,18 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  /* A grid item's (`.week`'s 7 columns) default `min-width: auto` sizes it
-     to its content's intrinsic minimum — with Remove now a 4th icon
-     alongside Cook/Reroll/Pin, that minimum can exceed the ~130px a column
-     actually gets around tablet width (1024px / 7), and the overflow paints
-     into the NEXT column rather than wrapping, silently stealing its
-     clicks (confirmed: Playwright reported the neighbour `.day` intercepting
-     a click aimed at a fully-visible-looking Remove button). `min-width: 0`
-     is the standard fix — combined with `.slotRow2`'s own `flex-wrap`
-     below, the icon row now wraps inside its own slot instead of escaping
-     it. */
+  /* A grid item's (`.week`'s 7 columns, or `.week4`'s 4) default
+     `min-width: auto` sizes it to its content's intrinsic minimum — with
+     Remove now a 4th icon alongside Cook/Reroll/Pin, that minimum can
+     exceed the width a column actually gets (this bug was first caught at
+     tablet's old seven-column width, ~130px/column; `.weekBands`/`.week4`
+     fixed the column math, but a very narrow window can still trip it), and
+     the overflow paints into the NEXT column rather than wrapping, silently
+     stealing its clicks (confirmed: Playwright reported the neighbour
+     `.day` intercepting a click aimed at a fully-visible-looking Remove
+     button). `min-width: 0` is the standard fix — combined with
+     `.slotRow2`'s own `flex-wrap` below, the icon row now wraps inside its
+     own slot instead of escaping it. */
   min-width: 0;
 }
 
@@ -249,17 +299,15 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  /* Wrap, for the same reason `.slotRow2` below does: the week grid is still
-     seven columns at tablet (~130px each), and a name plus a servings
-     stepper does not fit on one line there. Without this the row overflowed
-     its `.day` cell and covered the NEIGHBOURING day's controls — Playwright
-     caught it as "<div class=_slotRow1_> ... intercepts pointer events" while
-     trying to click a stepper, i.e. a real click-stealing bug, not a test
-     artefact.
-
-     The mock's own answer to this is a four-column banded week grid at
-     tablet (and a phone-only stepper); neither is built yet, so this keeps
-     the current seven-column grid honest until they are. */
+  /* Wrap, for the same reason `.slotRow2` below does: a name plus a
+     servings stepper doesn't always fit on one line, even in the tablet
+     band's wider four-column cards. Without this the row overflowed its
+     `.day` cell and covered the NEIGHBOURING day's controls — Playwright
+     caught it as "<div class=_slotRow1_> ... intercepts pointer events"
+     while trying to click a stepper, i.e. a real click-stealing bug, not a
+     test artefact. (This used to be seven columns at tablet width — the
+     tablet review's fix is `.weekBands`/`.week4` above; this wrap stays as
+     the general safety net regardless of column count.) */
   flex-wrap: wrap;
   row-gap: 4px;
 }
@@ -269,9 +317,8 @@
   align-items: center;
   gap: 5px;
   /* Wraps onto a second internal line rather than overflowing sideways out
-     of `.day` when a narrow column (tablet's ~130px-wide 7-column grid)
-     can't fit all four icons (Cook/Reroll/Pin/Remove) on one line — see
-     `.day`'s own comment on the click-interception bug this fixes. */
+     of `.day` when a narrow column can't fit all four icons (Cook/Reroll/
+     Pin/Remove) on one line — see `.slotRow1`'s comment above. */
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -331,9 +378,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Tablet review, finding 2: this was the only place in the app that ignored
+   its own `--touch-target` (src/index.css), hardcoded at 30x30px — and
+   these are the most-used controls on the screen (reroll/pin/remove),
+   packed 2-4 per row with a 5px gap. Raised to the standard; the
+   four-column tablet band above (`.week4`) is what gives each card enough
+   width to fit three of these plus `.cookButton` without overlap — see the
+   PR report for the measured fit at both ends of the tablet tier. */
 .iconButton {
-  width: 30px;
-  height: 30px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   border-radius: 9px;
   border: 1px solid var(--border);
   background: var(--surface-2);
