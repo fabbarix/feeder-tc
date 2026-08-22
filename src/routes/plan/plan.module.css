@@ -249,6 +249,19 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  /* Wrap, for the same reason `.slotRow2` below does: the week grid is still
+     seven columns at tablet (~130px each), and a name plus a servings
+     stepper does not fit on one line there. Without this the row overflowed
+     its `.day` cell and covered the NEIGHBOURING day's controls — Playwright
+     caught it as "<div class=_slotRow1_> ... intercepts pointer events" while
+     trying to click a stepper, i.e. a real click-stealing bug, not a test
+     artefact.
+
+     The mock's own answer to this is a four-column banded week grid at
+     tablet (and a phone-only stepper); neither is built yet, so this keeps
+     the current seven-column grid honest until they are. */
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 
 .slotRow2 {

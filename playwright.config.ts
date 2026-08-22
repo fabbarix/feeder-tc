@@ -1,5 +1,21 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Mirrors `e2e/support/viewports.ts`'s own `TIERS` — deliberately NOT
+// imported from there. This file type-checks under `tsconfig.node.json`
+// (module "nodenext", the Node-side config build), while every `e2e/**` spec
+// type-checks under `tsconfig.test.json` (module "esnext"/"bundler") —
+// pulling a value across that boundary trips `tsc -b`'s composite-project
+// "file not listed in this project" check (TS6307). Three numbers duplicated
+// between two files beats coupling this config to the test tree's own
+// tsconfig, or widening tsconfig.node.json's `include` to swallow `e2e/**`
+// under the wrong module settings. Keep this literally in sync with
+// `TIERS` if either changes.
+const TIERS = [
+  { name: "phone", width: 390, height: 844 },
+  { name: "tablet", width: 1024, height: 1366 },
+  { name: "desktop", width: 1512, height: 950 },
+] as const;
+
 // The dev server (not `vite preview`) is used for speed: it applies the same
 // `base` config as production, so base-path + routing behaviour is exercised
 // without a build step in the loop. Production build correctness is covered
@@ -41,6 +57,43 @@ const PWA_SPEC = /wp-24-sw-offline\.spec\.ts$/;
 // same reasoning as the "pwa" project's own carve-out above.
 const WP30_DESKTOP_ONLY_SPECS = /wp-30-.*\.spec\.ts$/;
 
+// The cross-tier journey/reachability suite (owner-requested: "runs on
+// mobile, tablet and desktop sized windows... exercise ALL the features").
+// Naming convention: `journey-*.spec.ts` for the long, sequential
+// household-session specs; `reach-*.spec.ts` for the smaller, targeted
+// "is this control still reachable/correct at this width" specs — mirrors
+// this repo's existing `m6-*`/`wp-*` ad-hoc prefixing for work that isn't
+// tied to one IMPLEMENTATION_PLAN.md work package.
+//
+// Only `journey-*` gets the three dedicated `journey-<tier>` projects below
+// (one full run per tier via `use.viewport`, zero per-test loop/plumbing).
+// `reach-*` specs manage their OWN viewport per test via
+// `page.setViewportSize()` (same established convention as
+// `e2e/m6-scan-reachable.spec.ts`, usually one `test.describe` per control
+// with an explicit per-tier sub-test) — running those a second time under
+// the `journey-<tier>` projects would triple-run each one for nothing, since
+// the project's own fixed viewport gets overwritten by the test's first
+// `setViewportSize` call anyway. They run once, under "chromium" only (not
+// "mobile-chrome" either — same "manages its own viewport" reasoning as
+// `WP30_DESKTOP_ONLY_SPECS` below).
+//
+// No leading `^` anchor — Playwright matches a RegExp testMatch/testIgnore
+// against the full path (relative to the config's rootDir, which includes
+// the "e2e/" prefix), not the bare filename; every other regex in this file
+// (PWA_SPEC, WP30_DESKTOP_ONLY_SPECS above) is unanchored for the same
+// reason, confirmed the hard way — an anchored version here silently
+// matched zero files in every project, including the ones meant to run it.
+const JOURNEY_ONLY_SPEC = /[/\\]journey-.*\.spec\.ts$/;
+
+// Specs that drive their OWN viewport per describe block (they loop the three
+// tiers internally, like the journey and reach specs do). They must run under
+// exactly ONE generic project, or the same test executes concurrently in both
+// `chromium` and `mobile-chrome` against the same in-process msw workbook and
+// the two runs interfere — which showed up as 12 failures in tests that pass
+// 20/20 under a single project.
+const SELF_TIERED_SPEC = /wp-plan-calendar\.spec\.ts$/;
+const REACH_SPEC = /[/\\]reach-.*\.spec\.ts$/;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -58,18 +111,28 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: PWA_SPEC,
+      testIgnore: [PWA_SPEC, JOURNEY_ONLY_SPEC],
     },
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
-      testIgnore: [PWA_SPEC, WP30_DESKTOP_ONLY_SPECS],
+      testIgnore: [PWA_SPEC, WP30_DESKTOP_ONLY_SPECS, JOURNEY_ONLY_SPEC, REACH_SPEC, SELF_TIERED_SPEC],
     },
     {
       name: "pwa",
       use: { ...devices["Desktop Chrome"], baseURL: PWA_BASE_URL },
       testMatch: PWA_SPEC,
     },
+    // One project per tier, all sharing a Desktop-Chrome base (no touch/
+    // isMobile emulation — see viewports.ts's own doc comment for why).
+    // `name` is what `npx playwright test --project=journey-phone` filters
+    // on, and what the HTML/github reporters group results under.
+    ...TIERS.map((tier) => ({
+      name: `journey-${tier.name}`,
+      use: { ...devices["Desktop Chrome"], viewport: { width: tier.width, height: tier.height } },
+      testMatch: JOURNEY_ONLY_SPEC,
+      testIgnore: PWA_SPEC,
+    })),
   ],
   webServer: [
     {
