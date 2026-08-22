@@ -13,7 +13,14 @@ import {
   type StorageLocation,
 } from "../../domain/index.ts";
 import { buildIndivisibleSecondary, buildProvenanceText, buildRoundingExplanation, type ProvenanceContext } from "./provenance.ts";
-import { buyQuantity, defaultLooseStep, formatAmountForUnit, isAdjusted, isRoundedOrAdjusted } from "./purchase-display.ts";
+import {
+  buyQuantity,
+  defaultLooseStep,
+  formatAmountForUnit,
+  formatBuyPrimary,
+  isAdjusted,
+  isRoundedOrAdjusted,
+} from "./purchase-display.ts";
 import { LOCATION_OPTIONS, expiryOverrideOptions } from "./checkoff-options.ts";
 import type { CheckOffInput } from "./useShoppingList.ts";
 import forms from "../forms.module.css";
@@ -157,7 +164,7 @@ export function ShoppingRow({
             formatQuantity(line.neededQuantity)
           ) : (
             <button type="button" className={styles.adjustButton} onClick={openAdjust}>
-              {formatAmountForUnit(buy, ingredient)}
+              {formatBuyPrimary(buy, ingredient, suggestion)}
             </button>
           )
         }
@@ -226,7 +233,9 @@ export function ShoppingRow({
               >
                 <Minus size={16} aria-hidden="true" />
               </button>
-              <span className={forms.qtyValue}>{formatAmountForUnit(makeQuantity(adjustAmount, ingredient.unit), ingredient)}</span>
+              <span className={forms.qtyValue}>
+                {formatBuyPrimary(makeQuantity(adjustAmount, ingredient.unit), ingredient, suggestion)}
+              </span>
               <button type="button" aria-label="More" onClick={() => setAdjustAmount((a) => a + step)}>
                 <Plus size={16} aria-hidden="true" />
               </button>
