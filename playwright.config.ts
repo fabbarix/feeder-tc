@@ -84,6 +84,14 @@ const WP30_DESKTOP_ONLY_SPECS = /wp-30-.*\.spec\.ts$/;
 // reason, confirmed the hard way — an anchored version here silently
 // matched zero files in every project, including the ones meant to run it.
 const JOURNEY_ONLY_SPEC = /[/\\]journey-.*\.spec\.ts$/;
+
+// Specs that drive their OWN viewport per describe block (they loop the three
+// tiers internally, like the journey and reach specs do). They must run under
+// exactly ONE generic project, or the same test executes concurrently in both
+// `chromium` and `mobile-chrome` against the same in-process msw workbook and
+// the two runs interfere — which showed up as 12 failures in tests that pass
+// 20/20 under a single project.
+const SELF_TIERED_SPEC = /wp-plan-calendar\.spec\.ts$/;
 const REACH_SPEC = /[/\\]reach-.*\.spec\.ts$/;
 
 export default defineConfig({
@@ -108,7 +116,7 @@ export default defineConfig({
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
-      testIgnore: [PWA_SPEC, WP30_DESKTOP_ONLY_SPECS, JOURNEY_ONLY_SPEC, REACH_SPEC],
+      testIgnore: [PWA_SPEC, WP30_DESKTOP_ONLY_SPECS, JOURNEY_ONLY_SPEC, REACH_SPEC, SELF_TIERED_SPEC],
     },
     {
       name: "pwa",

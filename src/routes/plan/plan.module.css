@@ -13,6 +13,13 @@
   margin-bottom: var(--space-2);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
 .generateButton {
   display: inline-flex;
   align-items: center;
@@ -74,6 +81,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* A grid item's (`.week`'s 7 columns) default `min-width: auto` sizes it
+     to its content's intrinsic minimum — with Remove now a 4th icon
+     alongside Cook/Reroll/Pin, that minimum can exceed the ~130px a column
+     actually gets around tablet width (1024px / 7), and the overflow paints
+     into the NEXT column rather than wrapping, silently stealing its
+     clicks (confirmed: Playwright reported the neighbour `.day` intercepting
+     a click aimed at a fully-visible-looking Remove button). `min-width: 0`
+     is the standard fix — combined with `.slotRow2`'s own `flex-wrap`
+     below, the icon row now wraps inside its own slot instead of escaping
+     it. */
+  min-width: 0;
 }
 
 .dayHeading {
@@ -82,6 +100,19 @@
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-muted);
+}
+
+/* Today's highlight (design/mock-responsive.html — the SAME accent-line/
+   accent-bg pair `.slotPinned` and the month/quarter grid's `.cellToday`
+   already use, applied to the day itself here since a week day is a card,
+   not a dot). Desktop/tablet grid cell: */
+.dayToday {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.dayToday .dayHeading {
+  color: var(--accent);
 }
 
 /* ---- Mobile: stacked day cards, thumb-navigable. Hidden at >=768px. ---- */
@@ -101,6 +132,15 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+
+.dayCardToday {
+  border-color: var(--accent-border);
+}
+
+.dayCardToday .dayCardHeading {
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 /* Overrides src/index.css's global `h2` rule (font-size/margin/color) — the
@@ -146,6 +186,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .dayList .slot {
@@ -196,6 +237,65 @@
   justify-content: space-between;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* Row 1 (name + quantity info) and row 2 (buttons) sit side by side on one
+   line at this breakpoint (tablet/desktop) — `.slotBody`'s own flex-wrap
+   above is what lets them drop to two lines if a card is ever too narrow,
+   same as before this split existed. `.dayList` (mobile) forces the
+   two-line layout unconditionally below. */
+.slotRow1 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  /* Wrap, for the same reason `.slotRow2` below does: the week grid is still
+     seven columns at tablet (~130px each), and a name plus a servings
+     stepper does not fit on one line there. Without this the row overflowed
+     its `.day` cell and covered the NEIGHBOURING day's controls — Playwright
+     caught it as "<div class=_slotRow1_> ... intercepts pointer events" while
+     trying to click a stepper, i.e. a real click-stealing bug, not a test
+     artefact.
+
+     The mock's own answer to this is a four-column banded week grid at
+     tablet (and a phone-only stepper); neither is built yet, so this keeps
+     the current seven-column grid honest until they are. */
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.slotRow2 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  /* Wraps onto a second internal line rather than overflowing sideways out
+     of `.day` when a narrow column (tablet's ~130px-wide 7-column grid)
+     can't fit all four icons (Cook/Reroll/Pin/Remove) on one line — see
+     `.day`'s own comment on the click-interception bug this fixes. */
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dayList .slotBody {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.dayList .slotRow1 {
+  justify-content: space-between;
+}
+
+.dayList .slotRow2 {
+  justify-content: flex-end;
+}
+
+/* The servings stepper, grouped with the name in `.slotRow1` (mock, §
+   owner request: "name + a per-slot servings stepper on row one"). */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
 }
 
 .slotNameButton {
@@ -261,6 +361,23 @@
   border-color: var(--accent-border);
   color: var(--accent);
   background: var(--accent-bg);
+}
+
+/* Remove is destructive, not routine — coloured only on hover/focus so the
+   row doesn't shout red at rest (mock: "the icon that opened it stays
+   neutral until hovered"). */
+.iconButtonDanger:hover:not(:disabled),
+.iconButtonDanger:focus-visible {
+  border-color: var(--crit-border);
+  color: var(--crit);
+}
+
+/* Visually separates the destructive action from the constructive ones
+   beside it (Cook/Reroll/Pin) — mock's `style="margin-left:auto"` on the
+   same button, ported to a class since this file doesn't use inline
+   styles elsewhere. */
+.iconButtonPushRight {
+  margin-left: auto;
 }
 
 .cookButton {
@@ -337,4 +454,41 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* ---- Month view's quarter strip ("the exact same `.monthgrid` component
+   at a smaller cell size ... three months side by side" — mock). Shown at
+   every tier, not just desktop as the mock draws it: DoD requires E2E
+   coverage of the quarter view at phone/tablet/desktop, and the mock's own
+   rationale for reusing MonthGrid ("one component, not two") holds at any
+   width — see the PR report for this deliberate deviation from the mock's
+   drawn tiers. ---- */
+.quarterSection {
+  margin-top: var(--space-5);
+}
+
+.quarterHeading {
+  margin: 0 0 var(--space-3);
+  font: 600 14px/1 var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.quarterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+@media (max-width: 767.98px) {
+  .quarterGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.qmonthLabel {
+  font: 600 12px/1 var(--sans);
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
 }

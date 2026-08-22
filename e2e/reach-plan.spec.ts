@@ -37,7 +37,7 @@ test.describe("The servings scale stepper is reachable at every tier", () => {
   }
 });
 
-test("Clearing a PAST slot has no confirmation step of any kind — the design mock's proposed 'past-slot confirm' does not exist in the app", async ({
+test("the picker dialog's legacy 'Clear this slot' still clears a past slot immediately, alongside the new confirmed Remove", async ({
   page,
 }) => {
   // The app's only "remove from plan" affordance is `RecipePickerDialog`'s
@@ -67,7 +67,7 @@ test("Clearing a PAST slot has no confirmation step of any kind — the design m
   await expect(monday.getByRole("button", { name: "Pick a meal for Dinner" })).toBeVisible();
 });
 
-test("today's slot carries a '· tonight' text marker — the app's ONLY 'today' indicator, no day-level highlight exists", async ({
+test("today's slot still carries its '· tonight' text marker, now alongside the day-level visual highlight", async ({
   page,
 }) => {
   // design/mock-responsive.html proposes an accent-tinted day cell at every
@@ -85,17 +85,15 @@ test("today's slot carries a '· tonight' text marker — the app's ONLY 'today'
   await expect(today.getByRole("heading")).not.toHaveAttribute("aria-current", /.*/);
 });
 
-test.fixme(
-  "Month view — not implemented (Plan.tsx has no view-mode toggle at any tier; design/mock-responsive.html proposes a density-view month calendar with a dot per day)",
-  async () => {},
-);
-
-test.fixme(
-  "Quarter view — not implemented (same gap as the month view above)",
-  async () => {},
-);
-
-test.fixme(
-  "A 'Today' shortcut button in the week navigation — not implemented (WeekNav.tsx is previous/next chevrons + a label only; every tier in design/mock-responsive.html proposes a 'Today' ghost button beside it, so after navigating away there is no one-tap way back to the current week)",
-  async () => {},
-);
+// NOTE (updated when the Plan calendar package landed): this file originally
+// carried three `test.fixme()` markers for the month view, the quarter strip
+// and the "Today" button — all three were genuinely absent, having been
+// designed and approved in PR #31 but never routed to an implementation
+// package. They exist now, and are covered per-tier in
+// `e2e/wp-plan-calendar.spec.ts`, so the empty markers were removed rather
+// than duplicated here.
+//
+// Two tests below were also renamed. They still pass — the behaviour they
+// assert is real — but their original titles described the app as LACKING a
+// confirmed Remove and a day-level today highlight, which is no longer true.
+// A test whose name lies is worse than no test: the next reader believes it.

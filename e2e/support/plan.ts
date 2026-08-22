@@ -45,7 +45,13 @@ export async function clearFutureSlot(page: Page, day: Locator, recipeName: stri
 }
 
 export async function markSlotCooked(page: Page, day: Locator, recipeName: string): Promise<void> {
-  await day.getByRole("button", { name: "Cook" }).click();
+  // `exact: true` matters: accessible-name matching is a SUBSTRING match by
+  // default, so a bare "Cook" also matches the slot's own name button when a
+  // recipe is called something like "Already Cooked Dinner", plus its
+  // servings steppers ("More servings for Already Cooked Dinner") — four
+  // elements, and a strict-mode violation. The Cook control's name is
+  // exactly "Cook".
+  await day.getByRole("button", { name: "Cook", exact: true }).click();
   await expect(page.getByRole("heading", { name: `Mark "${recipeName}" cooked` })).toBeVisible();
   await page.getByRole("button", { name: "Mark cooked" }).click();
   await expect(page.getByRole("heading", { name: `Mark "${recipeName}" cooked` })).toHaveCount(0);
@@ -78,4 +84,33 @@ export async function bumpServings(day: Locator, recipeName: string, times = 1):
   for (let i = 0; i < times; i += 1) {
     await more.click();
   }
+}
+
+/** A minimal dinner-tagged recipe — name and meal tag only, no ingredient lines (the mark-cooked dialog handles a recipe with zero lines fine: "confirming just records it as cooked"). */
+export async function addDinnerRecipe(page: Page, name: string): Promise<void> {
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Recipes", exact: true }).click();
+  await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
+  await page.getByRole("textbox", { name: "Name" }).fill(name);
+  await page.getByRole("group", { name: "Meal tags" }).getByRole("button", { name: "Dinner" }).click();
+  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
+  await page.getByRole("button", { name: "Save recipe" }).click();
+  await expect(page.getByRole("heading", { name: "Recipes", level: 1 })).toBeVisible();
+}
+
+/**
+ * Clicks a day's "Remove from plan" icon and returns the confirm dialog
+ * locator, WITHOUT confirming — callers assert on the dialog's copy
+ * (design/mock-responsive.html's two variants) before deciding whether to
+ * confirm or cancel.
+ */
+export async function openRemoveConfirm(page: Page, day: Locator): Promise<Locator> {
+  await day.getByRole("button", { name: "Remove from plan" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+export async function confirmRemove(dialog: Locator): Promise<void> {
+  await dialog.getByRole("button", { name: "Remove from plan" }).click();
+  await expect(dialog).toHaveCount(0);
 }

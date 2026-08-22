@@ -74,7 +74,9 @@ import { LEFTOVER_FREEZER_SHELF_LIFE_DAYS, LEFTOVER_FRIDGE_SHELF_LIFE_DAYS } fro
 import { pickableRecipesForTag } from "./plan-options.ts";
 import { resolveLeftoverIngredient } from "./leftover-ingredient.ts";
 import { formatWeekHeading, formatWeekRange, mondayOnOrBefore, weekDates } from "./plan-week.ts";
+import { addMonths, formatMonthLabel, monthGridDates, monthStartOf, quarterMonthStarts } from "./plan-month.ts";
 import {
+  buildCalendarDays,
   buildSlotView,
   computeExpiringIngredientIds,
   computeWeekSummary,
@@ -175,11 +177,16 @@ export interface UsePlanWeekResult {
   readonly loading: boolean;
   readonly error: string | undefined;
   readonly settings: Settings | undefined;
+  readonly today: IsoDate;
   readonly weekStart: IsoDate;
   readonly weekHeading: string;
   readonly weekRange: string;
   readonly days: readonly PlanDay[];
   readonly summary: WeekSummary;
+  readonly monthStart: IsoDate;
+  readonly monthLabel: string;
+  readonly monthDays: readonly PlanDay[];
+  readonly quarterMonths: readonly { readonly monthStart: IsoDate; readonly days: readonly PlanDay[] }[];
   readonly generating: boolean;
   readonly busySlotIds: ReadonlySet<PlanSlotId>;
   readonly markCookedDraft: MarkCookedDraft | undefined;
@@ -193,12 +200,18 @@ export interface UsePlanWeekResult {
   readonly retry: () => void;
   readonly goToPreviousWeek: () => void;
   readonly goToNextWeek: () => void;
+  readonly goToPreviousMonth: () => void;
+  readonly goToNextMonth: () => void;
+  readonly goToToday: () => void;
+  /** Points the week view at whichever week contains `date` — the month/quarter grid's "click a day to open its week" (design/mock-responsive.html). */
+  readonly goToWeekOf: (date: IsoDate) => void;
   readonly generateWeek: (force?: boolean) => Promise<void>;
   readonly cancelStaleWeekConflict: () => void;
   readonly reroll: (slotId: PlanSlotId) => Promise<void>;
   readonly togglePin: (slotId: PlanSlotId) => Promise<void>;
   readonly pickRecipe: (slotId: PlanSlotId, recipeId: RecipeId) => Promise<void>;
   readonly clearSlot: (slotId: PlanSlotId) => Promise<void>;
+  readonly removeSlot: (slotId: PlanSlotId) => Promise<void>;
   readonly setScaleServings: (slotId: PlanSlotId, servings: number | undefined) => Promise<void>;
   readonly pickableRecipes: (mealTag: MealTag) => readonly Recipe[];
   readonly startMarkCooked: (slotId: PlanSlotId) => void;
@@ -227,6 +240,7 @@ export function usePlanWeek(): UsePlanWeekResult {
   const [engine, setEngine] = useState<Engine | undefined>(undefined);
 
   const [weekStart, setWeekStart] = useState<IsoDate>(() => mondayOnOrBefore(clock.today()));
+  const [monthStart, setMonthStart] = useState<IsoDate>(() => monthStartOf(clock.today()));
   const [generating, setGenerating] = useState(false);
   const [busySlotIds, setBusySlotIds] = useState<ReadonlySet<PlanSlotId>>(new Set());
   const [markCookedDraft, setMarkCookedDraft] = useState<MarkCookedDraft | undefined>(undefined);
@@ -366,6 +380,30 @@ export function usePlanWeek(): UsePlanWeekResult {
     [weekSlots, recipesById, historicalSlots, weekStart, settings, today],
   );
 
+  // Month/quarter density views (design/mock-responsive.html — see
+  // `MonthGrid.tsx`'s own doc comment). `monthDays` covers `monthStart`'s
+  // own grid (leading/trailing adjacent-month days included, muted by the
+  // component); `quarterDays` is the same shape for each of the following
+  // two months, reusing the identical `buildCalendarDays` derivation —
+  // "one component, not two" extends to the data side too.
+  const monthGrid = useMemo(() => monthGridDates(monthStart), [monthStart]);
+  const monthDays = useMemo(
+    () => (settings ? buildCalendarDays(monthGrid, settings, allSlots, recipesById, ingredientsById, lotsById, today) : []),
+    [settings, monthGrid, allSlots, recipesById, ingredientsById, lotsById, today],
+  );
+  const quarterMonthStartDates = useMemo(() => quarterMonthStarts(monthStart), [monthStart]);
+  const quarterMonths = useMemo(
+    () =>
+      quarterMonthStartDates.map((qMonthStart) => {
+        const gridDates = monthGridDates(qMonthStart);
+        return {
+          monthStart: qMonthStart,
+          days: settings ? buildCalendarDays(gridDates, settings, allSlots, recipesById, ingredientsById, lotsById, today) : [],
+        };
+      }),
+    [quarterMonthStartDates, settings, allSlots, recipesById, ingredientsById, lotsById, today],
+  );
+
   // Searches this week's merged view (real rows + placeholders), not just
   // `allSlots` — every action a user can trigger operates on a slot that's
   // currently rendered, and a never-yet-persisted placeholder must resolve
@@ -433,6 +471,20 @@ export function usePlanWeek(): UsePlanWeekResult {
   const retry = useCallback(() => setReloadToken((t) => t + 1), []);
   const goToPreviousWeek = useCallback(() => setWeekStart((w) => addDays(w, -7)), []);
   const goToNextWeek = useCallback(() => setWeekStart((w) => addDays(w, 7)), []);
+  const goToPreviousMonth = useCallback(() => setMonthStart((m) => addMonths(m, -1)), []);
+  const goToNextMonth = useCallback(() => setMonthStart((m) => addMonths(m, 1)), []);
+  // "Today" (design/mock-responsive.html — WeekNav's own ghost button):
+  // resets whichever period is showing back to the current one. Resetting
+  // BOTH rather than just the active view's own state is deliberate — a
+  // person who navigates ahead in month view, switches to week, then taps
+  // Today expects week to land on the real current week even though month
+  // view was the thing they last moved.
+  const goToToday = useCallback(() => {
+    const t = clock.today();
+    setWeekStart(mondayOnOrBefore(t));
+    setMonthStart(monthStartOf(t));
+  }, [clock]);
+  const goToWeekOf = useCallback((date: IsoDate) => setWeekStart(mondayOnOrBefore(date)), []);
 
   const generateWeek = useCallback(
     async (force = false): Promise<void> => {
@@ -609,6 +661,35 @@ export function usePlanWeek(): UsePlanWeekResult {
     [findSlot, persistSlot, withBusy],
   );
 
+  /**
+   * "Remove from plan" (design/mock-responsive.html — every filled slot,
+   * including past ones: "the user commits forever" otherwise). Unlike
+   * `clearSlot` (the picker dialog's "Clear this slot", future slots only
+   * in practice), this also resets `state` back to `"planned"` — a past
+   * slot's `state` may be `"cooked"`/`"skipped"`, and leaving that as-is
+   * after emptying `filling` would strand the slot outside WP-13's
+   * generator, which only ever fills `"planned"` slots (`generator.ts`'s own
+   * header comment: it refuses to touch a non-`"planned"` slot). Invariant 1
+   * is untouched either way — no `InventoryEvent` is read, written, or
+   * referenced here; a cooked slot's usage/leftover events stay exactly as
+   * recorded (`Plan.tsx`'s remove-confirm copy says so explicitly for that
+   * case).
+   */
+  const removeSlot = useCallback(
+    async (slotId: PlanSlotId): Promise<void> => {
+      const slot = findSlot(slotId);
+      if (!slot) return;
+      await withBusy(slotId, async () => {
+        await persistSlot(
+          slotId,
+          () => ({ ...slot, filling: { kind: "empty" }, pinned: false, state: "planned" }),
+          (latest) => ({ ...latest, filling: { kind: "empty" }, pinned: false, state: "planned" }),
+        );
+      });
+    },
+    [findSlot, persistSlot, withBusy],
+  );
+
   const setScaleServings = useCallback(
     async (slotId: PlanSlotId, servings: number | undefined): Promise<void> => {
       const slot = findSlot(slotId);
@@ -740,11 +821,16 @@ export function usePlanWeek(): UsePlanWeekResult {
     loading,
     error,
     settings,
+    today,
     weekStart,
     weekHeading: formatWeekHeading(weekStart),
     weekRange: formatWeekRange(weekStart),
     days,
     summary,
+    monthStart,
+    monthLabel: formatMonthLabel(monthStart),
+    monthDays,
+    quarterMonths,
     generating,
     busySlotIds,
     markCookedDraft,
@@ -752,12 +838,17 @@ export function usePlanWeek(): UsePlanWeekResult {
     retry,
     goToPreviousWeek,
     goToNextWeek,
+    goToPreviousMonth,
+    goToNextMonth,
+    goToToday,
+    goToWeekOf,
     generateWeek,
     cancelStaleWeekConflict,
     reroll,
     togglePin,
     pickRecipe,
     clearSlot,
+    removeSlot,
     setScaleServings,
     pickableRecipes,
     startMarkCooked,

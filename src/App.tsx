@@ -482,6 +482,10 @@ const router = createBrowserRouter(
         { path: "pantry", element: lazyRoute(<Pantry />) },
         { path: "pantry/:ingredientId", element: lazyRoute(<PantryItem />) },
         { path: "plan", element: lazyRoute(<Plan />) },
+        // Same component as "plan" — `Plan.tsx` reads `useLocation` to pick
+        // week vs. month/quarter (see its own doc comment on why this is a
+        // real route, not just local state).
+        { path: "plan/month", element: lazyRoute(<Plan />) },
         { path: "settings", element: lazyRoute(<Settings />) },
         { path: "scan", element: lazyRoute(<Scan />) },
         { path: "products/prices", element: lazyRoute(<PriceHistory />) },

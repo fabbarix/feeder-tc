@@ -27,6 +27,12 @@ export function mondayOnOrBefore(date: IsoDate): IsoDate {
   return addDays(date, -offset);
 }
 
+/** The Sunday on or after `date` — the end of `date`'s (Monday-start) calendar week. Used by the month/quarter grid to find where its trailing "next month" row ends. */
+export function sundayOnOrAfter(date: IsoDate): IsoDate {
+  const offset = WEEKDAY_OFFSET[isoDateWeekday(date)] ?? 0;
+  return addDays(date, 6 - offset);
+}
+
 const MONTH_NAMES = [
   "January",
   "February",
@@ -96,6 +102,12 @@ const MEAL_TAG_LABELS: Record<string, string> = {
 
 export function mealTagLabel(tag: string): string {
   return MEAL_TAG_LABELS[tag] ?? tag;
+}
+
+/** "Monday" — the full weekday name, for the remove-slot confirm copy ("Remove Chili — Monday dinner?"), where the 3-letter `formatDayLabel` abbreviation reads too tersely for a sentence. */
+export function formatWeekdayName(date: IsoDate): string {
+  const weekday = isoDateWeekday(date);
+  return weekday.charAt(0).toUpperCase() + weekday.slice(1);
 }
 
 /** The 7 calendar days of the week starting at `weekStart`, in order. */
