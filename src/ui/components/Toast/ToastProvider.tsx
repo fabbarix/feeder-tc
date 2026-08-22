@@ -19,6 +19,20 @@ export interface ToastProviderProps {
  */
 const MAX_VISIBLE_TOASTS = 3;
 
+/**
+ * Auto-dismiss time when a caller does not set one.
+ *
+ * This used to be "no timer at all": the provider only scheduled a dismiss
+ * `if (toast.durationMs && toast.durationMs > 0)`, and 36 of the app's 45
+ * `showToast` call sites omit it — so most toasts stayed on screen until
+ * dismissed by hand. That, not the stack depth, is why they piled up and
+ * buried the controls beneath them.
+ *
+ * 3.5s is long enough to read a short confirmation and short enough that a
+ * quick sequence of actions does not accumulate a wall of them.
+ */
+const DEFAULT_TOAST_MS = 3500;
+
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<readonly ToastRecord[]>([]);
   const nextId = useRef(0);
@@ -46,8 +60,12 @@ export function ToastProvider({ children }: ToastProviderProps) {
       // shows the latest outcome without burying the controls that produced
       // it; the older ones have already been read, if they were read at all.
       setToasts((current) => [...current, { ...toast, id }].slice(-MAX_VISIBLE_TOASTS));
-      if (toast.durationMs && toast.durationMs > 0) {
-        const timer = setTimeout(() => dismissToast(id), toast.durationMs);
+      // A caller may pass `durationMs: 0` to opt out deliberately (a toast
+      // that must be acknowledged); anything else, including omitting it,
+      // gets the default rather than living forever.
+      const ms = toast.durationMs ?? DEFAULT_TOAST_MS;
+      if (ms > 0) {
+        const timer = setTimeout(() => dismissToast(id), ms);
         timers.current.set(id, timer);
       }
       return id;

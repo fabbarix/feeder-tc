@@ -170,7 +170,15 @@ export function PlanSlotRow({
       <span className={styles.slotTag}>{badgeText}</span>
       <div className={styles.slotBody}>
         <div className={styles.slotRow1}>
-          <button type="button" className={styles.slotNameButton} onClick={() => onOpenPicker(slot.id)}>
+          <button
+            type="button"
+            className={styles.slotNameButton}
+            // The name is clamped to two lines at narrow widths, so expose
+            // the full text here — otherwise two similarly-named recipes
+            // become indistinguishable once clipped.
+            title={view.recipe?.name ?? "Unknown recipe"}
+            onClick={() => onOpenPicker(slot.id)}
+          >
             {view.recipe?.name ?? "Unknown recipe"}
           </button>
           {forecast ? (

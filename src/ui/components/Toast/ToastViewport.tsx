@@ -34,7 +34,12 @@ export function ToastViewport() {
     // alone supplies an accessible NAME, but only a role turns a <div> into
     // something landmark-aware tooling recognises as a region at all.
     <div className={styles.viewport} role="region" aria-label="Notifications">
-      {toasts.map((toast) => (
+      {/* Newest first. The stack is anchored to the bottom of the screen, so
+          rendering in arrival order buried the most recent message deepest —
+          exactly the one the person just caused and most wants to read.
+          Reversing here, rather than in the provider, keeps `toasts` in
+          arrival order for the dismissal timers and for tests. */}
+      {[...toasts].reverse().map((toast) => (
         <div
           key={toast.id}
           className={`${styles.toast}${VARIANT_CLASS[toast.variant] ? ` ${VARIANT_CLASS[toast.variant]}` : ""}`}
