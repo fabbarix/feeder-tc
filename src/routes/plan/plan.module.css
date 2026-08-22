@@ -363,6 +363,21 @@
   min-width: 0;
 }
 
+/* Cap the name at two lines, ellipsised. At the narrow edge of tablet
+   (768px) a long recipe name — "Sam's Genuinely Very Stuffed Peppers" — ran
+   to three lines, which the owner chose to trade for a clipped name rather
+   than a smaller font (hurts a touch-first tier) or fewer columns (undoes
+   the banded grid). The full name stays reachable: the slot opens to it, and
+   `title` gives it on hover/long-press for anyone checking two
+   similarly-named recipes apart. */
+.slotNameButton {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .slotNameButton:hover {
   color: var(--accent);
 }
