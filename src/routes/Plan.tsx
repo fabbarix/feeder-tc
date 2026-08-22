@@ -254,7 +254,7 @@ export function Plan() {
                 onSelectDay={goToWeekOfDay}
               />
               <div className={styles.quarterSection}>
-                <h2 className={styles.quarterHeading}>Quarter — same component, lower density</h2>
+                <h2 className={styles.quarterHeading}>Quarter</h2>
                 <div className={styles.quarterGrid}>
                   {plan.quarterMonths.map((qm) => (
                     <div key={qm.monthStart}>
