@@ -23,6 +23,20 @@ export interface SegmentedControlProps<V extends string> {
   readonly "aria-label"?: string;
   readonly "aria-labelledby"?: string;
   readonly isDisabled?: boolean;
+  /**
+   * Opt-in for a control known to actually wrap onto a second row at a
+   * width this app supports (SegmentedControl.module.css's `auto-fit` grid
+   * prevents overflow regardless of this prop — it only decides shape, not
+   * layout). Mirrors design/mock-responsive.html's `.seg.wrap`: drops the
+   * group to `--radius-md` and each segment to `--radius-sm`, because a
+   * 999px pill that wraps to a second row reads as a blob, not a control.
+   * Default `false` (999px pill — design/mock-screens.html's own 28 uses of
+   * the plain, never-wrapping pill). Set `true` only for a control
+   * confirmed to actually wrap, not defensively; see
+   * SegmentedControl.module.css's `.group.wrap` comment for today's one
+   * consumer.
+   */
+  readonly wraps?: boolean;
 }
 
 const RadioGroupStateContext = createContext<RadioGroupState | undefined>(undefined);
@@ -40,6 +54,7 @@ export function SegmentedControl<V extends string>({
   value,
   onChange,
   isDisabled,
+  wraps = false,
   ...aria
 }: SegmentedControlProps<V>) {
   const groupProps: AriaRadioGroupProps = {
@@ -54,7 +69,7 @@ export function SegmentedControl<V extends string>({
   const { radioGroupProps } = useRadioGroup(groupProps, state);
 
   return (
-    <div {...radioGroupProps} className={styles.group}>
+    <div {...radioGroupProps} className={`${styles.group}${wraps ? ` ${styles.wrap}` : ""}`}>
       <RadioGroupStateContext.Provider value={state}>
         {options.map((option) => (
           <Segment key={option.value} option={option} />

@@ -24,19 +24,24 @@
  * design/mock-responsive.html's own approved fix ("The segmented control
  * fix, made concrete", ~line 1523: `.seg.wrap`'s
  * `grid-template-columns:repeat(auto-fit,minmax(72px,1fr))`), applied here
- * unconditionally rather than as an opt-in modifier class, because every
- * consumer of this component is already capped at ≤4 options (UI_DESIGN.md
- * §5) — the mock's own note is explicit that the treatment "costs nothing
- * when there's room" and should apply to every such control, not just the
- * one that broke.
+ * UNCONDITIONALLY (not gated behind the `.wrap` modifier below) because it
+ * costs nothing when there's room — one row, evenly shared, unchanged from
+ * plain flex — and every consumer benefits from the overflow protection
+ * regardless of shape.
  *
- * The 999px pill radius (this file's own prior note: "design/mock-
- * reference.css's `.seg` is a 999px pill... pre-existing since WP-20") does
- * not survive wrapping onto multiple rows — a fully-rounded multi-row box
- * reads as a blob, not a control — so `--radius-md`/`--radius-sm` (the
- * mock's `.seg.wrap`/its buttons: `--r-md`/`--r-sm`) replace the pill
- * everywhere, rather than leaving the shape to depend on whether a given
- * control happens to wrap at its current width.
+ * Radius is a SEPARATE decision from layout, and is NOT unconditional.
+ * design/mock-screens.html's own screens draw this control as a 999px pill
+ * in all 28 of their uses; only `mock-responsive.html`'s "segmented control
+ * fix, made concrete" demo — 4 uses total, all inside the note explaining
+ * the fix itself — draws the `.seg.wrap` rounded-rect shape. Owner's
+ * decision after that contradiction was pointed out: pill by default,
+ * everywhere, since a single-row pill never has a reason to give up its
+ * shape; the rounded-rect radius is an explicit opt-in (`wraps` prop, below)
+ * for a control that is actually known to wrap onto multiple rows at a
+ * width this app supports — a fully-rounded pill that wraps to a second row
+ * reads as a blob, not a control, but a control that never wraps has no
+ * reason to lose the pill just because SOME other consumer, somewhere,
+ * might.
  */
 .group {
   display: inline-grid;
@@ -45,7 +50,7 @@
   padding: 2px;
   background: var(--surface-raised);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 999px;
 }
 
 .segment {
@@ -56,13 +61,36 @@
   gap: var(--space-1);
   min-height: calc(var(--touch-target) - 8px);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-sm);
+  border-radius: 999px;
   color: var(--text-muted);
   font-size: 0.9rem;
   cursor: pointer;
   transition:
     background var(--motion-fast) ease-in-out,
     color var(--motion-fast) ease-in-out;
+}
+
+/*
+ * Opt-in modifier (`SegmentedControlProps.wraps`, SegmentedControl.tsx) for
+ * a control that is known to actually wrap onto a second row at a width
+ * this app supports — mirrors design/mock-responsive.html's `.seg.wrap`
+ * (`--r-md`/`--r-sm`) rather than inventing a new naming scheme. Applied
+ * today only to Pantry's Location filter in its 250px desktop rail
+ * (Pantry.tsx) — the one control that measurably wraps (4 segments at
+ * ≥72px need ≥298px including gaps/padding, more than the 250px rail minus
+ * its card padding leaves). Every other consumer either has ≤2 options,
+ * lives in a field wide enough that the grid never drops below one row
+ * (the ~720px ingredient-editor/recipe-editor fields, ConfirmDialog's
+ * 420px), or is a short 3-option list in a rail wide enough to clear
+ * ≥3×72px plus gaps (RecipeDetail's/RecipeEditor's 290px "Household flag"
+ * rail) — none of those wrap, so none of those give up the pill.
+ */
+.group.wrap {
+  border-radius: var(--radius-md);
+}
+
+.group.wrap .segment {
+  border-radius: var(--radius-sm);
 }
 
 /*

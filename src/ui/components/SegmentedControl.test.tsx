@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { SegmentedControl } from "./SegmentedControl.tsx";
+import styles from "./SegmentedControl.module.css";
 
 const OPTIONS = [
   { value: "pantry", label: "Pantry" },
@@ -44,5 +45,26 @@ describe("SegmentedControl", () => {
       <SegmentedControl aria-label="Location" options={OPTIONS} value="pantry" onChange={() => {}} />,
     );
     expect(await axe(container)).toHaveNoViolations();
+  });
+
+  // Owner decision (UX review round 2 follow-up): 999px pill by default,
+  // `--radius-md`/`--radius-sm` only for a control opted into `wraps`
+  // (SegmentedControl.module.css's `.group.wrap` comment). The e2e visual-
+  // conformance suite pins the actual computed radii on live consumers;
+  // this unit test pins the narrower, faster-to-run claim that the prop
+  // itself toggles the modifier class.
+  it("does not carry the wrap modifier class by default (999px pill)", () => {
+    // `noUncheckedIndexedAccess` widens the CSS-module import's index
+    // signature to `string | undefined`; the class is always present at
+    // runtime (Vite/PostCSS emits it for every rule this file declares).
+    render(<SegmentedControl aria-label="Location" options={OPTIONS} value="pantry" onChange={() => {}} />);
+    expect(screen.getByRole("radiogroup", { name: "Location" })).not.toHaveClass(styles.wrap!);
+  });
+
+  it("carries the wrap modifier class when `wraps` is set", () => {
+    render(
+      <SegmentedControl aria-label="Location" options={OPTIONS} value="pantry" onChange={() => {}} wraps />,
+    );
+    expect(screen.getByRole("radiogroup", { name: "Location" })).toHaveClass(styles.wrap!);
   });
 });

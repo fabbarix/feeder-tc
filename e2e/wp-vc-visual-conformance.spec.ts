@@ -198,34 +198,44 @@ test.describe("unstyled-link audit (owner-reported: the ingredients-catalog link
 // (10px) rounded rect. UX review round 2 (Finding 1: narrow rails like
 // Pantry's Location filter overflowed the page — SegmentedControl.module.css's
 // old `flex: 1 1 auto` grew to fill a wide container but neither shrank nor
-// wrapped in a narrow one) replaced the pill again, this time for good
-// reason pinned in the approved mock itself: `design/mock-responsive.html`'s
-// "segmented control fix, made concrete" note explicitly drops the 999px
-// pill to `--r-md`/`--r-sm` (this app's `--radius-md`/`--radius-sm`) on the
-// grid-based `auto-fit` layout that replaced the flex row, because a
-// fully-rounded pill that can wrap onto multiple rows reads as a blob, not a
-// control. Applied unconditionally (every consumer is already capped at ≤4
-// options, UI_DESIGN.md §5), so the pill shape is gone everywhere, not just
-// on the one control that broke — this spec now pins THAT shape instead of
-// the one it replaced, on the same two representative consumers.
-test.describe("SegmentedControl is a --radius-md rounded rect, not a 999px pill (UX review round 2)", () => {
-  test("the theme control (Settings 'Appearance') renders both the trough and the selected segment with the app's rounded-rect radii, not a pill", async ({
+// wrapped in a narrow one) briefly dropped the pill everywhere, but that
+// over-corrected: design/mock-screens.html draws the plain pill in all 28 of
+// its own uses, and only `mock-responsive.html`'s "segmented control fix,
+// made concrete" DEMO (4 uses, all inside the note explaining the fix)
+// draws the rounded-rect `.seg.wrap` shape. Owner's decision: pill by
+// default, everywhere — a control that never wraps has no reason to give it
+// up — and the rounded-rect radius is an explicit opt-in (`wraps` prop,
+// SegmentedControl.tsx) for a control that actually wraps onto a second row
+// at a supported width, because a fully-rounded pill that wraps to two rows
+// reads as a blob, not a control. This spec pins BOTH shapes so neither can
+// drift: the two representative consumers below never wrap (their
+// containers are wide enough for their option counts) and stay the 999px
+// pill; the case after it pins the one consumer that does wrap.
+test.describe("SegmentedControl is a 999px pill by default, --radius-md/--radius-sm only where it wraps (UX review round 2 / owner decision)", () => {
+  // Desktop viewport: the wrapping case below lives in Pantry's FILTERS
+  // rail, which is `display: none` below 768px (pantry.module.css) — same
+  // "desktop-only rail" reasoning as the "WP-VC4 structural conformance"
+  // block further down. Without this, the mobile-chrome project would run
+  // these at a <768px viewport and find no visible rail at all.
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test("the theme control (Settings 'Appearance') renders both the trough and the selected segment as a 999px pill", async ({
     page,
   }) => {
     await enterReadyShell(page, "settings");
     const group = page.getByRole("radiogroup", { name: "Appearance" });
     await expect(group).toBeVisible();
     const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
-    expect(groupRadius).toBe("10px"); // --radius-md
+    expect(groupRadius).toBe("999px");
 
     const selected = page.getByRole("radio", { checked: true }).first();
     const segmentRadius = await selected.evaluate(
       (el) => getComputedStyle(el.closest("label")!).borderRadius,
     );
-    expect(segmentRadius).toBe("6px"); // --radius-sm
+    expect(segmentRadius).toBe("999px");
   });
 
-  test("a recipe's household-flag control (RecipeDetail read view) is also a --radius-md rounded rect, not a pill", async ({
+  test("a recipe's household-flag control (RecipeDetail read view) is also a 999px pill", async ({
     page,
   }) => {
     await enterReadyShell(page, "recipes");
@@ -235,7 +245,31 @@ test.describe("SegmentedControl is a --radius-md rounded rect, not a 999px pill 
     const group = page.getByRole("radiogroup", { name: "Household flag" });
     await expect(group).toBeVisible();
     const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
+    expect(groupRadius).toBe("999px");
+  });
+
+  // The one consumer that actually wraps: Pantry's Location filter in its
+  // 250px desktop rail (pantry.module.css `.rail`) — 4 segments at ≥72px
+  // each need ≥298px including gaps/padding, more than the rail leaves, so
+  // it drops onto two rows and opts into `wraps` (Pantry.tsx). Pinning both
+  // this shape and the pill shape above means neither can silently drift: a
+  // future change that makes this wrap-in-fact but keeps the pill radius,
+  // or that keeps it non-wrapping but drops the radius anyway, fails here.
+  test("Pantry's Location filter (250px desktop rail) is a --radius-md rounded rect, not a pill, because it wraps", async ({
+    page,
+  }) => {
+    await enterReadyShell(page, "pantry");
+    const rail = page.locator('[class*="rail"]');
+    const group = rail.getByRole("radiogroup", { name: "Location" });
+    await expect(group).toBeVisible();
+    const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
     expect(groupRadius).toBe("10px"); // --radius-md
+
+    const selected = group.getByRole("radio", { checked: true }).first();
+    const segmentRadius = await selected.evaluate(
+      (el) => getComputedStyle(el.closest("label")!).borderRadius,
+    );
+    expect(segmentRadius).toBe("6px"); // --radius-sm
   });
 });
 
