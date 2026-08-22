@@ -111,7 +111,7 @@
 }
 
 /* Both bands share this identical 4-track grid (Plan.tsx renders the
-   weekend band's 3 real days plus one `aria-hidden` filler div) — that's
+   weekend band's 3 real days plus a 4th cell, LeftoversAtRiskCard) — that's
    what keeps Fri/Sat/Sun the same width as Mon–Thu instead of stretching
    to fill a short row. */
 /* `align-items: start`, not the grid default `stretch` (tablet UX review):
@@ -121,10 +121,10 @@
    bordered card on two columns. A real week is mostly empty, so the
    busiest day inflating its WHOLE band is the common case, not an edge
    case. `start` lets each `.day` size to its own content instead — the
-   weekend band's own `aria-hidden` filler cell (this file's own note just
-   below) is unaffected by this and stays exactly as short/empty as it
-   already was; the gap it leaves is a separate, deliberately-untouched
-   design question. */
+   weekend band's own 4th cell (LeftoversAtRiskCard) is unaffected by this
+   and, capped at `LEFTOVERS_AT_RISK_LIMIT` entries (plan-derive.ts), stays
+   short on its own terms rather than relying on this rule to hide its
+   height from its neighbours. */
 .week4 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -175,6 +175,121 @@
 
 .dayToday .dayHeading {
   color: var(--accent);
+}
+
+/* ---- Weekend band's corner card (LeftoversAtRiskCard.tsx) — fills the
+   `.week4` 4th cell the weekend band's own top-level comment describes,
+   replacing what used to be a bare `aria-hidden` filler div. Built on
+   `.day` for the same visual weight as Fri/Sat/Sun (background/border/
+   radius/padding/min-height); everything below is this card's own content,
+   never touching `.day` itself so the real day cards are unaffected. ---- */
+.leftoversEmpty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+}
+
+.leftoversEmptyIcon {
+  flex: none;
+}
+
+.leftoversEmptyText {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.leftoversList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* An ancestor's `color`/`text-decoration` never cascades onto a nested `<a>`
+   (the UA stylesheet's `a:link` rule outranks it) — same override every
+   other real link in this app needs (pantry.module.css's `.aggregateLink`). */
+.leftoverEntry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  margin: -4px;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.leftoverEntry:hover {
+  background: var(--surface);
+}
+
+.leftoverEntry:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.leftoverEntryIcon {
+  color: var(--text-muted);
+  flex: none;
+}
+
+.leftoverEntryBody {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.leftoverEntryName {
+  font: 500 0.85rem/1.25 var(--sans);
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leftoverEntryMeta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Only exceptions get colour (UI_DESIGN.md §13) — same rule, same values as
+   pantry.module.css's `.expiryText`/`.expiryWarn`/`.expiryCrit`; kept as a
+   separate copy here rather than a cross-route CSS-module import, matching
+   how this file already keeps its own token usage self-contained. */
+.leftoverToneOk {
+  color: var(--text-muted);
+}
+
+.leftoverToneWarn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.leftoverToneCrit {
+  color: var(--crit);
+  font-weight: 600;
+}
+
+.leftoverEntryCaret {
+  color: var(--text-muted);
+  flex: none;
+}
+
+.leftoversMore {
+  align-self: flex-start;
+  font: 600 0.72rem/1 var(--sans);
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.leftoversMore:hover {
+  text-decoration: underline;
 }
 
 /* ---- Mobile: stacked day cards, thumb-navigable. Hidden at >=768px. ---- */

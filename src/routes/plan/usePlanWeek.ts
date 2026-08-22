@@ -80,8 +80,10 @@ import {
   buildSlotView,
   computeExpiringIngredientIds,
   computeWeekSummary,
+  deriveLeftoversAtRisk,
   groupSlotsByDay,
   mergeWeekSlots,
+  type LeftoverAtRisk,
   type PlanDay,
   type WeekSummary,
 } from "./plan-derive.ts";
@@ -183,6 +185,8 @@ export interface UsePlanWeekResult {
   readonly weekRange: string;
   readonly days: readonly PlanDay[];
   readonly summary: WeekSummary;
+  /** Weekend band's corner card content (Plan.tsx) — soonest-expiry-first, already capped/sorted by `deriveLeftoversAtRisk`. */
+  readonly leftoversAtRisk: readonly LeftoverAtRisk[];
   readonly monthStart: IsoDate;
   readonly monthLabel: string;
   readonly monthDays: readonly PlanDay[];
@@ -361,6 +365,10 @@ export function usePlanWeek(): UsePlanWeekResult {
   const weekSlots = useMemo(() => mergeWeekSlots(weekSpecs, weekSlotRows), [weekSpecs, weekSlotRows]);
   const historicalSlots = useMemo(() => allSlots.filter((s) => s.date < weekStart), [allSlots, weekStart]);
   const expiringIngredientIds = useMemo(() => computeExpiringIngredientIds(lots, weekStart), [lots, weekStart]);
+  // Weekend band's corner card (Plan.tsx) — leftovers worth eating this
+  // week, soonest-expiry-first. Owner decision 2026-08-22: content for the
+  // `.week4` filler cell that used to be a bare `aria-hidden` div.
+  const leftoversAtRisk = useMemo(() => deriveLeftoversAtRisk(ingredientsById, lots, weekStart), [ingredientsById, lots, weekStart]);
 
   const days = useMemo(() => {
     const views = weekSlots.map((slot) => buildSlotView(slot, recipesById, ingredientsById, lotsById, today));
@@ -833,6 +841,7 @@ export function usePlanWeek(): UsePlanWeekResult {
     weekRange: formatWeekRange(weekStart),
     days,
     summary,
+    leftoversAtRisk,
     monthStart,
     monthLabel: formatMonthLabel(monthStart),
     monthDays,

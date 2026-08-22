@@ -8,6 +8,7 @@ import { PlanSlotRow } from "./plan/PlanSlotRow.tsx";
 import { RecipePickerDialog } from "./plan/RecipePickerDialog.tsx";
 import { MarkCookedDialog } from "./plan/MarkCookedDialog.tsx";
 import { MonthGrid } from "./plan/MonthGrid.tsx";
+import { LeftoversAtRiskCard } from "./plan/LeftoversAtRiskCard.tsx";
 import { formatDayLabel, formatWeekdayName, mealTagLabel } from "./plan/plan-week.ts";
 import { formatMonthShortLabel } from "./plan/plan-month.ts";
 import { densityDots, type PlanDay, type PlanSlotView } from "./plan/plan-derive.ts";
@@ -226,8 +227,9 @@ export function Plan() {
                   pin/Remove stack vertically under Cook for lack of width).
                   Both bands use the IDENTICAL 4-track grid, so Fri/Sat/Sun
                   are the same width as Mon–Thu, not stretched to fill a
-                  short last row — the trailing filler cell below is what
-                  keeps the 4-track grid honest for a 3-day band. Rejected:
+                  short last row — the weekend band's own 4th cell (below,
+                  LeftoversAtRiskCard) is what keeps the 4-track grid honest
+                  for a 3-day band. Rejected:
                   a scrollable strip (hides most of the week, losing the
                   "whole week visible" property that justifies a wide tier
                   at all) and `auto-fill`/`minmax` (orphans a lone 7th card
@@ -248,8 +250,13 @@ export function Plan() {
                     {plan.days.slice(4, 7).map((day) => renderDay(day, settings))}
                     {/* Keeps the weekend band's 3 days on the same 4-track
                         grid as Mon–Thu instead of stretching Sunday to fill
-                        a 4th column — see this block's own top-level comment. */}
-                    <div aria-hidden="true" />
+                        a 4th column — see this block's own top-level comment.
+                        Used to be a bare `aria-hidden` filler div (matching
+                        the mock exactly); round-2 tablet review read that as
+                        a missing column, and the owner chose to put
+                        leftovers-at-risk here instead (LeftoversAtRiskCard's
+                        own doc comment has the full reasoning). */}
+                    <LeftoversAtRiskCard items={plan.leftoversAtRisk} today={plan.today} />
                   </div>
                 </div>
               </div>

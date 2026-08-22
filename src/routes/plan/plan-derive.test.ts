@@ -6,6 +6,7 @@ import {
   computeIndivisibleForecast,
   computeWeekSummary,
   densityDots,
+  deriveLeftoversAtRisk,
   groupSlotsByDay,
   mergeWeekSlots,
 } from "./plan-derive.ts";
@@ -223,6 +224,92 @@ describe("computeExpiringIngredientIds", () => {
       },
     ];
     expect(computeExpiringIngredientIds(lots, weekStart).size).toBe(0);
+  });
+});
+
+function leftoverIngredient(id: string, name = id): Ingredient {
+  return {
+    id: makeIngredientId(id),
+    name,
+    unit: "portion",
+    shelfLifeDays: 4,
+    openedShelfLifeDays: 4,
+    defaultLocation: "fridge",
+  };
+}
+
+function leftoverLot(id: string, ingredientId: Ingredient["id"], expiry: string, options: Partial<Lot> = {}): Lot {
+  return {
+    id: makeLotId(id),
+    ingredientId,
+    quantity: makeQuantity(2, "portion"),
+    purchaseDate: makeIsoDate("2026-08-20"),
+    location: "fridge",
+    expiry: makeIsoDate(expiry),
+    expiryOverridden: false,
+    ...options,
+  };
+}
+
+describe("deriveLeftoversAtRisk", () => {
+  const weekStart = makeIsoDate("2026-08-24"); // Monday; window is 2026-08-24..2026-08-30.
+
+  it("sorts leftovers expiring inside the week soonest-first", () => {
+    const chili = leftoverIngredient("leftover-chili", "Leftover: Chili");
+    const soup = leftoverIngredient("leftover-soup", "Leftover: Soup");
+    const ingredientsById = new Map([[chili.id, chili], [soup.id, soup]]);
+    const lots = [
+      leftoverLot("l1", chili.id, "2026-08-28"),
+      leftoverLot("l2", soup.id, "2026-08-25"),
+    ];
+
+    const result = deriveLeftoversAtRisk(ingredientsById, lots, weekStart);
+
+    expect(result.map((r) => r.ingredient.name)).toEqual(["Leftover: Soup", "Leftover: Chili"]);
+  });
+
+  it("sums portions across multiple at-risk lots of the same leftover ingredient", () => {
+    const chili = leftoverIngredient("leftover-chili", "Leftover: Chili");
+    const ingredientsById = new Map([[chili.id, chili]]);
+    const lots = [
+      leftoverLot("l1", chili.id, "2026-08-25", { quantity: makeQuantity(2, "portion") }),
+      leftoverLot("l2", chili.id, "2026-08-26", { quantity: makeQuantity(3, "portion") }),
+    ];
+
+    const result = deriveLeftoversAtRisk(ingredientsById, lots, weekStart);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]!.totalPortions).toBe(5);
+    // The soonest of the ingredient's own lots is what the badge reads from.
+    expect(result[0]!.lot.expiry).toBe(makeIsoDate("2026-08-25"));
+  });
+
+  it("excludes ordinary pantry stock (non-portion units), even when it expires this week", () => {
+    const rice = ingredient("rice");
+    const ingredientsById = new Map([[rice.id, rice]]);
+    const lots = [leftoverLot("l1", rice.id, "2026-08-25", { quantity: makeQuantity(500, "g") })];
+
+    expect(deriveLeftoversAtRisk(ingredientsById, lots, weekStart)).toEqual([]);
+  });
+
+  it("excludes frozen leftovers (freezer suspends the risk, matching computeExpiringIngredientIds)", () => {
+    const chili = leftoverIngredient("leftover-chili");
+    const ingredientsById = new Map([[chili.id, chili]]);
+    const lots = [leftoverLot("l1", chili.id, "2026-08-25", { location: "freezer" })];
+
+    expect(deriveLeftoversAtRisk(ingredientsById, lots, weekStart)).toEqual([]);
+  });
+
+  it("excludes a leftover expiring outside the viewed week (e.g. months away)", () => {
+    const chili = leftoverIngredient("leftover-chili");
+    const ingredientsById = new Map([[chili.id, chili]]);
+    const lots = [leftoverLot("l1", chili.id, "2026-11-01")];
+
+    expect(deriveLeftoversAtRisk(ingredientsById, lots, weekStart)).toEqual([]);
+  });
+
+  it("returns nothing when there are no lots at all", () => {
+    expect(deriveLeftoversAtRisk(new Map(), [], weekStart)).toEqual([]);
   });
 });
 

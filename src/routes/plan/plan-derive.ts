@@ -6,6 +6,7 @@
  */
 import {
   addDays,
+  compareIsoDate,
   expandWeekSlots,
   isIndivisible,
   isOnOrAfter,
@@ -232,4 +233,56 @@ export function computeExpiringIngredientIds(
     }
   }
   return ids;
+}
+
+/** Cap on visible entries in the weekend band's leftovers-at-risk corner card (Plan.tsx) — beyond this the card links out to Pantry rather than growing unbounded. */
+export const LEFTOVERS_AT_RISK_LIMIT = 3;
+
+export interface LeftoverAtRisk {
+  readonly ingredient: Ingredient;
+  /** The soonest-expiring at-risk lot of this leftover ingredient — what the card's badge reads from. */
+  readonly lot: Lot;
+  /** Portions summed across every at-risk (non-freezer, in-window) lot of this ingredient — not its full pantry total, which may also include frozen stock outside this window. */
+  readonly totalPortions: number;
+}
+
+/**
+ * Leftovers worth acting on this week — feeds the weekend band's corner
+ * card (Plan.tsx, `.week4`'s 4th cell). Reuses `computeExpiringIngredientIds`'s
+ * own "non-freezer, expiring inside [weekStart, weekStart+6]" window: a
+ * leftover expiring in November isn't actionable at this altitude, and
+ * freezer leftovers get a long shelf life (`LEFTOVER_FREEZER_SHELF_LIFE_DAYS`,
+ * 90 days) that keeps them out of a single week's window on its own even
+ * though — unlike a moved-to-freezer purchase lot — they don't get the
+ * far-future sentinel expiry. Restricted to `unit === "portion"` (the
+ * leftover-ingredient convention, `leftover-ingredient.ts`) so ordinary
+ * pantry stock never shows up here. Sorted soonest-expiry-first — "which one
+ * do I need to eat" is exactly what that ordering answers.
+ */
+export function deriveLeftoversAtRisk(
+  ingredientsById: ReadonlyMap<IngredientId, Ingredient>,
+  lots: readonly Lot[],
+  weekStart: IsoDate,
+): readonly LeftoverAtRisk[] {
+  const weekEnd = addDays(weekStart, 6);
+  const byIngredient = new Map<IngredientId, Lot[]>();
+  for (const lot of lots) {
+    if (lot.location === "freezer") continue;
+    if (!isOnOrAfter(lot.expiry, weekStart) || !isOnOrAfter(weekEnd, lot.expiry)) continue;
+    const ingredient = ingredientsById.get(lot.ingredientId);
+    if (!ingredient || ingredient.unit !== "portion") continue;
+    const existing = byIngredient.get(lot.ingredientId);
+    if (existing) existing.push(lot);
+    else byIngredient.set(lot.ingredientId, [lot]);
+  }
+
+  const results: LeftoverAtRisk[] = [];
+  for (const [ingredientId, ingredientLots] of byIngredient) {
+    const ingredient = ingredientsById.get(ingredientId);
+    if (!ingredient) continue;
+    const soonest = ingredientLots.slice().sort((a, b) => compareIsoDate(a.expiry, b.expiry))[0]!;
+    const totalPortions = ingredientLots.reduce((sum, lot) => sum + lot.quantity.amount, 0);
+    results.push({ ingredient, lot: soonest, totalPortions });
+  }
+  return results.sort((a, b) => compareIsoDate(a.lot.expiry, b.lot.expiry));
 }
