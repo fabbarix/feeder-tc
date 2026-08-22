@@ -144,14 +144,56 @@ on merged `main`.
   after #32 was a stale local `node_modules` missing a newly-added dependency,
   not a real break. The "ask what answered" rule cuts both ways.
 
-## Still to do
+## v1.0.0 — code complete, awaiting the owner's gate
 
-| Package | State | Notes |
-|---------|-------|-------|
-| Purchasability **editor UI** | pending | Unblocked now that #33 released those files. Ingredient editor's "How you buy it" / "How you measure it"; recipe editor's "Can't be split" + entry-unit picker. Contract, `units.ts` and `purchasing.ts` plumbing all already exist and are tested. **Fold in `Ingredient.packLabel?`** while there — the mock says "1 jar", the implementation currently renders "250 g" because no container-noun field exists. |
-| WP-30 | pending | Cross-feature E2E: multi-client, generation-bump. |
-| WP-31 | pending | Onboarding polish, white-screen-without-env fix, bundle work, tag `v1.0.0`. |
-| M6 remainder | pending | Price-history view, deliberately out of #32. |
+**Every planned package is merged.** `main` at `a8672d4`: lint, typecheck,
+build green; **1207 unit tests**; **E2E 3/3 clean at 209 passed**.
+
+| PR | | Merge |
+|----|--|-------|
+| #36 | Stale-workbook missing-tab fix (owner-reported production bug) | `6dda2c1` |
+| #37 | WP-31 release readiness | `fcf367a` |
+| #38 | Duplicate `InventoryEvent` on reconnect | `e6b8a50` |
+| #39 | WP-30 cross-feature E2E suite | `362d5c1` |
+| #40 | M6 price-history view | `ba3d960` |
+| #41 | Stale-save protection, all write sites | `63ecefa` |
+| #42 | Purchasability editor UI + `packLabel` | `a8672d4` |
+| — | Settings save serialisation (lost update introduced by #41) | `03744d6` |
+
+**The tag is deliberately NOT cut.** The owner chose the release gate
+explicitly: land both data-integrity fixes, verify `main` locally, then hold
+for their full-loop check on the live site — onboard → recipes → pantry →
+generate week → shop → mark cooked → leftovers, without touching the console.
+That is WP-31's own success criterion, not a formality. Draft release notes
+are prepared; tagging is one command once the owner confirms.
+
+### Four silent-data-loss bugs found this run — none by a passing test suite
+
+Worth recording together, because the pattern is the lesson: each needed a
+condition no single-client, fresh-install test creates.
+
+1. **Duplicate `InventoryEvent` on reconnect** (#38) — five constructions of
+   the outbox/controller over one queue; `flush.ts`'s exactly-once check
+   guarded only retries. Needed an offline→online transition.
+2. **Stale-workbook 400** (#36) — a workbook predating a sheet crashed on
+   read. Needed a workbook older than the schema. The msw double pre-created
+   every tab, so the bug class was unrepresentable until that was fixed too.
+3. **`purchaseOverride` erased on scan** (#41) — `recordPurchase` rebuilt the
+   row from the engine-computed need, which never carries the override.
+4. **Settings lost update** (`03744d6`) — refresh-before-edit, added by #41 to
+   prevent cross-client clobbering, created an intra-client one: two rapid
+   taps both read the pre-first-tap value. Surfaced as an intermittent failure
+   in an unrelated spec, passing 3/3 in isolation.
+
+### Remaining known gaps (none release-blocking)
+
+- Seeded ingredients ship without `packLabel` values, so the shopping list
+  shows "250 g" rather than "1 jar" until a household names the container
+  once per ingredient. The field and its UI work end to end.
+- `roundTo` exists in contract and engine with no UI, per §11.3's deferral.
+- Google browser OAuth issues no refresh token without a backend (invariant 7
+  forbids one), so a session lasts ~1 hour. An installed iOS PWA may also keep
+  a cookie jar separate from Safari, preventing silent restore.
 
 ### Superseded in-flight entries
 
