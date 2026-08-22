@@ -65,7 +65,7 @@ export function decodeRecipeIngredient(
   }
   if (canonical !== unitRaw) {
     throw new Error(
-      `unit mismatch: ingredient "${ingredientId}"'s canonical unit is "${canonical}", but this line specifies "${unitRaw}" (invariant 3: one canonical unit per ingredient, no conversions)`,
+      `unit mismatch: ingredient "${ingredientId}"'s canonical unit is "${canonical}", but this line specifies "${unitRaw}" — each ingredient has one unit, and amounts are never converted`,
     );
   }
 

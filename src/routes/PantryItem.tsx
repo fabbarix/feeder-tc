@@ -425,8 +425,7 @@ export function PantryItem() {
             description={
               <div className={styles.dialogForm}>
                 <p className={styles.dialogHint}>
-                  FIFO picks which lot(s) this comes from at save time (invariant 4) — there is no
-                  lot picker here.
+                  Uses your oldest stock first, so you can't pick which batch this comes from.
                 </p>
                 <QuantityInput
                   label="Amount used"
@@ -574,8 +573,8 @@ export function PantryItem() {
                   />
                 ) : null}
                 <p className={styles.dialogHint}>
-                  History is never edited (invariant 1) — this records a new correction on top.
-                  Enter an amount and/or pick a new expiry; at least one is required.
+                  This adds a correction on top of the history rather than changing what was
+                  already recorded. Enter an amount, a new expiry, or both.
                 </p>
                 <QuantityInput
                   label="Adjust amount by"

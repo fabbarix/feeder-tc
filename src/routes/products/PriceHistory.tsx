@@ -77,8 +77,8 @@ export function PriceHistory() {
     <section>
       <h1>Price history</h1>
       <p className={styles.dtSub}>
-        Tracked automatically from the prices you record while scanning — per ingredient and per
-        specific product (DESIGN_PRODUCTS.md §1.4).
+        Tracked automatically from the prices you record while scanning — for each ingredient,
+        and for each specific product you buy it as.
       </p>
 
       {data.loading ? (

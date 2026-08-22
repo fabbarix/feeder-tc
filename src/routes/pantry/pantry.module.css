@@ -9,10 +9,18 @@
 
 /* Desktop earns its width (UI_DESIGN.md §13): the list plus a rail, not a
    phone layout stretched into a void. */
+/* The rail is a WIDTH, never a fraction. `minmax(0, 2fr) minmax(220px, 1fr)`
+   sized it as a proportion of the viewport, so it grew without bound: ~480px
+   at 1512px and ~550px at 1920px, to hold three filter chips — nearly as wide
+   as the list it sits beside. design/mock-responsive.html:139 defines the
+   canonical rule as `minmax(0,1fr) 250px`, and the mock's own Pantry note
+   calls this out by name as "Pantry's list bug". Every DETAIL route already
+   got the fix (recipe-detail 290px, pantry-item 290px, price-history 320px);
+   the two LIST routes never did. */
 @media (min-width: 768px) {
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+    grid-template-columns: minmax(0, 1fr) 250px;
     align-items: start;
     gap: var(--space-6);
   }

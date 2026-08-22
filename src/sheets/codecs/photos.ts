@@ -15,7 +15,7 @@
  * but this codec is the backstop that actually enforces the hard limit:
  * encoding a `Photo` whose `dataUrl` would not fit in one cell throws
  * rather than silently truncating. A breach is data loss, not a warning
- * (DESIGN_PHOTOS.md §4), so this is a thrown `Error` on the write path, not
+ *, so this is a thrown `Error` on the write path, not
  * a `DataWarning` — the same way `WorkbookStore.recipeIngredients
  * .replaceForRecipe` throws on a unit mismatch instead of quarantining it,
  * because this is the app's own encoder failing its contract, not a human
@@ -60,7 +60,7 @@ function decodeOwnerId(ownerKind: PhotoOwnerKind, raw: string): PhotoOwnerId {
 export function encodePhoto(photo: Photo): CellRow {
   if (photo.dataUrl.length > MAX_PHOTO_DATA_URL_LENGTH) {
     throw new Error(
-      `Photo data URL is ${photo.dataUrl.length} characters, over the ${MAX_PHOTO_DATA_URL_LENGTH}-character Google Sheets cell limit (DESIGN_PHOTOS.md §4). Refusing to write — re-encode at a smaller byte budget rather than truncating.`,
+      `Photo data URL is ${photo.dataUrl.length} characters, over the ${MAX_PHOTO_DATA_URL_LENGTH}-character Google Sheets cell limit. Refusing to write — re-encode at a smaller byte budget rather than truncating.`,
     );
   }
   return [photo.ownerKind, photo.ownerId, photo.dataUrl, photo.updatedAt];

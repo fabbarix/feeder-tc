@@ -9,8 +9,8 @@
     at 16), and filters rasterise inconsistently across renderers.
 
     The brand green is the DEFAULT accent hue. The in-app accent is user-chosen
-    (UI_DESIGN.md §3), but an installed icon and the manifest theme_color are
-    baked at build time and cannot follow it — see UI_DESIGN.md §11.
+    (the design system), but an installed icon and the manifest theme_color are
+    baked at build time and cannot follow it — see the design system.
   -->
   <rect width="64" height="64" rx="14" fill="#1c9b5e"/>
   <!-- sprig: tilted deliberately. Vertically symmetric above the bowl it
