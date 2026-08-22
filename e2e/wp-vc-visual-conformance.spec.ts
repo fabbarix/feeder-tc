@@ -212,13 +212,6 @@ test.describe("unstyled-link audit (owner-reported: the ingredients-catalog link
 // containers are wide enough for their option counts) and stay the 999px
 // pill; the case after it pins the one consumer that does wrap.
 test.describe("SegmentedControl is a 999px pill by default, --radius-md/--radius-sm only where it wraps (UX review round 2 / owner decision)", () => {
-  // Desktop viewport: the wrapping case below lives in Pantry's FILTERS
-  // rail, which is `display: none` below 768px (pantry.module.css) — same
-  // "desktop-only rail" reasoning as the "WP-VC4 structural conformance"
-  // block further down. Without this, the mobile-chrome project would run
-  // these at a <768px viewport and find no visible rail at all.
-  test.use({ viewport: { width: 1280, height: 900 } });
-
   test("the theme control (Settings 'Appearance') renders both the trough and the selected segment as a 999px pill", async ({
     page,
   }) => {
@@ -255,21 +248,34 @@ test.describe("SegmentedControl is a 999px pill by default, --radius-md/--radius
   // this shape and the pill shape above means neither can silently drift: a
   // future change that makes this wrap-in-fact but keeps the pill radius,
   // or that keeps it non-wrapping but drops the radius anyway, fails here.
-  test("Pantry's Location filter (250px desktop rail) is a --radius-md rounded rect, not a pill, because it wraps", async ({
-    page,
-  }) => {
-    await enterReadyShell(page, "pantry");
-    const rail = page.locator('[class*="rail"]');
-    const group = rail.getByRole("radiogroup", { name: "Location" });
-    await expect(group).toBeVisible();
-    const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
-    expect(groupRadius).toBe("10px"); // --radius-md
+  // Scoped to its own block so the viewport override below applies ONLY to
+  // this case. Applying it to the whole describe would also pin the two pill
+  // assertions above to 1280px — and those specifically need to keep running
+  // at each project's own viewport, including mobile-chrome's phone width,
+  // because a narrow viewport is exactly where a control could start wrapping
+  // and turn its pill into a blob. That is the regression they exist to catch.
+  test.describe("the wrapping case", () => {
+    // Pantry's FILTERS rail is `display: none` below 768px (pantry.module.css),
+    // so mobile-chrome would otherwise find no visible rail at all — same
+    // "desktop-only rail" reasoning as the WP-VC4 block further down.
+    test.use({ viewport: { width: 1280, height: 900 } });
 
-    const selected = group.getByRole("radio", { checked: true }).first();
-    const segmentRadius = await selected.evaluate(
-      (el) => getComputedStyle(el.closest("label")!).borderRadius,
-    );
-    expect(segmentRadius).toBe("6px"); // --radius-sm
+    test("Pantry's Location filter (250px desktop rail) is a --radius-md rounded rect, not a pill, because it wraps", async ({
+      page,
+    }) => {
+      await enterReadyShell(page, "pantry");
+      const rail = page.locator('[class*="rail"]');
+      const group = rail.getByRole("radiogroup", { name: "Location" });
+      await expect(group).toBeVisible();
+      const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
+      expect(groupRadius).toBe("10px"); // --radius-md
+
+      const selected = group.getByRole("radio", { checked: true }).first();
+      const segmentRadius = await selected.evaluate(
+        (el) => getComputedStyle(el.closest("label")!).borderRadius,
+      );
+      expect(segmentRadius).toBe("6px"); // --radius-sm
+    });
   });
 });
 
