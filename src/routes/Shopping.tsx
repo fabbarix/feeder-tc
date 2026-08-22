@@ -116,6 +116,24 @@ export function Shopping() {
         <RangeChips today={today} preset={preset} range={range} onChange={handleRangeChange} />
       </div>
 
+      {/*
+        The tablet/desktop half of the scan affordance. `.fab` below is hidden
+        from 768px up and this takes over there — the mock's Shopping tier
+        note: "Top nav means 'Scan a barcode' becomes a page action, not a
+        thumb-reach FAB — but only here." Same `handleScan`, same accessible
+        name, so exactly one scan control is reachable at any width.
+      */}
+      <p>
+        <button
+          type="button"
+          className={`${forms.addButton} ${styles.scanAction}`}
+          onClick={handleScan}
+        >
+          <Barcode size={18} aria-hidden="true" />
+          Scan a barcode
+        </button>
+      </p>
+
       {shopping.loading ? (
         <div className={forms.form}>
           <Skeleton />

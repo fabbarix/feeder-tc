@@ -138,3 +138,25 @@
     display: none;
   }
 }
+
+/*
+ * The scan affordance at tablet/desktop. The FAB above is hidden from 768px
+ * (a thumb-reach control makes no sense once there is a top bar), and until
+ * now NOTHING replaced it — so on an iPad there was no way to reach the
+ * scanner at all, which is what the owner hit. The approved mock's Shopping
+ * tier note is explicit: "Top nav means 'Scan a barcode' becomes a page
+ * action, not a thumb-reach FAB — but only here. On phone it stays a FAB
+ * deliberately."
+ *
+ * Deliberately the exact inverse of `.fab`'s query, so precisely one scan
+ * control exists at every width — never two, never none.
+ */
+.scanAction {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .scanAction {
+    display: inline-flex;
+  }
+}
