@@ -81,6 +81,17 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  /* A grid item's (`.week`'s 7 columns) default `min-width: auto` sizes it
+     to its content's intrinsic minimum — with Remove now a 4th icon
+     alongside Cook/Reroll/Pin, that minimum can exceed the ~130px a column
+     actually gets around tablet width (1024px / 7), and the overflow paints
+     into the NEXT column rather than wrapping, silently stealing its
+     clicks (confirmed: Playwright reported the neighbour `.day` intercepting
+     a click aimed at a fully-visible-looking Remove button). `min-width: 0`
+     is the standard fix — combined with `.slotRow2`'s own `flex-wrap`
+     below, the icon row now wraps inside its own slot instead of escaping
+     it. */
+  min-width: 0;
 }
 
 .dayHeading {
@@ -175,6 +186,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .dayList .slot {
@@ -243,6 +255,12 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  /* Wraps onto a second internal line rather than overflowing sideways out
+     of `.day` when a narrow column (tablet's ~130px-wide 7-column grid)
+     can't fit all four icons (Cook/Reroll/Pin/Remove) on one line — see
+     `.day`'s own comment on the click-interception bug this fixes. */
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .dayList .slotBody {
