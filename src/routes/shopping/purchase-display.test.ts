@@ -50,7 +50,8 @@ describe("formatBuyPrimary", () => {
   });
 
   it("falls back to the plain formatted amount when packLabel is unset", () => {
-    const { packLabel: _packLabel, ...rest } = MAYO;
+    const { packLabel, ...rest } = MAYO;
+    expect(packLabel).toBe("jar"); // sanity: MAYO really had one before this test strips it
     const noLabel: Ingredient = rest;
     const need = makeQuantity(130, "g");
     const suggestion = suggestPurchase(need, noLabel);
