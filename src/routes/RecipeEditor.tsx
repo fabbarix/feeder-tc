@@ -14,11 +14,13 @@ import {
 import { PhotoField, type PhotoDraft } from "../ui/photo/index.ts";
 import { Plus, Trash } from "../ui/icons";
 import {
+  isIndivisible,
   makeIngredientId,
   makeQuantity,
   makeRecipeId,
   newRecipeId,
   newStepId,
+  type EntryUnit,
   type Ingredient,
   type IngredientId,
   type MealTag,
@@ -30,10 +32,12 @@ import {
   type Rng,
   type StepId,
 } from "../domain/index.ts";
+import { convertEntryToCanonical } from "../domain/units.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
 import { applyPhotoDraft } from "./photo-save.ts";
+import { ENTRY_UNIT_LABELS, gramsPreview, recipeEntryUnitsFor } from "./entry-units.ts";
 import { TextField } from "./fields.tsx";
-import { KIND_OPTIONS, MEAL_TAG_OPTIONS, STATUS_OPTIONS } from "./recipe-options.ts";
+import { KIND_OPTIONS, MEAL_TAG_OPTIONS, SPLIT_OPTIONS, STATUS_OPTIONS, type SplitChoice } from "./recipe-options.ts";
 import { uniqueSlug } from "./slug.ts";
 import styles from "./forms.module.css";
 import detailStyles from "./recipe-detail.module.css";
@@ -60,6 +64,7 @@ function recipeContentEquals(a: Recipe, b: Recipe): boolean {
     a.cookMinutes === b.cookMinutes &&
     a.status === b.status &&
     (a.hasPhoto ?? false) === (b.hasPhoto ?? false) &&
+    isIndivisible(a) === isIndivisible(b) &&
     a.mealTags.length === b.mealTags.length &&
     a.mealTags.every((tag, i) => tag === b.mealTags[i])
   );
@@ -69,6 +74,13 @@ interface LineDraft {
   readonly key: string;
   readonly ingredientId: IngredientId | null;
   readonly amount: number | null;
+  /**
+   * The unit this line's `amount` is typed in (§10) — defaults to the
+   * ingredient's own canonical unit the moment an ingredient is picked, so
+   * "no conversion" stays the common case. `null` only while no ingredient
+   * is chosen yet.
+   */
+  readonly entryUnit: EntryUnit | null;
 }
 
 /**
@@ -152,6 +164,17 @@ export function RecipeEditor() {
   const [prepMinutes, setPrepMinutes] = useState<number | null>(15);
   const [cookMinutes, setCookMinutes] = useState<number | null>(30);
   const [mealTags, setMealTags] = useState<readonly MealTag[]>([]);
+  // "Can't be split" (DESIGN_PURCHASING.md §4/§8) — pre-checked for Bought,
+  // matching `Recipe.indivisible`'s own default (`kind === "bought"`).
+  // `null` means "still following Kind" (never touched this session, or
+  // loaded from a row whose `indivisible` was never made explicit) —
+  // derived at render time from `kind`, same pattern as `displayedPrepMinutes`
+  // below, rather than a synced-by-effect boolean: a `setState` inside a
+  // `useEffect` purely to mirror another piece of state is exactly the
+  // cascading-render smell `react-hooks/set-state-in-effect` flags, and a
+  // plain derived value needs no effect at all.
+  const [indivisibleOverride, setIndivisibleOverride] = useState<boolean | null>(null);
+  const indivisible = indivisibleOverride ?? kind === "bought";
   // The recipe's own photo — same "hint + local draft" shape as a step's
   // (see `StepDraft`'s doc comment).
   const [recipeInitialHasPhoto, setRecipeInitialHasPhoto] = useState(false);
@@ -197,17 +220,35 @@ export function RecipeEditor() {
           setCookMinutes(found.cookMinutes);
           setMealTags(found.mealTags);
           setRecipeInitialHasPhoto(found.hasPhoto ?? false);
+          // `null` (keep following `kind`) unless this row already made a
+          // choice explicit — see `indivisibleOverride`'s own doc comment.
+          setIndivisibleOverride(found.indivisible !== undefined ? isIndivisible(found) : null);
 
           const ownLines = linesResult.rows.filter((l) => l.recipeId === recipeId);
           if (found.kind === "bought") {
             setLinkedIngredientId(ownLines[0]?.ingredientId);
           } else {
             setLines(
-              ownLines.map((l) => ({
-                key: `existing-${(lineKeyCounter.current += 1)}`,
-                ingredientId: l.ingredientId,
-                amount: l.quantity.amount,
-              })),
+              ownLines.map((l) => {
+                // §10.5: a line saved with an entry-time conversion carries
+                // `displayQuantity`/`displayUnit` forward as provenance —
+                // what the recipe author actually typed, never read by any
+                // engine. A line with neither (the common case, saved
+                // before this package or simply typed in the ingredient's
+                // own canonical unit) falls back to the canonical amount in
+                // the ingredient's own unit — i.e. "no conversion happened".
+                const ingredient = ingredientsResult.rows.find((i) => i.id === l.ingredientId);
+                return {
+                  key: `existing-${(lineKeyCounter.current += 1)}`,
+                  ingredientId: l.ingredientId,
+                  amount: l.displayQuantity ?? l.quantity.amount,
+                  // "portion" (a `Unit`, not an `EntryUnit` — leftover-lots
+                  // only, never a recipe ingredient's canonical unit in
+                  // practice) falls back to "g" rather than widening
+                  // `EntryUnit`'s type for a case that can't really occur.
+                  entryUnit: l.displayUnit ?? (ingredient && ingredient.unit !== "portion" ? ingredient.unit : "g"),
+                };
+              }),
             );
           }
 
@@ -272,7 +313,7 @@ export function RecipeEditor() {
     lineKeyCounter.current += 1;
     setLines((current) => [
       ...current,
-      { key: `new-${lineKeyCounter.current}`, ingredientId: null, amount: null },
+      { key: `new-${lineKeyCounter.current}`, ingredientId: null, amount: null, entryUnit: null },
     ]);
   }
 
@@ -281,13 +322,27 @@ export function RecipeEditor() {
   }
 
   function setLineIngredient(key: string, ingredientId: IngredientId): void {
+    // Default the entry unit to the newly-chosen ingredient's own canonical
+    // unit (§10: "no conversion" is the common case) — never `null` once an
+    // ingredient is picked, so the unit chip always has something to show.
+    const chosen = ingredientsCatalog.find((i) => i.id === ingredientId);
+    const entryUnit: EntryUnit = chosen && chosen.unit !== "portion" ? chosen.unit : "g";
     setLines((current) =>
-      current.map((l) => (l.key === key ? { ...l, ingredientId, amount: null } : l)),
+      current.map((l) => (l.key === key ? { ...l, ingredientId, amount: null, entryUnit } : l)),
     );
   }
 
   function setLineAmount(key: string, amount: number | null): void {
     setLines((current) => current.map((l) => (l.key === key ? { ...l, amount } : l)));
+  }
+
+  /**
+   * Changing only the unit (not the ingredient) keeps whatever amount was
+   * already typed — the household is re-interpreting the same number in a
+   * different unit ("2" was grams, now it's cups), not clearing the field.
+   */
+  function setLineEntryUnit(key: string, entryUnit: EntryUnit): void {
+    setLines((current) => current.map((l) => (l.key === key ? { ...l, entryUnit } : l)));
   }
 
   function addStep(): void {
@@ -391,6 +446,12 @@ export function RecipeEditor() {
       );
 
       const finalPrepMinutes = kind === "bought" ? 0 : (prepMinutes ?? 0);
+      // "Can't be split": only made explicit when the household has touched
+      // it this session (`indivisibleOverride !== null`) — untouched,
+      // `indivisible` already equals the derived default (§4: "absent ⇒
+      // kind === 'bought'") and can stay implicit, the same "don't freeze a
+      // default that would otherwise keep deriving" reasoning
+      // `IngredientEditor.tsx` applies to `purchaseMode`.
       const recipe: Recipe = {
         id,
         name: name.trim(),
@@ -401,6 +462,7 @@ export function RecipeEditor() {
         mealTags,
         status,
         ...(recipeHasPhotoFinal ? { hasPhoto: true } : {}),
+        ...(indivisibleOverride !== null ? { indivisible: indivisibleOverride } : {}),
       };
 
       let recipeLines: readonly RecipeIngredient[];
@@ -424,19 +486,48 @@ export function RecipeEditor() {
           { recipeId: id, ingredientId: productId, quantity: makeQuantity(1, "piece") },
         ];
       } else {
-        recipeLines = lines
-          .filter(
-            (l): l is LineDraft & { ingredientId: IngredientId; amount: number } =>
-              l.ingredientId !== null && l.amount !== null,
-          )
-          .map((l) => {
-            const unit = ingredientsCatalog.find((i) => i.id === l.ingredientId)?.unit ?? "g";
-            return {
-              recipeId: id,
-              ingredientId: l.ingredientId,
-              quantity: makeQuantity(l.amount, unit),
-            };
-          });
+        // §10: a line typed in the ingredient's own canonical unit needs no
+        // conversion at all (the common case, and every line saved before
+        // this package) — `quantity` is just `{ amount, unit }` directly,
+        // with no `displayQuantity`/`displayUnit` provenance to carry
+        // (nothing was converted, so there's nothing to attribute). A line
+        // typed in a different `EntryUnit` (a cup of flour, two pounds of
+        // mince) is converted exactly once, here, via `units.ts` — the sole
+        // sanctioned conversion module — and keeps what was actually typed
+        // as provenance alongside the canonical amount arithmetic uses.
+        try {
+          recipeLines = lines
+            .filter(
+              (l): l is LineDraft & { ingredientId: IngredientId; amount: number } =>
+                l.ingredientId !== null && l.amount !== null,
+            )
+            .map((l) => {
+              const ingredient = ingredientsCatalog.find((i) => i.id === l.ingredientId);
+              const unit = ingredient && ingredient.unit !== "portion" ? ingredient.unit : "g";
+              const entryUnit: EntryUnit = l.entryUnit ?? unit;
+              if (entryUnit === unit) {
+                return { recipeId: id, ingredientId: l.ingredientId, quantity: makeQuantity(l.amount, unit) };
+              }
+              const density = ingredient
+                ? {
+                    ...(ingredient.gramsPerMl !== undefined ? { gramsPerMl: ingredient.gramsPerMl } : {}),
+                    ...(ingredient.gramsPerPiece !== undefined ? { gramsPerPiece: ingredient.gramsPerPiece } : {}),
+                  }
+                : {};
+              const quantity = convertEntryToCanonical({ amount: l.amount, unit: entryUnit }, unit, density);
+              return {
+                recipeId: id,
+                ingredientId: l.ingredientId,
+                quantity,
+                displayQuantity: l.amount,
+                displayUnit: entryUnit,
+              };
+            });
+        } catch (err) {
+          // `finally` below still resets `saving` — no need to do it here too.
+          showToast({ variant: "error", title: "Couldn't convert an ingredient amount", description: messageOf(err) });
+          return;
+        }
       }
 
       // WP-PHOTO round-trip fix: `detail`/`durationMinutes`/`hasPhoto` are
@@ -577,33 +668,63 @@ export function RecipeEditor() {
                       <p className={styles.hint}>No ingredient lines yet.</p>
                     ) : null}
                     {lines.map((line) => {
-                      const unit =
-                        ingredientsCatalog.find((i) => i.id === line.ingredientId)?.unit ?? "g";
+                      const ingredient = ingredientsCatalog.find((i) => i.id === line.ingredientId);
+                      const canonicalUnit = ingredient && ingredient.unit !== "portion" ? ingredient.unit : "g";
+                      const entryUnit: EntryUnit = line.entryUnit ?? canonicalUnit;
+                      // §10: the unit chip opens a picker of only the units
+                      // THIS ingredient can accept — never a fixed list, so
+                      // a unit needing a conversion constant the ingredient
+                      // doesn't have (§10.1) simply isn't offered.
+                      const entryUnitOptions = (ingredient ? recipeEntryUnitsFor(ingredient) : []).map((u) => ({
+                        value: u,
+                        label: ENTRY_UNIT_LABELS[u],
+                      }));
+                      const preview =
+                        ingredient && line.amount !== null ? gramsPreview(line.amount, entryUnit, ingredient) : undefined;
                       return (
-                        <div className={styles.line} key={line.key}>
-                          <SelectSheet
-                            label="Ingredient"
-                            options={ingredientOptions}
-                            value={line.ingredientId}
-                            onChange={(value) => setLineIngredient(line.key, value)}
-                            placeholder="Choose an ingredient…"
-                          />
-                          <QuantityInput
-                            label="Amount"
-                            unit={unit}
-                            value={line.amount}
-                            onChange={(q) => setLineAmount(line.key, q?.amount ?? null)}
-                            disabled={line.ingredientId === null}
-                            required
-                          />
-                          <button
-                            type="button"
-                            className={styles.removeButton}
-                            onClick={() => removeLine(line.key)}
-                            aria-label="Remove ingredient line"
-                          >
-                            <Trash size={18} aria-hidden="true" />
-                          </button>
+                        <div key={line.key}>
+                          <div className={styles.line}>
+                            <SelectSheet
+                              label="Ingredient"
+                              options={ingredientOptions}
+                              value={line.ingredientId}
+                              onChange={(value) => setLineIngredient(line.key, value)}
+                              placeholder="Choose an ingredient…"
+                            />
+                            <QuantityInput<EntryUnit>
+                              label="Amount"
+                              unit={entryUnit}
+                              value={line.amount}
+                              onChange={(q) => setLineAmount(line.key, q?.amount ?? null)}
+                              disabled={line.ingredientId === null}
+                              required
+                            />
+                            {entryUnitOptions.length > 1 ? (
+                              <SelectSheet<EntryUnit>
+                                label="Unit"
+                                options={entryUnitOptions}
+                                value={entryUnit}
+                                onChange={(value) => setLineEntryUnit(line.key, value)}
+                              />
+                            ) : null}
+                            <button
+                              type="button"
+                              className={styles.removeButton}
+                              onClick={() => removeLine(line.key)}
+                              aria-label="Remove ingredient line"
+                            >
+                              <Trash size={18} aria-hidden="true" />
+                            </button>
+                          </div>
+                          {/* §10.5: "1 cup flour (130 g)" — the household
+                              sees both what they typed and the canonical
+                              number the app is actually reasoning about. */}
+                          {preview !== undefined && ingredient ? (
+                            <p className={styles.hint}>
+                              {line.amount} {ENTRY_UNIT_LABELS[entryUnit]} {ingredient.name.toLowerCase()} (
+                              {Math.round(preview * 10) / 10} g)
+                            </p>
+                          ) : null}
                         </div>
                       );
                     })}
@@ -705,6 +826,16 @@ export function RecipeEditor() {
                       value={kind}
                       onChange={setKind}
                     />
+                  </div>
+                  <div className={styles.field}>
+                    <span className={styles.fieldLabel}>Can&rsquo;t be split</span>
+                    <SegmentedControl<SplitChoice>
+                      aria-label="Can't be split"
+                      options={SPLIT_OPTIONS}
+                      value={indivisible ? "cant" : "splits"}
+                      onChange={(value) => setIndivisibleOverride(value === "cant")}
+                    />
+                    <p className={styles.hint}>Scales in whole units — extras become leftovers.</p>
                   </div>
                   <div className={styles.field}>
                     <span className={styles.fieldLabel}>Household flag</span>
