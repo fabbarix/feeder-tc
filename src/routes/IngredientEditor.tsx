@@ -281,7 +281,10 @@ export function IngredientEditor() {
         ...(gramsPerPieceFinal !== undefined ? { gramsPerPiece: gramsPerPieceFinal } : {}),
       };
       await store.ingredients.upsert(ingredient);
-      showToast({ variant: "success", title: `Saved "${ingredient.name}"`, durationMs: 4000 });
+      // No success toast (UX review round 2, "quieten the toasts"): this
+      // navigates straight to the ingredients list, where the saved row is
+      // already the confirmation — a toast repeating "saved" on top of that
+      // is noise, not information.
       navigate("/recipes/ingredients");
     } catch (err) {
       showToast({ variant: "error", title: "Couldn't save the ingredient", description: messageOf(err) });

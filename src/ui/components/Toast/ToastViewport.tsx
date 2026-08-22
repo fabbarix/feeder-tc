@@ -34,11 +34,15 @@ export function ToastViewport() {
     // alone supplies an accessible NAME, but only a role turns a <div> into
     // something landmark-aware tooling recognises as a region at all.
     <div className={styles.viewport} role="region" aria-label="Notifications">
-      {/* Newest first. The stack is anchored to the bottom of the screen, so
-          rendering in arrival order buried the most recent message deepest —
-          exactly the one the person just caused and most wants to read.
-          Reversing here, rather than in the provider, keeps `toasts` in
-          arrival order for the dismissal timers and for tests. */}
+      {/* Newest first, regardless of which edge the stack is anchored to
+          (Toast.module.css: top on phone, bottom from 768px up) — rendering
+          in arrival order buried the most recent message deepest, exactly
+          the one the person just caused and most wants to read. With only
+          ONE of `top`/`bottom` ever set (never both), the box grows away
+          from its pinned edge, so the first DOM child always lands at the
+          pinned edge itself — the most prominent slot either way. Reversing
+          here, rather than in the provider, keeps `toasts` in arrival order
+          for the dismissal timers and for tests. */}
       {[...toasts].reverse().map((toast) => (
         <div
           key={toast.id}

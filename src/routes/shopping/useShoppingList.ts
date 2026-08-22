@@ -414,7 +414,11 @@ export function useShoppingList(range: DateRange): ShoppingListState {
         showToast({ variant: "error", title: "Couldn't save the check-off", description: messageOf(err) });
         return;
       }
-      showToast({ variant: "success", title: `${event.quantity.amount} ${event.quantity.unit} checked off`, durationMs: 3000 });
+      // No success toast (UX review round 2, "quieten the toasts"): the row
+      // itself flips to checked and grows its own "bought …" secondary line
+      // (ShoppingRow.tsx's `boughtSecondary`) the moment `pending` above
+      // updates — that IS the confirmation, right where the user is already
+      // looking.
       void engine.controller.flushNow();
 
       // Keeps this line visible/checked for the rest of the session even

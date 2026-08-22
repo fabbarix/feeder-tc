@@ -269,7 +269,10 @@ export function Home() {
       const updated: PlanSlot = { ...latest, state: "cooked" };
       await store.planSlots.upsert(updated);
       setPlanSlots((current) => current.map((s) => (s.id === updated.id ? updated : s)));
-      showToast({ variant: "success", title: "Marked cooked.", durationMs: 4000 });
+      // No success toast (UX review round 2, "quieten the toasts"): once
+      // `state` above flips to "cooked", Tonight's card swaps straight from
+      // the "Mark cooked" button to its cooked rendering — that IS the
+      // confirmation.
     } catch (err) {
       showToast({ variant: "error", title: "Couldn't mark this cooked", description: messageOf(err) });
     } finally {

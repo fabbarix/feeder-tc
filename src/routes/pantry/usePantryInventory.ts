@@ -273,8 +273,15 @@ export function usePantryInventory(): PantryInventory {
     [ingredients],
   );
 
+  // No success toast on the happy path (UX review round 2, "quieten the
+  // toasts" — this was the cluster the mobile reviewer caught burying the
+  // pantry-item rail's own Use some/Open/Move/Correct/Mark spoiled buttons
+  // in a burst): `setPending` below is optimistic, so the pantry list
+  // already shows the new/changed lot before this function even returns —
+  // a toast repeating that on top is noise, not information. The error
+  // path still toasts (a failed sync is NOT otherwise visible).
   const submit = useCallback(
-    async (event: InventoryEvent, successTitle: string): Promise<void> => {
+    async (event: InventoryEvent): Promise<void> => {
       if (!engine) return;
       setPending((current) => [...current, event]);
       try {
@@ -284,7 +291,6 @@ export function usePantryInventory(): PantryInventory {
         showToast({ variant: "error", title: "Couldn't save the change", description: messageOf(err) });
         return;
       }
-      showToast({ variant: "success", title: successTitle, durationMs: 3000 });
       void engine.controller.flushNow();
     },
     [engine, showToast],
@@ -292,42 +298,42 @@ export function usePantryInventory(): PantryInventory {
 
   const addLot = useCallback(
     async (input: AddLotInput): Promise<void> => {
-      await submit(buildPurchaseEvent(input, clock, rng), "Added to pantry.");
+      await submit(buildPurchaseEvent(input, clock, rng));
     },
     [submit, clock, rng],
   );
 
   const useSome = useCallback(
     async (input: UseSomeInput): Promise<void> => {
-      await submit(buildUseEvent(input, clock, rng), "Usage recorded.");
+      await submit(buildUseEvent(input, clock, rng));
     },
     [submit, clock, rng],
   );
 
   const markSpoiled = useCallback(
     async (input: SpoilInput): Promise<void> => {
-      await submit(buildSpoilEvent(input, clock, rng), "Marked spoiled.");
+      await submit(buildSpoilEvent(input, clock, rng));
     },
     [submit, clock, rng],
   );
 
   const move = useCallback(
     async (input: MoveInput): Promise<void> => {
-      await submit(buildMoveEvent(input, clock, rng), "Moved.");
+      await submit(buildMoveEvent(input, clock, rng));
     },
     [submit, clock, rng],
   );
 
   const open = useCallback(
     async (input: OpenInput): Promise<void> => {
-      await submit(buildOpenEvent(input, clock, rng), "Marked opened.");
+      await submit(buildOpenEvent(input, clock, rng));
     },
     [submit, clock, rng],
   );
 
   const correct = useCallback(
     async (input: CorrectInput): Promise<void> => {
-      await submit(buildCorrectEvent(input, clock, rng), "Correction saved.");
+      await submit(buildCorrectEvent(input, clock, rng));
     },
     [submit, clock, rng],
   );

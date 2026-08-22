@@ -312,13 +312,14 @@ function ShellContainer() {
       // partially-written workbook — WP-21's pantry route was the first to
       // read `Meta` at mount and hit it as a hard "not bootstrapped
       // correctly" error, but the race existed for every "ready" route.
+      // No success toast here (UX review round 2, "quieten the toasts"):
+      // `refreshActiveWorkbook()` above is what flips `ShellState` to
+      // "ready" and mounts the real nav/Home behind it — the app actually
+      // appearing IS the confirmation that setup finished, on top of the
+      // "Setting up your workbook…" toast just above already having said
+      // what was happening. A second toast announcing the same thing the
+      // whole screen just did was pure noise riding on top of it.
       refreshActiveWorkbook();
-      showToast({
-        variant: "success",
-        title: "Workbook ready",
-        description: `Created "${created.name}" with the seeded ingredient catalog.`,
-        durationMs: 5000,
-      });
     } catch (err) {
       showToast({ variant: "error", title: "Couldn't create the workbook", description: messageOf(err) });
     }

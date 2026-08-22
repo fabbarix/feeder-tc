@@ -379,11 +379,19 @@ export function Pantry() {
               <div className={forms.field}>
                 <span className={forms.fieldLabel}>Location</span>
                 <div className={forms.fullWidthControl}>
+                  {/* `wraps`: this is the 250px desktop rail (pantry.module.css
+                      `.rail`) — the exact control that motivated the `auto-fit`
+                      grid fix in the first place. 4 segments at ≥72px each need
+                      ≥298px including gaps/padding, more than the rail leaves
+                      after `.railCard`'s own padding, so this one measurably
+                      wraps onto two rows and drops the pill accordingly
+                      (SegmentedControl.module.css's `.group.wrap`). */}
                   <SegmentedControl<LocationFilter>
                     aria-label="Location"
                     options={LOCATION_FILTER_OPTIONS}
                     value={locationFilter}
                     onChange={setLocationFilter}
+                    wraps
                   />
                 </div>
               </div>

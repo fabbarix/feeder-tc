@@ -193,16 +193,25 @@ test.describe("unstyled-link audit (owner-reported: the ingredients-catalog link
   });
 });
 
-// WP-VC3 Task 1: `SegmentedControl` rendered `border-radius: 10px`
-// (`--radius-md`); the mock's `.seg`/`.seg button` are a `999px` pill
-// (design/mock-screens.html, `.seg{...border-radius:999px...}`). Pre-
-// existing since WP-20, deferred twice because the component is shared —
-// every consumer (recipe household flag, pantry/shopping/pantry-form/mark-
-// cooked storage location, ingredient unit, recipe kind, the theme control)
-// gets the fix from the one CSS Module change, verified here on two
-// representative consumers via a measured `getComputedStyle` check rather
-// than a screenshot alone.
-test.describe("SegmentedControl is a 999px pill, not a 10px rounded rect (Task 1)", () => {
+// WP-VC3 Task 1 pinned `border-radius: 999px` here (design/mock-screens.html's
+// `.seg{...border-radius:999px...}`), replacing an earlier `--radius-md`
+// (10px) rounded rect. UX review round 2 (Finding 1: narrow rails like
+// Pantry's Location filter overflowed the page — SegmentedControl.module.css's
+// old `flex: 1 1 auto` grew to fill a wide container but neither shrank nor
+// wrapped in a narrow one) briefly dropped the pill everywhere, but that
+// over-corrected: design/mock-screens.html draws the plain pill in all 28 of
+// its own uses, and only `mock-responsive.html`'s "segmented control fix,
+// made concrete" DEMO (4 uses, all inside the note explaining the fix)
+// draws the rounded-rect `.seg.wrap` shape. Owner's decision: pill by
+// default, everywhere — a control that never wraps has no reason to give it
+// up — and the rounded-rect radius is an explicit opt-in (`wraps` prop,
+// SegmentedControl.tsx) for a control that actually wraps onto a second row
+// at a supported width, because a fully-rounded pill that wraps to two rows
+// reads as a blob, not a control. This spec pins BOTH shapes so neither can
+// drift: the two representative consumers below never wrap (their
+// containers are wide enough for their option counts) and stay the 999px
+// pill; the case after it pins the one consumer that does wrap.
+test.describe("SegmentedControl is a 999px pill by default, --radius-md/--radius-sm only where it wraps (UX review round 2 / owner decision)", () => {
   test("the theme control (Settings 'Appearance') renders both the trough and the selected segment as a 999px pill", async ({
     page,
   }) => {
@@ -230,6 +239,43 @@ test.describe("SegmentedControl is a 999px pill, not a 10px rounded rect (Task 1
     await expect(group).toBeVisible();
     const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
     expect(groupRadius).toBe("999px");
+  });
+
+  // The one consumer that actually wraps: Pantry's Location filter in its
+  // 250px desktop rail (pantry.module.css `.rail`) — 4 segments at ≥72px
+  // each need ≥298px including gaps/padding, more than the rail leaves, so
+  // it drops onto two rows and opts into `wraps` (Pantry.tsx). Pinning both
+  // this shape and the pill shape above means neither can silently drift: a
+  // future change that makes this wrap-in-fact but keeps the pill radius,
+  // or that keeps it non-wrapping but drops the radius anyway, fails here.
+  // Scoped to its own block so the viewport override below applies ONLY to
+  // this case. Applying it to the whole describe would also pin the two pill
+  // assertions above to 1280px — and those specifically need to keep running
+  // at each project's own viewport, including mobile-chrome's phone width,
+  // because a narrow viewport is exactly where a control could start wrapping
+  // and turn its pill into a blob. That is the regression they exist to catch.
+  test.describe("the wrapping case", () => {
+    // Pantry's FILTERS rail is `display: none` below 768px (pantry.module.css),
+    // so mobile-chrome would otherwise find no visible rail at all — same
+    // "desktop-only rail" reasoning as the WP-VC4 block further down.
+    test.use({ viewport: { width: 1280, height: 900 } });
+
+    test("Pantry's Location filter (250px desktop rail) is a --radius-md rounded rect, not a pill, because it wraps", async ({
+      page,
+    }) => {
+      await enterReadyShell(page, "pantry");
+      const rail = page.locator('[class*="rail"]');
+      const group = rail.getByRole("radiogroup", { name: "Location" });
+      await expect(group).toBeVisible();
+      const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
+      expect(groupRadius).toBe("10px"); // --radius-md
+
+      const selected = group.getByRole("radio", { checked: true }).first();
+      const segmentRadius = await selected.evaluate(
+        (el) => getComputedStyle(el.closest("label")!).borderRadius,
+      );
+      expect(segmentRadius).toBe("6px"); // --radius-sm
+    });
   });
 });
 

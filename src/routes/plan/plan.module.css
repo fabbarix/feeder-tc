@@ -114,10 +114,22 @@
    weekend band's 3 real days plus one `aria-hidden` filler div) — that's
    what keeps Fri/Sat/Sun the same width as Mon–Thu instead of stretching
    to fill a short row. */
+/* `align-items: start`, not the grid default `stretch` (tablet UX review):
+   a plain grid stretches every `.day` in a row to match its tallest
+   neighbour — measured, two filled dinners forced all four Mon–Thu columns
+   to 380px when Wed/Thu only needed ~130px, leaving ~250px of empty
+   bordered card on two columns. A real week is mostly empty, so the
+   busiest day inflating its WHOLE band is the common case, not an edge
+   case. `start` lets each `.day` size to its own content instead — the
+   weekend band's own `aria-hidden` filler cell (this file's own note just
+   below) is unaffected by this and stays exactly as short/empty as it
+   already was; the gap it leaves is a separate, deliberately-untouched
+   design question. */
 .week4 {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
+  align-items: start;
 }
 
 .day {

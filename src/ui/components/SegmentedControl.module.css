@@ -1,14 +1,51 @@
 /*
- * design/mock-reference.css's `.seg` is a 999px pill (`border-radius:999px`
- * on both the trough and the selected segment), not the app's `--radius-md`
- * (10px) — pre-existing since WP-20, deferred twice because this component
- * is shared by every StorageLocation/RecipeStatus/RecipeKind/ThemeMode
- * consumer. Literal 999px, matching the codebase's own convention for pill
- * shapes elsewhere (AppShell.module.css, ToggleChips, DateChips, etc. all
- * use the literal rather than a token — there is no `--radius-full` token).
+ * Grid, not flex — UX review round 2 (owner-measured: /pantry at 1512×950
+ * scrolled the whole PAGE 71px past the viewport edge, because the
+ * Location control's 4 segments — All/Pantry/Fridge/Freezer — couldn't fit
+ * their combined width into the 250px rail). The previous rule here was
+ * `.segment { flex: 1 1 auto }`, on the theory that "`1 1 auto` grows but
+ * will not shrink a segment below its own label, so nothing clips." That
+ * theory was wrong: a flex item's default `min-width: auto` floors it at
+ * its min-CONTENT size, which for text is the width of its longest WORD,
+ * not the label's one-line width. So a narrow container didn't clip — it
+ * let the longer labels shrink word-wrap-narrow while shorter ones didn't,
+ * with `flex-wrap` never set (default `nowrap`), so the row as a whole
+ * simply overflowed its box (and, at the Pantry rail, the page).
+ *
+ * `grid-template-columns: repeat(auto-fit, minmax(72px, 1fr))` fixes both
+ * directions at once, no breakpoint/threshold to pick: with room for every
+ * segment at ≥72px, `auto-fit` resolves to one row and `1fr` shares the
+ * width evenly — pixel-identical to the old full-width flex behaviour (the
+ * ~720px ingredient-editor field this component was widened for in the
+ * first review round still renders exactly as before). Only where the
+ * container is too narrow for all segments at 72px does a row wrap, onto a
+ * full second row shared evenly the same way — never a partial shrink that
+ * squeezes one label harder than its siblings. This is
+ * design/mock-responsive.html's own approved fix ("The segmented control
+ * fix, made concrete", ~line 1523: `.seg.wrap`'s
+ * `grid-template-columns:repeat(auto-fit,minmax(72px,1fr))`), applied here
+ * UNCONDITIONALLY (not gated behind the `.wrap` modifier below) because it
+ * costs nothing when there's room — one row, evenly shared, unchanged from
+ * plain flex — and every consumer benefits from the overflow protection
+ * regardless of shape.
+ *
+ * Radius is a SEPARATE decision from layout, and is NOT unconditional.
+ * design/mock-screens.html's own screens draw this control as a 999px pill
+ * in all 28 of their uses; only `mock-responsive.html`'s "segmented control
+ * fix, made concrete" demo — 4 uses total, all inside the note explaining
+ * the fix itself — draws the `.seg.wrap` rounded-rect shape. Owner's
+ * decision after that contradiction was pointed out: pill by default,
+ * everywhere, since a single-row pill never has a reason to give up its
+ * shape; the rounded-rect radius is an explicit opt-in (`wraps` prop, below)
+ * for a control that is actually known to wrap onto multiple rows at a
+ * width this app supports — a fully-rounded pill that wraps to a second row
+ * reads as a blob, not a control, but a control that never wraps has no
+ * reason to lose the pill just because SOME other consumer, somewhere,
+ * might.
  */
 .group {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 2px;
   padding: 2px;
   background: var(--surface-raised);
@@ -16,17 +53,7 @@
   border-radius: 999px;
 }
 
-/* Segments SHARE the pill's width rather than packing left.
-   `.group` is `inline-flex`, but a segmented control placed in a form
-   `.field` (a column flex, so `align-items: stretch`) gets stretched to the
-   full field width — ~720px in the ingredient editor. With the segments
-   content-sized, ~70% of the pill was an inert trough that still looked
-   clickable. Growing them fills the control instead, which is also what the
-   approved mock does wherever it renders a full-width segmented control
-   (its segments carry `flex:1`). `1 1 auto` grows but will not shrink a
-   segment below its own label, so nothing clips. */
 .segment {
-  flex: 1 1 auto;
   position: relative;
   display: flex;
   align-items: center;
@@ -41,6 +68,29 @@
   transition:
     background var(--motion-fast) ease-in-out,
     color var(--motion-fast) ease-in-out;
+}
+
+/*
+ * Opt-in modifier (`SegmentedControlProps.wraps`, SegmentedControl.tsx) for
+ * a control that is known to actually wrap onto a second row at a width
+ * this app supports — mirrors design/mock-responsive.html's `.seg.wrap`
+ * (`--r-md`/`--r-sm`) rather than inventing a new naming scheme. Applied
+ * today only to Pantry's Location filter in its 250px desktop rail
+ * (Pantry.tsx) — the one control that measurably wraps (4 segments at
+ * ≥72px need ≥298px including gaps/padding, more than the 250px rail minus
+ * its card padding leaves). Every other consumer either has ≤2 options,
+ * lives in a field wide enough that the grid never drops below one row
+ * (the ~720px ingredient-editor/recipe-editor fields, ConfirmDialog's
+ * 420px), or is a short 3-option list in a rail wide enough to clear
+ * ≥3×72px plus gaps (RecipeDetail's/RecipeEditor's 290px "Household flag"
+ * rail) — none of those wrap, so none of those give up the pill.
+ */
+.group.wrap {
+  border-radius: var(--radius-md);
+}
+
+.group.wrap .segment {
+  border-radius: var(--radius-sm);
 }
 
 /*
