@@ -164,6 +164,31 @@ WP-VC3 set, unlike WP-PHOTO's necessary exception above:**
   groups and the recipe editor's "Can't be split" toggle/entry-unit picker.
   The contract fields and engine/units.ts plumbing they need already exist.
 
+**WP-purchasing-editor contract change (dedicated, coordinator-approved, per
+DESIGN_PURCHASING.md §8 scope note "one contract field"), additive-only,
+`types.ts` only — the same pattern WP-PURCHASING itself set immediately
+above, delivering the one field that package left out:**
+
+- `types.ts`: `Ingredient` gained `packLabel?: string` — the container noun
+  ("jar", "carton", "box") a `purchaseMode: "whole"` ingredient's shopping
+  row calls itself, so the buy-primary number can read "1 jar" instead of
+  "250 g" (DESIGN_PURCHASING.md §6). Purely a display label: no engine or
+  fold reads it, and it changes no arithmetic — `src/domain/purchasing.ts`'s
+  `suggestPurchase` is untouched. Absent means the shopping row falls back to
+  the plain formatted amount exactly as it does today (most ingredients
+  never set this).
+- `contracts.ts`: untouched.
+- Sheets: one column on `Ingredients` (`pack_label`), appended at the end
+  after `grams_per_piece`, missing-cell-safe like every column before it — a
+  legacy row (including one written by the WP-PURCHASING package itself,
+  before this field existed) decodes `packLabel` to `undefined`, never a
+  thrown error or a quarantined row (see `src/sheets/codecs/ingredients.ts`'s
+  `decodeIngredient` and its own tests).
+- Wired into the ingredient editor (`src/routes/IngredientEditor.tsx`, "How
+  you buy it" group, Whole mode only — same visibility rule as `packSize`)
+  and the shopping row's buy-primary display
+  (`src/routes/shopping/purchase-display.ts`).
+
 ## The purity rule
 
 Every module in `src/domain` is pure: no I/O, no React, no browser/Node

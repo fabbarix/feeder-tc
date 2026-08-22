@@ -28,3 +28,19 @@ export const MEAL_TAG_OPTIONS: readonly { value: MealTag; label: string }[] = [
   { value: "dinner", label: "Dinner" },
   { value: "snack", label: "Snack" },
 ];
+
+/**
+ * "Can't be split" (WP-purchasing-editor — DESIGN_PURCHASING.md §4/§8),
+ * rendered as the same two-option `SegmentedControl` as Kind/Household
+ * flag — this file has no separate "toggle switch" idiom, and the mock's
+ * own note is explicit that Kind is already this exact shape of binary
+ * choice. `"splits" | "cant"` is a display-only local type — the boolean it
+ * maps to is `Recipe.indivisible`'s effective value (`isIndivisible`,
+ * `src/domain/purchasing.ts`).
+ */
+export type SplitChoice = "splits" | "cant";
+
+export const SPLIT_OPTIONS: readonly { value: SplitChoice; label: string }[] = [
+  { value: "splits", label: "Splits into portions" },
+  { value: "cant", label: "Can't be split" },
+];

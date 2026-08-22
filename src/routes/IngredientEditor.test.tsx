@@ -133,3 +133,203 @@ describe("IngredientEditor — stale-save protection", () => {
     expect(saved?.name).toBe("Steel-cut oats");
   });
 });
+
+function contextValue(store: ReturnType<typeof createFakeWorkbookStore>): WorkbookContextValue {
+  return {
+    store,
+    clock: createFixedClock(makeIsoTimestamp("2026-08-21T12:00:00.000Z"), makeIsoDate("2026-08-21")),
+    rng: createFakeRng(1),
+    workbookId: "wb-1",
+    outbox: createFakeOutbox(),
+  };
+}
+
+/**
+ * DESIGN_PURCHASING.md §8 — "How you buy it" / "How you measure it", both
+ * optional groups, collapsed by default. The one rule most likely to be
+ * gotten wrong: the pack-size field is ABSENT for Loose, not disabled or
+ * greyed — "a Loose ingredient has nothing to round to."
+ */
+describe("IngredientEditor — How you buy it (DESIGN_PURCHASING.md §8)", () => {
+  it("is collapsed by default, with no purchase-mode control in the DOM", async () => {
+    const store = createFakeWorkbookStore();
+    renderEditor(contextValue(store), "/recipes/ingredients/new");
+    await screen.findByLabelText("Name");
+
+    expect(screen.getByRole("button", { name: "+ How you buy it" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Sold as" })).not.toBeInTheDocument();
+  });
+
+  it("shows Whole/Loose once expanded, with the pack-size field ABSENT (not disabled) for Loose", async () => {
+    const store = createFakeWorkbookStore();
+    renderEditor(contextValue(store), "/recipes/ingredients/new");
+    await screen.findByLabelText("Name");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "+ How you buy it" }));
+
+    const sold = screen.getByRole("radiogroup", { name: "Sold as" });
+    expect(sold).toBeInTheDocument();
+    // "g"/"ml" ingredients default to Loose (§3's table) — nothing filled
+    // in here yet, so the new ingredient is still canonical unit "g".
+    expect(screen.getByRole("radio", { name: "Loose" })).toBeChecked();
+    expect(screen.queryByLabelText(/Pack size/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Container name (optional)")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Whole" }));
+    expect(screen.getByLabelText(/Pack size/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Container name (optional)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Loose" }));
+    expect(screen.queryByLabelText(/Pack size/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Container name (optional)")).not.toBeInTheDocument();
+  });
+
+  it("saves purchaseMode, packSize and packLabel for a new Whole ingredient", async () => {
+    const store = createFakeWorkbookStore();
+    renderEditor(contextValue(store), "/recipes/ingredients/new");
+    await screen.findByLabelText("Name");
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Name"), "Mayonnaise");
+    await user.click(screen.getByRole("button", { name: "+ How you buy it" }));
+    await user.click(screen.getByRole("radio", { name: "Whole" }));
+    await user.type(screen.getByLabelText(/Pack size/), "250");
+    await user.type(screen.getByLabelText("Container name (optional)"), "jar");
+    await user.click(screen.getByRole("button", { name: "Save ingredient" }));
+
+    await screen.findByText("Ingredients list");
+    const saved = (await store.ingredients.readAll()).rows.find((i) => i.name === "Mayonnaise");
+    expect(saved?.purchaseMode).toBe("whole");
+    expect(saved?.packSize).toEqual({ amount: 250, unit: "g" });
+    expect(saved?.packLabel).toBe("jar");
+  });
+
+  it("clears packSize/packLabel on save after switching an already-Whole ingredient back to Loose", async () => {
+    const store = createFakeWorkbookStore();
+    const ingredientId = makeIngredientId("mayonnaise");
+    await store.ingredients.upsert(
+      baseIngredient({
+        id: ingredientId,
+        name: "Mayonnaise",
+        purchaseMode: "whole",
+        packSize: { amount: 250, unit: "g" },
+        packLabel: "jar",
+      }),
+    );
+
+    renderEditor(contextValue(store), `/recipes/ingredients/${ingredientId}/edit`);
+    await screen.findByDisplayValue("Mayonnaise");
+
+    // The group auto-expands because this ingredient already has data in it.
+    const sold = await screen.findByRole("radiogroup", { name: "Sold as" });
+    expect(sold).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Whole" })).toBeChecked();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Loose" }));
+    await user.click(screen.getByRole("button", { name: "Save ingredient" }));
+
+    await screen.findByText("Ingredients list");
+    const saved = (await store.ingredients.readAll()).rows.find((i) => i.id === ingredientId);
+    expect(saved?.purchaseMode).toBe("loose");
+    expect(saved?.packSize).toBeUndefined();
+    expect(saved?.packLabel).toBeUndefined();
+  });
+});
+
+/**
+ * DESIGN_PURCHASING.md §8's placeholder rule: a seeded default shows as a
+ * placeholder, never a pre-filled value, and leaving the field blank must
+ * preserve whatever was already stored rather than guessing OR clearing it.
+ */
+describe("IngredientEditor — How you measure it (DESIGN_PURCHASING.md §8/§10.1a)", () => {
+  it("shows the seeded gramsPerMl as a placeholder, not a value, and leaves it untouched on save", async () => {
+    const store = createFakeWorkbookStore();
+    const ingredientId = makeIngredientId("flour");
+    await store.ingredients.upsert(baseIngredient({ id: ingredientId, name: "Flour", gramsPerMl: 0.5417 }));
+
+    renderEditor(contextValue(store), `/recipes/ingredients/${ingredientId}/edit`);
+    await screen.findByDisplayValue("Flour");
+
+    const cupField = await screen.findByLabelText(/1 cup weighs/);
+    // Placeholder shows the seeded default (0.5417 * 240 = 130 g), but the
+    // field itself is blank — an untouched field must be visibly "using the
+    // default," never indistinguishable from a household-confirmed number.
+    expect(cupField).toHaveValue("");
+    expect(cupField).toHaveAttribute("placeholder", "130");
+
+    const user = userEvent.setup();
+    // Touch an unrelated field and save without ever typing in the density
+    // field — this is the regression case: before this package's fix, a
+    // save like this built a brand-new row and silently dropped gramsPerMl.
+    await user.click(screen.getByRole("button", { name: "Save ingredient" }));
+
+    await screen.findByText("Ingredients list");
+    const saved = (await store.ingredients.readAll()).rows.find((i) => i.id === ingredientId);
+    expect(saved?.gramsPerMl).toBe(0.5417);
+  });
+
+  it("overrides gramsPerMl when the household types a new cup weight", async () => {
+    const store = createFakeWorkbookStore();
+    const ingredientId = makeIngredientId("flour");
+    await store.ingredients.upsert(baseIngredient({ id: ingredientId, name: "Flour", gramsPerMl: 0.5417 }));
+
+    renderEditor(contextValue(store), `/recipes/ingredients/${ingredientId}/edit`);
+    await screen.findByDisplayValue("Flour");
+
+    const user = userEvent.setup();
+    const cupField = await screen.findByLabelText(/1 cup weighs/);
+    await user.type(cupField, "120");
+    await user.click(screen.getByRole("button", { name: "Save ingredient" }));
+
+    await screen.findByText("Ingredients list");
+    const saved = (await store.ingredients.readAll()).rows.find((i) => i.id === ingredientId);
+    expect(saved?.gramsPerMl).toBeCloseTo(120 / 240);
+  });
+
+  it("a brand-new ingredient with no seeded default shows no placeholder and saves with gramsPerMl left unset", async () => {
+    const store = createFakeWorkbookStore();
+    renderEditor(contextValue(store), "/recipes/ingredients/new");
+    await screen.findByLabelText("Name");
+
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Name"), "Made-up sauce");
+    await user.click(screen.getByRole("button", { name: "+ How you measure it" }));
+    const cupField = screen.getByLabelText(/1 cup weighs/);
+    expect(cupField).not.toHaveAttribute("placeholder");
+
+    await user.click(screen.getByRole("button", { name: "Save ingredient" }));
+    await screen.findByText("Ingredients list");
+    const saved = (await store.ingredients.readAll()).rows.find((i) => i.name === "Made-up sauce");
+    expect(saved?.gramsPerMl).toBeUndefined();
+  });
+});
+
+/**
+ * The data-loss bug this package's `handleSave` rewrite fixes: before it,
+ * saving through this editor built a brand-new `Ingredient` object with only
+ * the fields this form had UI for, so any field the form didn't render at
+ * all (`category`) was silently dropped the moment someone else's edit
+ * (or this editor's own past self, pre-fix) touched an unrelated field.
+ */
+describe("IngredientEditor — preserves fields it has no UI for", () => {
+  it("keeps an existing category after an unrelated save", async () => {
+    const store = createFakeWorkbookStore();
+    const ingredientId = makeIngredientId("rolled-oats");
+    await store.ingredients.upsert(baseIngredient({ id: ingredientId, category: "baking" }));
+
+    renderEditor(contextValue(store), `/recipes/ingredients/${ingredientId}/edit`);
+    await screen.findByDisplayValue("Rolled oats");
+
+    const user = userEvent.setup();
+    const nameField = screen.getByLabelText("Name");
+    await user.clear(nameField);
+    await user.type(nameField, "Steel-cut oats");
+    await user.click(screen.getByRole("button", { name: "Save ingredient" }));
+
+    await screen.findByText("Ingredients list");
+    const saved = (await store.ingredients.readAll()).rows.find((i) => i.id === ingredientId);
+    expect(saved?.category).toBe("baking");
+  });
+});

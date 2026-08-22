@@ -36,6 +36,10 @@ export const INGREDIENTS_HEADER: CellRow = [
   "round_to",
   "grams_per_ml",
   "grams_per_piece",
+  // WP-purchasing-editor, appended after grams_per_piece (additive, same
+  // "missing cell decodes to undefined" rule) — see types.ts's
+  // Ingredient.packLabel doc comment.
+  "pack_label",
 ];
 
 export function encodeIngredient(ingredient: Ingredient): CellRow {
@@ -54,6 +58,7 @@ export function encodeIngredient(ingredient: Ingredient): CellRow {
     ingredient.roundTo ?? "",
     ingredient.gramsPerMl ?? "",
     ingredient.gramsPerPiece ?? "",
+    ingredient.packLabel ?? "",
   ];
 }
 
@@ -116,6 +121,13 @@ export function decodeIngredient(row: CellRow): Ingredient {
   const gramsPerMl = gramsPerMlRaw !== undefined && gramsPerMlRaw > 0 ? gramsPerMlRaw : undefined;
   const gramsPerPieceRaw = cellOptionalNumber(row, 13, "grams_per_piece");
   const gramsPerPiece = gramsPerPieceRaw !== undefined && gramsPerPieceRaw > 0 ? gramsPerPieceRaw : undefined;
+  // pack_label (14) — free-text container noun, same lenient treatment as
+  // category: missing, blank, or present all decode cleanly; an empty
+  // string is normalised to undefined rather than kept as "" (see
+  // types.ts's Ingredient.packLabel doc comment — "most ingredients will
+  // never have one").
+  const packLabelRaw = cellOptionalString(row, 14);
+  const packLabel = packLabelRaw !== undefined && packLabelRaw.trim() !== "" ? packLabelRaw : undefined;
 
   return {
     id,
@@ -131,5 +143,6 @@ export function decodeIngredient(row: CellRow): Ingredient {
     ...(roundTo !== undefined ? { roundTo } : {}),
     ...(gramsPerMl !== undefined ? { gramsPerMl } : {}),
     ...(gramsPerPiece !== undefined ? { gramsPerPiece } : {}),
+    ...(packLabel !== undefined ? { packLabel } : {}),
   };
 }
