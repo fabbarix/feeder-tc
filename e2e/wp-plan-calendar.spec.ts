@@ -144,7 +144,13 @@ for (const tier of TIERS) {
       await goToPlan(page);
 
       await page.getByRole("radio", { name: "Month" }).click();
-      await expect(page.getByText("Quarter — same component, lower density")).toBeVisible();
+      // Assert the heading by ROLE and its user-facing name, not by a literal
+      // sentence. This previously pinned "Quarter — same component, lower
+      // density" — a note about reusing one calendar component at two
+      // densities, which had been shipped as a user-visible <h2>. The test
+      // cemented it, so removing the jargon broke CI rather than the jargon
+      // being caught for what it was.
+      await expect(page.getByRole("heading", { name: "Quarter", exact: true })).toBeVisible();
 
       // Three distinct month labels in the quarter strip.
       const monthNow = new Date();
