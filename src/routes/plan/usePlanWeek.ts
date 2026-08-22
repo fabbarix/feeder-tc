@@ -527,7 +527,10 @@ export function usePlanWeek(): UsePlanWeekResult {
         setStaplePlanState(result.staplePlanState);
         const plannerStateStore = createLocalStoragePlannerStateStore();
         await plannerStateStore.save(workbookId, result.staplePlanState);
-        showToast({ variant: "success", title: "Week generated.", durationMs: 3000 });
+        // No success toast (UX review round 2, "quieten the toasts"):
+        // `setAllSlots` above fills the whole week grid with the newly
+        // generated meals, right where the user is already looking — a
+        // toast saying "done" on top of that is noise, not information.
       } catch (err) {
         showToast({ variant: "error", title: "Couldn't generate the week", description: messageOf(err) });
       } finally {
@@ -808,7 +811,10 @@ export function usePlanWeek(): UsePlanWeekResult {
             (latest) => ({ ...latest, state: "cooked" }),
           );
           setMarkCookedDraft(undefined);
-          showToast({ variant: "success", title: `Marked "${recipe.name}" cooked.`, durationMs: 4000 });
+          // No success toast (UX review round 2, "quieten the toasts"): the
+          // slot's own rendering in the week grid flips to its cooked state
+          // as soon as `persistSlot` above commits — that IS the
+          // confirmation.
         } catch (err) {
           showToast({ variant: "error", title: "Couldn't save that as cooked", description: messageOf(err) });
         }

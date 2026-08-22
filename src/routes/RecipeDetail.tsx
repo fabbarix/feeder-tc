@@ -264,7 +264,10 @@ export function RecipeDetail() {
         next[idx] = slot;
         return next;
       });
-      showToast({ variant: "success", title: `Marked "${recipe.name}" cooked.`, durationMs: 4000 });
+      // No success toast (UX review round 2, "quieten the toasts"): the
+      // "Cooked N times · last on …" line just above this button reads off
+      // `planSlots`, so it updates to say "today" the moment the state
+      // above commits — that line already IS the confirmation.
     } catch (err) {
       showToast({ variant: "error", title: "Couldn't mark this cooked", description: messageOf(err) });
     } finally {

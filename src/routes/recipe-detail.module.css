@@ -100,19 +100,16 @@
   .cols {
     display: grid;
     /*
-     * 290px, not the mock's literal 250px: measured (Playwright,
-     * getComputedStyle) that the rail's own "Household flag" card, at
-     * exactly 250px, clips the 3-option Staple/Rotation/Retired
-     * SegmentedControl — its rendered content needs 246px inside a card
-     * whose padding leaves only ~218-220px, a ~26px overflow that cuts off
-     * "Retired". `src/ui/components/SegmentedControl.module.css` is a
-     * shared kit component used across the whole app (RecipeEditor,
-     * IngredientEditor, Pantry's dialogs); changing ITS padding/font-size
-     * to fit this one 250px rail would be a much larger, cross-cutting
-     * change outside this WP's two-screen mandate. Widening this route's
-     * own rail column is the smaller, contained fix — a correctness fix
-     * (nothing may render cut off) takes priority over the mock's exact
-     * pixel width here.
+     * 290px, not the mock's literal 250px. Originally widened because the
+     * rail's "Household flag" card, at exactly 250px, clipped the 3-option
+     * Staple/Rotation/Retired SegmentedControl — its rendered content
+     * needed 246px inside a card whose padding left only ~218-220px.
+     * `SegmentedControl.module.css`'s UX-review-round-2 fix (grid
+     * `auto-fit`, not `flex: 1 1 auto`) means a narrow container now wraps
+     * that control onto a second row instead of clipping it, so 250px
+     * would no longer cut anything off — but nothing requires reverting an
+     * already-shipped width back down to the mock's literal value, so this
+     * stays 290px.
      */
     grid-template-columns: minmax(0, 1fr) 290px;
     align-items: start;

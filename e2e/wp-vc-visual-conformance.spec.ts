@@ -193,33 +193,39 @@ test.describe("unstyled-link audit (owner-reported: the ingredients-catalog link
   });
 });
 
-// WP-VC3 Task 1: `SegmentedControl` rendered `border-radius: 10px`
-// (`--radius-md`); the mock's `.seg`/`.seg button` are a `999px` pill
-// (design/mock-screens.html, `.seg{...border-radius:999px...}`). Pre-
-// existing since WP-20, deferred twice because the component is shared —
-// every consumer (recipe household flag, pantry/shopping/pantry-form/mark-
-// cooked storage location, ingredient unit, recipe kind, the theme control)
-// gets the fix from the one CSS Module change, verified here on two
-// representative consumers via a measured `getComputedStyle` check rather
-// than a screenshot alone.
-test.describe("SegmentedControl is a 999px pill, not a 10px rounded rect (Task 1)", () => {
-  test("the theme control (Settings 'Appearance') renders both the trough and the selected segment as a 999px pill", async ({
+// WP-VC3 Task 1 pinned `border-radius: 999px` here (design/mock-screens.html's
+// `.seg{...border-radius:999px...}`), replacing an earlier `--radius-md`
+// (10px) rounded rect. UX review round 2 (Finding 1: narrow rails like
+// Pantry's Location filter overflowed the page — SegmentedControl.module.css's
+// old `flex: 1 1 auto` grew to fill a wide container but neither shrank nor
+// wrapped in a narrow one) replaced the pill again, this time for good
+// reason pinned in the approved mock itself: `design/mock-responsive.html`'s
+// "segmented control fix, made concrete" note explicitly drops the 999px
+// pill to `--r-md`/`--r-sm` (this app's `--radius-md`/`--radius-sm`) on the
+// grid-based `auto-fit` layout that replaced the flex row, because a
+// fully-rounded pill that can wrap onto multiple rows reads as a blob, not a
+// control. Applied unconditionally (every consumer is already capped at ≤4
+// options, UI_DESIGN.md §5), so the pill shape is gone everywhere, not just
+// on the one control that broke — this spec now pins THAT shape instead of
+// the one it replaced, on the same two representative consumers.
+test.describe("SegmentedControl is a --radius-md rounded rect, not a 999px pill (UX review round 2)", () => {
+  test("the theme control (Settings 'Appearance') renders both the trough and the selected segment with the app's rounded-rect radii, not a pill", async ({
     page,
   }) => {
     await enterReadyShell(page, "settings");
     const group = page.getByRole("radiogroup", { name: "Appearance" });
     await expect(group).toBeVisible();
     const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
-    expect(groupRadius).toBe("999px");
+    expect(groupRadius).toBe("10px"); // --radius-md
 
     const selected = page.getByRole("radio", { checked: true }).first();
     const segmentRadius = await selected.evaluate(
       (el) => getComputedStyle(el.closest("label")!).borderRadius,
     );
-    expect(segmentRadius).toBe("999px");
+    expect(segmentRadius).toBe("6px"); // --radius-sm
   });
 
-  test("a recipe's household-flag control (RecipeDetail read view) is also a 999px pill", async ({
+  test("a recipe's household-flag control (RecipeDetail read view) is also a --radius-md rounded rect, not a pill", async ({
     page,
   }) => {
     await enterReadyShell(page, "recipes");
@@ -229,7 +235,7 @@ test.describe("SegmentedControl is a 999px pill, not a 10px rounded rect (Task 1
     const group = page.getByRole("radiogroup", { name: "Household flag" });
     await expect(group).toBeVisible();
     const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
-    expect(groupRadius).toBe("999px");
+    expect(groupRadius).toBe("10px"); // --radius-md
   });
 });
 

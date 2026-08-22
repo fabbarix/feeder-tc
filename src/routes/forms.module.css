@@ -246,7 +246,15 @@
   width: 44px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  /* `--text-h`, not `--text-muted` (mobile UX review round 2, low-
+     confidence report confirmed real): `QuantityInput.module.css`'s own
+     `.stepper` — the +/- icons everywhere else in the app (RecipeEditor,
+     PantryItem, IngredientEditor, MarkCookedDialog, scan) — already uses
+     `--text-h`. This `.qty` button is the older, separately-styled
+     control (`Stepper.tsx`, now Settings-only, plus ShoppingRow's own
+     "Adjust" stepper), and its muted icons genuinely read lower-contrast
+     next to those, not a deliberate distinction. */
+  color: var(--text-h);
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;

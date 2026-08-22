@@ -550,14 +550,13 @@ export function RecipeEditor() {
       await store.recipeIngredients.replaceForRecipe(id, recipeLines);
       await store.recipeSteps.replaceForRecipe(id, recipeSteps);
 
-      showToast({
-        variant: "success",
-        title: `Saved "${recipe.name}"`,
-        durationMs: 5000,
-        ...(kind === "bought"
-          ? { description: `Linked catalog ingredient "${recipe.name}" (piece).` }
-          : {}),
-      });
+      // No success toast (UX review round 2, "quieten the toasts"): this
+      // navigates straight to /recipes, where the saved card is already the
+      // confirmation. (The "bought" kind used to add a description noting
+      // the linked catalog ingredient — a real side effect, but a minor
+      // implementation detail rather than something worth a toast of its
+      // own; nothing stops it coming back as a smaller, separate surface if
+      // that turns out to matter.)
       navigate("/recipes");
     } catch (err) {
       showToast({

@@ -1,8 +1,28 @@
+/*
+ * Phone (<768px): the stack sits at the TOP of the screen — a deliberate
+ * divergence from the usual bottom-snackbar convention (UX review, owner's
+ * explicit call: do not "correct" this back to bottom). The bottom edge on
+ * phone is where the thumb, the tab bar and route FABs (Shopping's scan
+ * button) all live; the top is comparatively empty. This also resolved a
+ * separate BROKEN finding far more directly than reserving space ever could:
+ * a toast fires on every Shopping check-off, and the stack's old bottom
+ * placement sat squarely over the scan FAB's own fixed box (both `position:
+ * fixed`, one spacing step apart), so `elementFromPoint` at the FAB's centre
+ * resolved to the toast — the scanner was untappable any time a toast was
+ * visible. Top and bottom no longer share an edge at all, so the two boxes
+ * can't collide regardless of stack depth.
+ *
+ * `57px` is `.header`'s rendered height (AppShell.module.css: `.headerInner`
+ * min-height 56px + the header's own 1px bottom border) — the stack sits
+ * one `--space-3` below it so it never covers the brand mark, workbook chip
+ * or avatar, plus `env(safe-area-inset-top)` for a notch/status bar, the
+ * same treatment the >=768px placement below already gives the bottom inset.
+ */
 .viewport {
   position: fixed;
   left: var(--space-3);
   right: var(--space-3);
-  bottom: calc(var(--touch-target) + var(--space-4) + env(safe-area-inset-bottom, 0px));
+  top: calc(57px + var(--space-3) + env(safe-area-inset-top, 0px));
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;
@@ -13,6 +33,8 @@
 @media (min-width: 768px) {
   .viewport {
     left: auto;
+    top: auto;
+    bottom: calc(var(--touch-target) + var(--space-4) + env(safe-area-inset-bottom, 0px));
     width: min(360px, 100%);
   }
 }
