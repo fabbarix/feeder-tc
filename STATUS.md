@@ -351,6 +351,24 @@ _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell
 
 ## Known debt
 
+- **Tablet screens leave 40–60% of the 1366px height empty.** Round-2 tablet review
+  (2026-08-22) found this across essentially every screen once populated — Plan,
+  Pantry, Recipe detail, Home, Settings, Shopping, Scan. None of them are scrolling
+  lists; content simply stops well above the fold. `AppShell.tsx`'s "width buys
+  information, not padding" governs the horizontal axis; vertically the tier reads
+  as a stretched phone layout rather than earning its height. Nothing is broken or
+  unreachable, so the owner **deferred this past v1.0.0** — it needs design work
+  across the tier, not a per-screen patch.
+
+- **Approved mock designs have shipped unimplemented three times.** Photos, the Plan
+  calendar, and now `SegmentedControl`'s wrap behaviour — `design/mock-responsive.html:317`
+  defines `.seg.wrap` under a heading reading "The segmented control fix, made
+  concrete", demoed at a 230px container with the exact All/Pantry/Fridge/Freezer
+  control that was overflowing the 250px rail, and the shared component never
+  adopted it. Each was caught only by a later review, not by the process. Worth a
+  systematic sweep of the mock against the shipped app after v1.0.0; the mock is
+  detailed enough that more of it is likely unported.
+
 - ~~**Stale sheet-count comments.**~~ **Resolved — verified 2026-08-21.**
   `WorkbookSheetName` has twelve members. `features/wp-11-workbook-bootstrap.steps.ts`
   no longer mentions "nine" at all, and the one remaining hit in
