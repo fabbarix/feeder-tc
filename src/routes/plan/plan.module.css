@@ -384,6 +384,14 @@
   font: 600 0.7rem/1 var(--sans);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* An explicitly scaled slot, as opposed to one simply sitting at the
+   household default — the number is always shown now, so this is what
+   distinguishes "someone chose this" from "this is just the default". */
+.scaleBadgeOverridden {
+  color: var(--accent);
 }
 
 /* Tablet review, finding 2: this was the only place in the app that ignored
