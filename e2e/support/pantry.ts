@@ -26,3 +26,56 @@ export async function addPantryStock(page: Page, ingredientName: string, amount:
   // appends scenario.
   await expect(page.getByRole("button", { name: /ingredient/i })).toHaveCount(0);
 }
+
+export async function goToPantry(page: Page): Promise<void> {
+  await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Pantry", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Pantry", level: 1 })).toBeVisible();
+}
+
+/** Opens an ingredient's own pantry-item detail route (`/pantry/:ingredientId`) via its real aggregated-row link on the Pantry list — never `page.goto`. */
+export async function openPantryItem(page: Page, ingredientName: string): Promise<void> {
+  await page.getByRole("link", { name: new RegExp(ingredientName) }).click();
+  await expect(page.getByRole("heading", { name: ingredientName, level: 1 })).toBeVisible();
+}
+
+/**
+ * The five lot-scoped actions all live on the pantry-item detail route's
+ * "Record an event" rail as plain inline buttons — never a menu, never
+ * "Edit" (invariant 1: corrections are new events) — at every tier
+ * (PantryItem.tsx has no viewport-conditional button set, only a 1-col/
+ * 2-col layout switch at 768px). Each opener/confirm pair below matches
+ * `e2e/wp-21-pantry-management.spec.ts`'s own "Lot actions" scenario
+ * verbatim, promoted here for reuse by the cross-tier journey.
+ */
+export async function moveLot(page: Page, toLocation: "Pantry" | "Fridge" | "Freezer"): Promise<void> {
+  await page.getByRole("button", { name: "Move location" }).click();
+  await page.getByRole("radio", { name: toLocation }).click();
+  await page.getByRole("button", { name: "Confirm move" }).click();
+}
+
+export async function openLot(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Open a lot" }).click();
+  await page.getByRole("button", { name: "Mark opened" }).click();
+}
+
+export async function correctLot(page: Page, adjustBy: string, newExpiryPreset?: "+1w"): Promise<void> {
+  await page.getByRole("button", { name: "Correct quantity or expiry" }).click();
+  await page.getByRole("textbox", { name: /adjust amount by/i }).fill(adjustBy);
+  if (newExpiryPreset) {
+    await page.getByRole("group", { name: /new expiry/i }).getByRole("button", { name: newExpiryPreset }).click();
+  }
+  await page.getByRole("button", { name: "Save correction" }).click();
+}
+
+export async function spoilLot(page: Page, amount: string): Promise<void> {
+  await page.getByRole("button", { name: "Mark spoiled" }).click();
+  await page.getByRole("textbox", { name: /amount/i }).fill(amount);
+  await page.getByRole("button", { name: "Confirm spoilage" }).click();
+}
+
+export async function recordUsage(page: Page, ingredientName: string, amount: string): Promise<void> {
+  await page.getByRole("button", { name: "Record usage" }).click();
+  await openIngredientSheet(page, ingredientName);
+  await page.getByRole("textbox", { name: /amount used/i }).fill(amount);
+  await page.getByRole("button", { name: "Record usage" }).click();
+}
