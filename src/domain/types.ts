@@ -360,6 +360,17 @@ export interface Ingredient {
    * conversion isn't offered, same rule as `gramsPerMl`.
    */
   readonly gramsPerPiece?: number;
+  /**
+   * The container noun a household actually reaches for — "jar", "carton",
+   * "box" — WP-purchasing-editor, dedicated coordinator-approved contract
+   * change, additive-only. Purely a shopping-row display label: the
+   * `whole`-mode buy amount renders as "1 jar" instead of "250 g" when this
+   * is set (`src/routes/shopping/purchase-display.ts`), falling back to the
+   * plain amount when absent — most ingredients never set this. Never read
+   * by any engine or fold; it changes no arithmetic, only what the basket
+   * line calls the thing.
+   */
+  readonly packLabel?: string;
 }
 
 // ---------------------------------------------------------------------------

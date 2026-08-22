@@ -37,6 +37,7 @@ describe("Ingredients codec — category column (WP-VC3)", () => {
       "round_to",
       "grams_per_ml",
       "grams_per_piece",
+      "pack_label",
     ]);
   });
 
@@ -151,5 +152,45 @@ describe("Ingredients codec — purchasability columns (WP-PURCHASING)", () => {
     // invariant 3's spirit (one canonical unit) extends to this column too.
     const row = ["onion", "Onion", "piece", 30, 5, "pantry", "", "", "whole", 1, "ml"];
     expect(decodeIngredient(row).packSize).toBeUndefined();
+  });
+});
+
+describe("Ingredients codec — pack_label column (WP-purchasing-editor)", () => {
+  it("a LEGACY row written before pack_label existed decodes packLabel to undefined, not a thrown error", () => {
+    // Pre-change shape: fourteen cells (through grams_per_piece), nothing in
+    // the fifteenth position because the column didn't exist yet.
+    const legacyRow = ["mayonnaise", "Mayonnaise", "g", 90, 30, "fridge", "condiments", "", "whole", 250, "g"];
+    const decoded = decodeIngredient(legacyRow);
+    expect(decoded.packLabel).toBeUndefined();
+    expect(decoded).toEqual({
+      ...BASE,
+      id: makeIngredientId("mayonnaise"),
+      name: "Mayonnaise",
+      unit: "g",
+      shelfLifeDays: 90,
+      openedShelfLifeDays: 30,
+      defaultLocation: "fridge",
+      category: "condiments",
+      purchaseMode: "whole",
+      packSize: { amount: 250, unit: "g" },
+    });
+  });
+
+  it("encodes and decodes a packLabel — round trip is identity", () => {
+    const ingredient: Ingredient = {
+      ...BASE,
+      unit: "g",
+      purchaseMode: "whole",
+      packSize: { amount: 250, unit: "g" },
+      packLabel: "jar",
+    };
+    const row = encodeIngredient(ingredient);
+    expect(row[14]).toBe("jar");
+    expect(decodeIngredient(row)).toEqual(ingredient);
+  });
+
+  it("an explicitly blank pack_label cell decodes to undefined, not an empty string", () => {
+    const row = ["tomato", "Tomato", "piece", 7, 2, "pantry", "", "", "", "", "", "", "", "", ""];
+    expect(decodeIngredient(row).packLabel).toBeUndefined();
   });
 });
