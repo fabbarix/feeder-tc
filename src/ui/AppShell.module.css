@@ -278,6 +278,34 @@
   }
 }
 
+/*
+ * Wide only within the tablet band (AppShell.tsx's `TABLET_WIDE_ROUTES` —
+ * currently just `/recipes/ingredients`, the tablet UI/UX review's finding
+ * 3). At phone width this is full-bleed like `.mainMeasure`/`.mainWide`
+ * both already are below 768px; from 1440px up it reverts to the EXACT
+ * same 840px cap as `.mainMeasure` — desktop's existing single-column
+ * ingredients list is deliberately unchanged (see `WIDE_ROUTES`'s doc
+ * comment in AppShell.tsx). In between, no cap at all: the tablet tier
+ * never reaches `.mainWide`'s 1680px anyway (its own upper edge is
+ * 1439px), so there's nothing to bound there.
+ */
+.mainTabletWide {
+  width: 100%;
+}
+
+@media (min-width: 768px) and (max-width: 1439.98px) {
+  .mainTabletWide {
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 1440px) {
+  .mainTabletWide {
+    max-width: 840px;
+    margin: 0 auto;
+  }
+}
+
 @media (min-width: 768px) {
   .main {
     padding-bottom: var(--space-4);

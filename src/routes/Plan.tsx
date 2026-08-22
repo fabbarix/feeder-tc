@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CalendarBlank } from "../ui/icons.ts";
 import { ConfirmDialog, EmptyState, ErrorState, SegmentedControl, Skeleton, WeekNav } from "../ui/components";
-import type { IsoDate, MealTag, PlanSlotId } from "../domain/index.ts";
+import type { IsoDate, MealTag, PlanSlotId, Settings } from "../domain/index.ts";
 import { usePlanWeek } from "./plan/usePlanWeek.ts";
 import { PlanSlotRow } from "./plan/PlanSlotRow.tsx";
 import { RecipePickerDialog } from "./plan/RecipePickerDialog.tsx";
@@ -10,7 +10,7 @@ import { MarkCookedDialog } from "./plan/MarkCookedDialog.tsx";
 import { MonthGrid } from "./plan/MonthGrid.tsx";
 import { formatDayLabel, formatWeekdayName, mealTagLabel } from "./plan/plan-week.ts";
 import { formatMonthShortLabel } from "./plan/plan-month.ts";
-import { densityDots, type PlanSlotView } from "./plan/plan-derive.ts";
+import { densityDots, type PlanDay, type PlanSlotView } from "./plan/plan-derive.ts";
 import styles from "./plan/plan.module.css";
 
 interface PickerState {
@@ -87,6 +87,35 @@ export function Plan() {
 
   const [picker, setPicker] = useState<PickerState | undefined>(undefined);
   const [removeSlotId, setRemoveSlotId] = useState<PlanSlotId | undefined>(undefined);
+
+  /**
+   * One day's card — shared markup between the desktop seven-column `.week`
+   * grid, the tablet four-column banded `.week4` grid, and the mobile
+   * `.dayList` stacked cards (design/mock-responsive.html's Plan tier note:
+   * all three are the SAME `.day`/`PlanSlotRow` unit, just regrouped into a
+   * different container per tier — never a forked day-card implementation).
+   */
+  function renderDay(day: PlanDay, settingsForDay: Settings): ReactNode {
+    return (
+      <div className={`${styles.day}${day.date === plan.today ? ` ${styles.dayToday}` : ""}`} key={day.date}>
+        <h2 className={styles.dayHeading}>{formatDayLabel(day.date)}</h2>
+        {day.slots.map((slotView) => (
+          <PlanSlotRow
+            key={slotView.slot.id}
+            view={slotView}
+            settings={settingsForDay}
+            isBusy={plan.busySlotIds.has(slotView.slot.id)}
+            onReroll={(id) => void plan.reroll(id)}
+            onTogglePin={(id) => void plan.togglePin(id)}
+            onCook={plan.startMarkCooked}
+            onOpenPicker={openPicker}
+            onScaleChange={(id, servings) => void plan.setScaleServings(id, servings)}
+            onRemove={setRemoveSlotId}
+          />
+        ))}
+      </div>
+    );
+  }
 
   function openPicker(slotId: PlanSlotId): void {
     for (const day of plan.days) {
@@ -186,30 +215,46 @@ export function Plan() {
             />
           ) : view === "week" ? (
             <>
-              {/* Desktop: seven columns, the whole week visible (UI_DESIGN.md §13). */}
-              <div className={styles.week}>
-                {plan.days.map((day) => (
-                  <div className={`${styles.day}${day.date === plan.today ? ` ${styles.dayToday}` : ""}`} key={day.date}>
-                    <h2 className={styles.dayHeading}>{formatDayLabel(day.date)}</h2>
-                    {day.slots.map((slotView) => (
-                      <PlanSlotRow
-                        key={slotView.slot.id}
-                        view={slotView}
-                        settings={settings}
-                        isBusy={plan.busySlotIds.has(slotView.slot.id)}
-                        onReroll={(id) => void plan.reroll(id)}
-                        onTogglePin={(id) => void plan.togglePin(id)}
-                        onCook={plan.startMarkCooked}
-                        onOpenPicker={openPicker}
-                        onScaleChange={(id, servings) => void plan.setScaleServings(id, servings)}
-                        onRemove={setRemoveSlotId}
-                      />
-                    ))}
+              {/* Desktop (>=1440px): seven columns, the whole week visible
+                  (UI_DESIGN.md §13). */}
+              <div className={styles.week}>{plan.days.map((day) => renderDay(day, settings))}</div>
+
+              {/* Tablet (768–1439px): four columns, banded Mon–Thu / Fri–Sun
+                  (design/mock-responsive.html's Plan tier note — seven
+                  columns is a desktop luxury, not a tablet one: at ~135px/
+                  column a normal recipe name wraps three lines and reroll/
+                  pin/Remove stack vertically under Cook for lack of width).
+                  Both bands use the IDENTICAL 4-track grid, so Fri/Sat/Sun
+                  are the same width as Mon–Thu, not stretched to fill a
+                  short last row — the trailing filler cell below is what
+                  keeps the 4-track grid honest for a 3-day band. Rejected:
+                  a scrollable strip (hides most of the week, losing the
+                  "whole week visible" property that justifies a wide tier
+                  at all) and `auto-fill`/`minmax` (orphans a lone 7th card
+                  on its own row). */}
+              <div className={styles.weekBands}>
+                <div className={styles.weekBand}>
+                  {/* A plain label, not a heading (matches the mock's own
+                      `<div class="weekband-label">`) — the day cards inside
+                      already carry the real `<h2>` headings; a second
+                      heading level here would just be group chrome, not
+                      document structure. */}
+                  <div className={styles.weekBandLabel}>Mon – Thu</div>
+                  <div className={styles.week4}>{plan.days.slice(0, 4).map((day) => renderDay(day, settings))}</div>
+                </div>
+                <div className={styles.weekBand}>
+                  <div className={styles.weekBandLabel}>Fri – Sun</div>
+                  <div className={styles.week4}>
+                    {plan.days.slice(4, 7).map((day) => renderDay(day, settings))}
+                    {/* Keeps the weekend band's 3 days on the same 4-track
+                        grid as Mon–Thu instead of stretching Sunday to fill
+                        a 4th column — see this block's own top-level comment. */}
+                    <div aria-hidden="true" />
                   </div>
-                ))}
+                </div>
               </div>
 
-              {/* Mobile: day cards, thumb-navigable. */}
+              {/* Mobile (<768px): day cards, thumb-navigable. */}
               <div className={styles.dayList}>
                 {plan.days.map((day) => (
                   <div className={`${styles.dayCard}${day.date === plan.today ? ` ${styles.dayCardToday}` : ""}`} key={day.date}>

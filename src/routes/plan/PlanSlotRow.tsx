@@ -177,7 +177,16 @@ export function PlanSlotRow({
             forecast.surplusServings > 0 ? <span className={styles.scaleBadge}>→ {forecast.surplusServings} leftover</span> : null
           ) : (
             <div className={styles.stepper}>
-              {isOverridden ? <span className={styles.scaleBadge}>{targetServings} servings</span> : null}
+              {/* Always show the count. It used to render only when the
+                  servings were overridden, so at the household default the
+                  control was a bare "−  +" with no number between them — you
+                  could not see what you were about to change. Overridden
+                  still stands out, via `.scaleBadgeOverridden`. */}
+              <span
+                className={`${styles.scaleBadge} ${isOverridden ? styles.scaleBadgeOverridden : ""}`}
+              >
+                {targetServings} {targetServings === 1 ? "serving" : "servings"}
+              </span>
               <IconButton
                 icon={Minus}
                 label={`Fewer servings for ${view.recipe?.name ?? tagLabel}`}

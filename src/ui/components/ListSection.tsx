@@ -4,10 +4,21 @@ import styles from "./ListSection.module.css";
 export interface ListSectionProps {
   readonly heading: string;
   readonly children: ReactNode;
+  /**
+   * "grid" reflows the children into a multi-column card grid instead of a
+   * single stacked list — opt-in, and (see `ListSection.module.css`) only
+   * takes visual effect within the 768-1439px tablet band; outside it this
+   * renders identically to the default "list". Ingredients (tablet UI/UX
+   * review, finding 3) is the only caller: it's a flat, alphabetical,
+   * browsed catalogue with no scan order to protect, unlike Pantry/Shopping
+   * (grouped by urgency/aisle) which never pass this and stay a single list
+   * at every width. Pair with `ListRow`'s matching `card` prop.
+   */
+  readonly layout?: "list" | "grid";
 }
 
 /** Grouped heading over a set of `ListRow`/`CheckRow` children (UI_DESIGN.md §6) — the pantry groups lots by ingredient this way. */
-export function ListSection({ heading, children }: ListSectionProps) {
+export function ListSection({ heading, children, layout = "list" }: ListSectionProps) {
   return (
     <section className={styles.section}>
       {/* h2, not h3: every route mounts this directly under its own <h1>
@@ -19,7 +30,7 @@ export function ListSection({ heading, children }: ListSectionProps) {
           never empty on a fresh workbook). h2 matches Settings.tsx's own
           existing h1 -> h2 section heading. */}
       <h2 className={styles.heading}>{heading}</h2>
-      <div className={styles.rows}>{children}</div>
+      <div className={`${styles.rows}${layout === "grid" ? ` ${styles.rowsGrid}` : ""}`}>{children}</div>
     </section>
   );
 }
