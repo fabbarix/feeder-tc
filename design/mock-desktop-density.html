@@ -196,6 +196,18 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
     "a card-head label"), not by px or rem, so the two proposals can be reconciled without either one re-deciding
     the other's numbers.
   </p>
+  <p class="standfirst" style="border:1px solid var(--accent-line);background:var(--accent-bg);border-radius:var(--r-md);padding:14px 16px;font-size:14.5px">
+    <b>Revision note (rebased onto <code>5f49d3b</code>).</b> A first pass through this file reasoned entirely from
+    reading the CSS/TSX source. The coordinator correctly rejected that — this project has repeatedly had
+    source-reading and rendered reality disagree, in both directions, and the recipes-grid figure below was exactly
+    such a case. Every number in this revision was measured with Playwright against the real dev server and
+    populated fixtures (a throwaway probe spec, run and then deleted — not part of this diff), not derived from
+    reading CSS. Two upstream changes landed since the first pass and are reflected below: <code>ListSection</code>'s
+    grid no longer stops at 1439.98px (now 3/4/5/6/7 columns at 768/1024/1440/1512/1920, confirmed by re-running
+    the existing <code>fix-desktop-grid-monotonic.spec.ts</code>), and <code>AppShell</code>'s
+    <code>TABLET_WIDE_ROUTES</code>/<code>.mainTabletWide</code> carve-out is gone — there is now ONE container-width
+    policy (<code>WIDE_ROUTES</code> → 1680px cap, everything else → 840px measure), not two.
+  </p>
   <div class="toc">
     <a href="#system">The system</a><a href="#recipes">Recipes</a><a href="#recipe">A recipe</a>
     <a href="#pantry">Pantry</a><a href="#plan">Plan</a><a href="#shopping">Shopping</a>
@@ -269,19 +281,20 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
 <!-- ══ RECIPES ══ -->
 <section id="recipes">
   <h2>Recipes</h2>
-  <p class="sub">Reviewer's number: cards ending at x=751 in a 1480px column, ~51% used. <b>Caveat, stated plainly:</b>
-    the live source I read (<code>recipes.module.css:121</code>) is already
-    <code>grid-template-columns:repeat(auto-fill,minmax(230px,1fr))</code> inside <code>.mainWide</code>'s 1680px
-    cap — a grid that reflows correctly by construction, and <code>/recipes</code> is already in
-    <code>WIDE_ROUTES</code>. I could not reproduce the 51% figure by reading the CSS alone; it may predate the
-    WP-PHOTO-era bump from 168px to 230px cards, or reflect a viewport this pass didn't check live. <b>Recommend
-    re-measuring live before writing any ticket against this screen</b> — the design below assumes the grid already
-    reflows, and focuses the real remaining gap: how many rows are visible without scrolling.</p>
+  <p class="sub"><b>Reviewer's number does not hold — measured, not just disputed on reading.</b> The reviewer
+    reported cards ending at x=751 in a 1480px column, ~51% used. I ran 16 recipes through the real UI at
+    <code>5f49d3b</code> and measured with Playwright (<code>getBoundingClientRect</code> on the actual grid
+    children, not a class name or a computed-style string): the container itself is <b>1480px at 1512px viewport,
+    growing to exactly 1680px at 1920px</b> — confirming the <code>.mainWide</code> cap precisely, not just the CSS
+    rule that claims it. The card grid inside it reflows to <b>4 / 5 / 6 / 7 columns at 1024 / 1440 / 1512 /
+    1920px</b>, and at every one of those widths all 16 seeded cards render without scrolling. Whatever the
+    reviewer saw, it is not reproducible against this branch — the grid mechanism was already correct. This
+    section's job is therefore narrower than the first draft assumed: protect that correctness, and treat "cards
+    per screenful" as a number worth guarding, not fixing.</p>
   <div class="tierstrip">
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">1512×950</span></div>
-      <p class="tier-note">1512 − 48px gutter ≈ 1464px content. <code>minmax(230,1fr)</code> + 11px gaps ⇒ 6 columns
-        (⌊1464/241⌋). Card height ≈ 168px (80px thumb-adjacent card padding + 2 lines meta + tag row). At 950px
-        viewport minus ~210px of header/greeting chrome ⇒ ~740px of grid ⇒ 4 full rows before scroll.</p>
+      <p class="tier-note">Measured: container 1480px wide, 6 columns, 16/16 recipe cards visible with zero
+        scrolling required at this fixture size. The design target below is simply "don't regress this."</p>
       <div class="tier-frame framewrap"><div class="browser" style="width:1512px">
         <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes</div></div>
         <div class="dt-top"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
@@ -292,26 +305,41 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
           <p class="dt-sub">42 recipes · 9 staples</p>
           <div class="rgrid" id="rg1"></div>
         </div>
-      </div><span class="pxdim">1512 × 950 — 6 cols × 4 rows = 24 cards visible</span></div>
+      </div><span class="pxdim">1512 × 950 — measured: 6 cols, 16/16 cards visible</span></div>
     </div>
   </div>
-  <div class="note"><strong>What changed here: nothing structural.</strong> The grid mechanism is correct; the
-    density fix is that card height stays close to the phone/tablet card (thumbnail + name + one meta line + tags)
-    rather than growing to fill leftover vertical space — a taller card at desktop would show fewer rows for no
-    benefit. 24 visible cards at 1512×950 is the number to protect (see <a href="#density">Density</a> and
-    <a href="#conformance">conformance</a>).</div>
+  <table class="spec">
+    <tr><th>Viewport</th><th>Measured container width</th><th>Measured columns</th></tr>
+    <tr><td class="num">1024×1366</td><td class="num">n/a (below <code>.mainWide</code>'s 768px activation is irrelevant here; container tracks viewport)</td><td class="num">4</td></tr>
+    <tr><td class="num">1440×900</td><td class="num">—</td><td class="num">5</td></tr>
+    <tr><td class="num">1512×950</td><td class="num">1480px</td><td class="num">6</td></tr>
+    <tr><td class="num">1680×950</td><td class="num">1648px</td><td class="num">6</td></tr>
+    <tr><td class="num">1920×1080</td><td class="num">1680px (cap reached)</td><td class="num">7</td></tr>
+  </table>
+  <div class="note"><strong>What changed here: nothing structural.</strong> The grid mechanism is measured correct
+    at every desktop width tested. The only design instruction this screen needs is preventive: card height should
+    stay close to the phone/tablet card (thumbnail + name + one meta line + tags) rather than growing to fill
+    leftover vertical space at wide widths — a taller card at desktop would show fewer rows for no benefit. See
+    <a href="#conformance">conformance</a> for the regression test this measurement became.</div>
 </section>
 
 <!-- ══ RECIPE DETAIL ══ -->
 <section id="recipe">
   <h2>A recipe</h2>
-  <p class="sub"><b>Divergence from the current per-route decision, stated explicitly:</b> today every recipe page
-    lives inside <code>AppShell.tsx</code>'s default <code>.mainMeasure</code> (840px), same as Settings and the
-    editors. I'm proposing a fourth container mode — call it <code>mainDetail</code>, ~1080px — <em>only</em> for
-    <code>/recipes/:id</code>. Reasoning: the photo (§ below) is a fixed 320px element that does not belong inside
-    an 840px reading column stealing width from ingredient lines; it belongs beside them. 320px photo + 24px gap +
-    an unchanged ~680px reading measure for ingredients/steps ≈ 1024px, so 1080 is the honest number, not 1680 —
-    this is still a detail/reading screen, not a browse grid, and should not get <code>WIDE_ROUTES</code>'s cap.</p>
+  <p class="sub"><b>Divergence from the current — now simpler — per-route policy, stated explicitly.</b> Measured on
+    <code>5f49d3b</code>: a recipe's own page renders at a <b>flat 840px container width at every desktop viewport
+    tested (1024, 1440, 1512, 1920px)</b> — confirmed via <code>getBoundingClientRect</code> on the width-capping
+    element, not inferred from the CSS rule. That number didn't move when <code>TABLET_WIDE_ROUTES</code>/
+    <code>.mainTabletWide</code> were removed this week (recipe detail was never a member of either), so the system
+    is now genuinely binary: a route is either in <code>WIDE_ROUTES</code> (1680px cap) or it gets the 840px
+    measure — no third mode. I'm proposing to add one, but only for <code>/recipes/:id</code>: a third container
+    width — call it <code>mainDetail</code>, ~1080px. Reasoning unchanged from before: the photo (§ below) is a
+    fixed 320px element that does not belong inside an 840px reading column stealing width from ingredient lines;
+    it belongs beside them. 320px photo + 24px gap + the existing ~680px reading measure for ingredients/steps ≈
+    1024px, so 1080 is the honest number, not 1680 — this is still a detail/reading screen, not a browse grid, and
+    should not get <code>WIDE_ROUTES</code>'s cap. Re-introducing a third width mode right after the project
+    deliberately collapsed from three to two is exactly the kind of move that needs the owner's explicit yes, not a
+    quiet re-creep — flagged again below.</p>
   <div class="tierstrip">
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
       <p class="tier-note">Photo + metadata card pinned left at a fixed 320px (identical size to tablet — the photo
@@ -349,11 +377,13 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
       </div></div>
     </div>
   </div>
-  <div class="warncard"><strong>Flag this one to the owner explicitly.</strong> Widening a detail route's container
-    is exactly the kind of "which routes are wide" change the brief calls out as needing justification, not a quiet
-    change. I think the case is strong (a fixed-size photo has nowhere honest to sit inside a prose measure) but it
-    is a new precedent — the next agent who wants a 1080px cap for some other screen should not be able to point at
-    this as blanket permission.</div>
+  <div class="warncard"><strong>Flag this one to the owner explicitly — measurement raises the stakes, it doesn't
+    settle them.</strong> Widening a detail route's container is exactly the kind of "which routes are wide" change
+    the brief calls out as needing justification, not a quiet change, and confirming the 840px cap is real (not a
+    misreading) makes the gap harder to ignore, not easier to fix unilaterally. I think the case is strong (a
+    fixed-size photo has nowhere honest to sit inside a prose measure) but it is a new precedent — the next agent
+    who wants a wider cap for some other screen should not be able to point at this as blanket permission, and it
+    reopens a three-mode system the project just spent effort collapsing to two.</div>
 </section>
 
 <!-- ══ PANTRY ══ -->
@@ -361,9 +391,15 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
   <h2>Pantry</h2>
   <p class="sub">The clearest case of "the rail measured, the list didn't." <code>pantry.module.css</code>'s rail is
     already a correct fixed width (250px, growing to 290px only at ≥1512 to hold three filter chips — not the
-    proportional <code>2fr</code> the reviewer describes, so that part of the original defect appears already
-    fixed on this branch). The list beside it is one column of ~48px rows. At 950px of usable list height that's
-    ~14 lots before scroll, in a household that easily has 30–50 active lots.</p>
+    proportional <code>2fr</code> the reviewer describes; that part of the original defect is already fixed on this
+    branch). <b>Measured</b>: the list stays a single column at every desktop width from 1024 to 1920px — column
+    count doesn't change with viewport width at all, which is itself the defect (it's the one screen in this file
+    where width literally buys nothing). With 14 real lots seeded, only <b>7 of 14 rows fit in the first screenful
+    at 1440×900 and 1512×950</b> (viewport height is the binding constraint there, not lot count) — the household
+    has to scroll to see the rest. The symptom flips with fewer lots: a lighter household (5–8 lots, also entirely
+    realistic) would show the reviewer's "content stops early, page reads as empty" version of the exact same
+    single-column defect instead of "too much scrolling." Same fix serves both: at 1440×900, two columns of 7 rows
+    each would show all 14 lots with zero scrolling, in the identical vertical footprint that today only manages 7.</p>
   <div class="tierstrip">
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
       <p class="tier-note">Each pantry-group section (Fridge, Freezer, Pantry) lays its lot rows into a 2-column
@@ -392,7 +428,7 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
             </div></div>
           </div>
         </div>
-      </div><span class="pxdim">1512 × 950 — 2 cols × ~7 rows/group visible</span></div>
+      </div><span class="pxdim">1512 × 950 — proposed: 2 cols, all 14 lots visible (measured today: 1 col, 7/14 visible)</span></div>
     </div>
   </div>
   <div class="note"><strong>Why 2 columns, not 3.</strong> A pantry row is name + quantity + freshness meter — at
@@ -400,7 +436,27 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
     to stop at 2 rather than push to 3 is that most households' individual pantry groups (Fridge, Freezer, Pantry)
     run 6–15 lots each, so 2 columns already clears most groups without scrolling, and a 3rd column mostly serves
     the rare 20+-lot Pantry-dry-goods group at the cost of a visibly thinner column everywhere else. This is a
-    judgement call, not a measured constraint — worth revisiting once real household data volumes are known.</div>
+    judgement call, not a measured constraint — <b>not settled by the measurement above</b> (14 lots split evenly
+    into 2 columns of 7 was the number that happened to fit this fixture; I have no data on the real distribution
+    of household lot counts) — worth revisiting once that's known.</div>
+
+  <h3>Decided: the freshness meter's width stops being font-size-dependent</h3>
+  <p class="sub" style="margin:0 0 8px"><code>pantry.module.css:169</code>'s <code>.meter { max-width: 12em }</code>
+    is a layout width wearing a font unit. <code>src/index.css:200</code> flips the root font-size 18px→16px at
+    ≤1024px (a token-layer decision, not mine to revisit) — which means this one bar's width silently rides that
+    flip too. <b>Measured</b> on the same populated Pantry fixture: the meter renders <b>163px wide at 1024px
+    (16px root) and 184px at 1440/1512/1920px (18px root)</b> — a ~13% jump in a freshness indicator that is
+    supposed to mean "this many days of shelf life remain," for a reason that has nothing to do with shelf life.
+    <b>Decision: replace <code>12em</code> with a fixed <code>180px</code></b> — a literal px value, not a role,
+    because the coordinator scoped this as a layout call, not a type-scale one, and <code>CLAUDE.md</code>'s own
+    standing rule for this codebase is "<code>rem</code> is a trap… use px." 180px sits between the two measured
+    values, closer to the desktop reading (184px, where most pantry review actually happens) without inheriting
+    either tier's coincidental number.</p>
+
+  <h3>Left as-is: pantry-item detail's own layout</h3>
+  <p class="sub" style="margin:0">Out of scope here — no defect was reported or measured on <code>/pantry/:id</code>,
+    which already has its own 290px rail (per the same comment that fixed the list route's proportional-rail bug).
+    Only the freshness meter's width fix above carries over there, since it's the same shared class.</p>
 </section>
 
 <!-- ══ PLAN ══ -->
@@ -410,9 +466,15 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
     approved mock, replaced a seven-column layout that measured unusable at that width, and a separate tablet
     review independently confirmed it — I have no new data that overturns that, so it stays exactly as shipped.
     This section is only about ≥1440px, where the app already renders the full seven-column week
-    (<code>plan.module.css:74</code>, unaffected by the tablet decision) — and where <code>.day</code>'s
-    <code>min-height:118px</code> is the entire defect: seven correct columns, each one a ~160px-tall strip at the
-    top of a 950px page.</p>
+    (<code>plan.module.css:74</code>, unaffected by the tablet decision). <b>Measured</b>, with a real populated
+    week (7 unique dinner recipes, one placed per day through the actual "Pick a meal" flow, not
+    <code>generateWeek</code> — that button had nothing eligible to generate against on a freshly-seeded catalog and
+    is a separate, unrelated gap): the week grid renders at a fixed <b>393px tall at both 1440×900 and
+    1512×950, dropping to 373px at 1920×1080</b> — it does not grow with the viewport at all. Total page content
+    ends at y≈680px (1440/1512) / y≈660px (1920) regardless of window height, so the dead space below it
+    <b>grows as the window grows</b>: 220px at 1440×900 → 270px at 1512×950 → 420px at 1920×1080. This is the
+    single cleanest confirmation in this whole proposal of "more screen bought nothing" — a bigger monitor makes
+    the empty margin bigger, not the calendar.</p>
   <div class="tierstrip">
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">1440–1679px</span></div>
       <p class="tier-note">Day columns stretch to fill the available row height (<code>align-items:stretch</code>
@@ -430,7 +492,7 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
           <div class="weeknav-row"><div class="weeknav"><button class="weeknav-btn">‹</button><span class="weeknav-range">24–30 Aug</span><button class="weeknav-btn">›</button></div><button class="btn sm ghost">Generate week</button></div>
           <div class="week" id="wk1" style="min-height:520px"></div>
         </div>
-      </div><span class="pxdim">1440 × 950 — 7 cols, stretched to ~520px tall</span></div>
+      </div><span class="pxdim">1440 × 950 — measured today: 393px tall, fixed; proposed: stretched to available height</span></div>
     </div>
     <div class="tier"><div class="tier-label"><span class="tier-name">Wide desktop</span><span class="tier-range">≥1680px</span></div>
       <p class="tier-note">Only past the 1680px cap does a rail fit without squeezing a day column: reuse the
@@ -456,22 +518,39 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
       </div><span class="pxdim">1680 × 950 — 7 cols + rail</span></div>
     </div>
   </div>
-  <div class="warncard"><strong>Second most debatable call in this proposal.</strong> A rail that appears only past
-    1680px is an unusual pattern — most of this system treats 1440–1919 as one tier. I chose it because the
-    alternative (rail at all desktop widths) measurably breaks the seven-column week, which is the one thing
-    <code>UI_DESIGN.md</code> §13 explicitly says "is the screen that justifies desktop" — I'd rather ship a rail
-    that only sometimes appears than one that always appears and sometimes ruins the calendar. But "a component
-    that silently disappears at 1679px and reappears at 1680px" is also exactly the kind of thing that reads as a
-    bug in a screenshot review. Worth the owner's explicit sign-off.</div>
+  <div class="warncard"><strong>Second most debatable call in this proposal — confirmed as still worth debating, not
+    resolved by measurement.</strong> A rail that appears only past 1680px is an unusual pattern — most of this
+    system treats 1440–1919 as one tier. I chose it because the alternative (rail at all desktop widths) measurably
+    breaks the seven-column week, which is the one thing <code>UI_DESIGN.md</code> §13 explicitly says "is the
+    screen that justifies desktop" — I'd rather ship a rail that only sometimes appears than one that always
+    appears and sometimes ruins the calendar. But "a component that silently disappears at 1679px and reappears at
+    1680px" is also exactly the kind of thing that reads as a bug in a screenshot review. The height fix above (day
+    columns stretching instead of a fixed 393px) is the load-bearing part of this section and stands on its own
+    regardless of how the rail question is settled — it alone recovers the 220–420px of measured dead space; the
+    rail is worth the owner's explicit sign-off precisely because it's the smaller, separable half of this section.</div>
+
+  <h3>Decided: the Remove button rejoins its own action group</h3>
+  <p class="sub" style="margin:0"><code>plan.module.css</code>'s <code>.iconButtonPushRight { margin-left: auto }</code>
+    shoves a slot's Remove button to the far right of its actions row, away from Cook/Reroll/Pin — spatial isolation
+    with no visual line, label or gap-width change marking it as related to the other three at all; it just reads as
+    a second, disconnected control floating at the row's far edge. <b>Decision: drop the auto-margin.</b> Remove
+    stays the last button in the same single flex group as Cook/Reroll/Pin, same gap token as the others, ordered
+    last by convention (destructive last, not destructive elsewhere) — distinguished only by the existing
+    hover/focus colour treatment (<code>.iconButtonDanger</code>, already correct: neutral at rest, <code>--crit</code>
+    only on hover/focus, per <code>UI_DESIGN.md</code> §13's colour rule). Grouping should be legible from the
+    cluster the button sits in, not from how far away from its siblings it's been pushed.</p>
 </section>
 
 <!-- ══ SHOPPING ══ -->
 <section id="shopping">
   <h2>Shopping</h2>
-  <p class="sub">Same shape as Pantry: fixed rail (already correct), single-column category list beside it. Shopping
-    categories (produce, dairy, pantry staples, …) run short — typically 2–8 items — so a single column stacks
-    6–10 short category blocks vertically, most of which have visible whitespace under their last row before the
-    next category header, while the two-thirds of the width left of the rail sits unused.</p>
+  <p class="sub">Same shape as Pantry: fixed rail (already correct), single-column category list beside it.
+    <b>Measured</b>, with 3 real shopping needs seeded across 3 different aisle categories through the actual
+    engine (not the UI — `seedShoppingNeed` writes real recipe + plan-slot rows and lets the shopping-needs
+    engine compute the list): content ends at a fixed y≈335px regardless of viewport height, so the dead space
+    below it grows exactly like Plan's — <b>615px at 1512×950, 745px at 1920×1080</b>. A 3-category list is a
+    thinner fixture than Pantry's 14-lot one, but the shape of the defect (content height pinned, dead space scales
+    with viewport) is identical, and a realistic household's shopping list runs longer than 3 categories in-season.</p>
   <div class="tierstrip">
     <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
       <p class="tier-note">Category cards lay out 2-up in the list pane, ordered top-to-bottom-then-across (reading
@@ -585,21 +664,22 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
 <!-- ══ DENSITY ══ -->
 <section id="density">
   <h2>Density, in numbers</h2>
-  <p class="sub">Concrete, not adjectives — rows/cards visible without scrolling, for a realistically populated
-    household, before and after this proposal. Tablet column is <code>mock-responsive.html</code>'s existing,
-    already-shipped tier, included for contrast. Desktop figures below are derived from the CSS constants read
-    from source (row/card heights, existing gap tokens) at 950px viewport height minus ~200px of chrome (top nav +
-    page header) — treat as a design target to verify against the built app, not a live measurement.</p>
+  <p class="sub">Concrete, not adjectives. The "Desktop today" column below is <b>measured</b> (Playwright against
+    <code>5f49d3b</code>, populated fixtures — recipes/pantry/plan/shopping numbers all sourced from the probe
+    described in the revision note up top); phone/tablet columns are carried over from
+    <code>mock-responsive.html</code>'s already-shipped, already-approved tier and not re-measured here.</p>
   <table class="spec">
-    <tr><th>Screen</th><th>Phone (390px)</th><th>Tablet (~900px)</th><th>Desktop today (1512px, unchanged tier)</th><th>Desktop, this proposal</th></tr>
-    <tr><td>Recipes grid</td><td class="num">1 col × 3 rows = 3 cards</td><td class="num">3 × 2 = 6 cards</td><td class="num">6 × 4 = 24 cards <i>(grid already correct — see caveat above)</i></td><td class="num">24 cards <i>(protected, not increased)</i></td></tr>
-    <tr><td>Pantry lots</td><td class="num">~8 rows</td><td class="num">~12 rows</td><td class="num">~14 rows, 1 col</td><td class="num">~28 rows, 2 col</td></tr>
-    <tr><td>Plan — slots/day visible</td><td class="num">2–3 (scroll per day)</td><td class="num">2–3 × 4 banded cols</td><td class="num">2 × 7 cols, tall dead space below</td><td class="num">4–5 × 7 cols, stretched</td></tr>
-    <tr><td>Shopping categories visible</td><td class="num">~2</td><td class="num">~3</td><td class="num">~3, 1 col</td><td class="num">~6, 2 col</td></tr>
+    <tr><th>Screen</th><th>Phone (390px)</th><th>Tablet (~900px)</th><th>Desktop today, measured (1512×950)</th><th>Desktop, this proposal</th></tr>
+    <tr><td>Recipes grid</td><td class="num">1 col × 3 rows = 3 cards</td><td class="num">3 × 2 = 6 cards</td><td class="num"><b>6 cols, 16/16 cards visible — already correct, no defect found</b></td><td class="num">unchanged (protect, don't regress)</td></tr>
+    <tr><td>Pantry lots</td><td class="num">~8 rows</td><td class="num">~12 rows</td><td class="num"><b>1 col; 7 of 14 seeded lots visible, rest need scroll</b></td><td class="num">2 col; all 14 visible, same footprint</td></tr>
+    <tr><td>Plan week grid height</td><td class="num">n/a (stacked day cards)</td><td class="num">n/a (4-col band, unchanged)</td><td class="num"><b>fixed 393px regardless of window (373px at 1920) — 220–420px dead space below, growing with the window</b></td><td class="num">stretches to fill available height</td></tr>
+    <tr><td>Shopping content height</td><td class="num">n/a (single scroll list)</td><td class="num">n/a</td><td class="num"><b>fixed ~335px regardless of window — 615–745px dead space, growing with the window</b></td><td class="num">2-up category cards recover the width; height fix as Plan's</td></tr>
   </table>
-  <p class="sub" style="margin-top:4px">The pattern across all four: <b>tablet and "desktop today" are nearly the
-    same number</b> — the reviewer's actual finding, restated as data. This proposal's job is specifically to make
-    that last column stop equalling the one before it.</p>
+  <p class="sub" style="margin-top:4px">One correction the measurement forced: <b>Recipes is not part of this
+    pattern</b> — its grid was already correct on this branch and needed no fix, only a regression test (see
+    conformance). The other three all show the same measured shape: <b>content height is pinned regardless of
+    viewport, so a bigger window doesn't show more, it just shows more nothing</b> — the reviewer's actual finding,
+    now backed by numbers instead of a screenshot impression.</p>
 </section>
 
 <!-- ══ UNCHANGED ══ -->
@@ -616,10 +696,13 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
   <div class="calldebatable"><h4>The photo's maximum displayed size</h4><p>320px held constant from tablet through
     1920px+ — see <a href="#photo">the photo section</a>. Resisting the temptation to let it grow just because
     desktop has the room.</p></div>
-  <div class="calldebatable"><h4>Ingredients catalog's actual fix</h4><p>Owned by another agent already in flight;
-    this file states only the constraint it should converge on (§ Other screens).</p></div>
+  <div class="calldebatable"><h4>Ingredients catalog</h4><p>Already fixed on <code>main</code> (5f49d3b) by another
+    agent, confirmed by re-running the existing regression test: 3/4/5/6/7 columns at 768/1024/1440/1512/1920, no
+    ceiling. Nothing left for this file to do here.</p></div>
   <div class="calldebatable"><h4>Colour, spacing and type tokens</h4><p>Owned by the parallel token-layer proposal.
-    Every measurement above is stated as a role, not a value, for exactly that reason.</p></div>
+    Every measurement above is stated as a role, not a value, for exactly that reason — except the two items the
+    coordinator explicitly scoped as layout, not type-scale, decisions: the freshness meter's width (§ Pantry) and
+    the Plan Remove button's grouping (§ Plan), both decided above with concrete values.</p></div>
 </section>
 
 <!-- ══ CONFORMANCE ══ -->
@@ -631,18 +714,26 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
     assertion on <em>measured geometry</em>, not a screenshot a reviewer eyeballs once.</p>
   <table class="spec">
     <tr><th>Assertion</th><th>How</th></tr>
-    <tr><td>Recipes grid renders ≥6 columns at 1512px</td><td>Playwright at <code>1512×950</code>: read
-      <code>getComputedStyle(.rgrid).gridTemplateColumns</code>, split on whitespace, assert
-      <code>length &gt;= 6</code>. Re-run at 1920×1080, same viewport-independent assertion — proves the 1680px cap
-      is holding column count flat, not growing it.</td></tr>
-    <tr><td>Pantry lots lay out 2 columns at ≥1440px, 1 column at &lt;1440px</td><td>Bounding-rect diff: assert the
+    <tr><td>Recipes grid renders ≥6 columns at 1512px, ≥7 at 1920px (protect what's measured already correct)</td>
+      <td>Same technique as the existing <code>fix-desktop-grid-monotonic.spec.ts</code> and
+      <code>reach-wide-rails.spec.ts</code>: real rendered <code>getBoundingClientRect().x</code> on the first N
+      cards, not a computed-style string — a class-name/CSS-string assertion would have passed the reviewer's
+      broken state too, since the rule always claimed to be correct. This is now a pure regression guard, not a fix
+      — the measurement in this file found nothing to change here.</td></tr>
+    <tr><td>Pantry lots lay out 2 columns at ≥1440px, 1 column at &lt;1440px, and ALL seeded lots are reachable
+      without scrolling at 1440×900 for a household-sized fixture (≤16 lots)</td><td>Bounding-rect diff: assert the
       x-position of the 2nd visible lot row differs from the 1st at 1512px (same row, second column) and equals it
-      at 1024px (stacked).</td></tr>
-    <tr><td>Plan day columns fill available height, not a fixed 118px</td><td>Assert
-      <code>.day</code>'s rendered height at 1512×950 is within, say, 20px of the <code>.week</code> container's
-      height — not a fixed constant — for a populated week fixture (not the empty-state one).</td></tr>
-    <tr><td>Shopping shows ≥2 category cards per row at ≥1440px</td><td>Same bounding-rect column check as Pantry,
-      against a fixture with ≥4 categories.</td></tr>
+      at 1024px (stacked) — plus the count-visible-without-scroll check this file's probe already used
+      (<code>getBoundingClientRect().top &lt; innerHeight</code>), asserting it equals the fixture's total lot
+      count, not 7 of 14 as measured today.</td></tr>
+    <tr><td>Plan's week grid height tracks the viewport, not a fixed constant</td><td>Assert the grid found by
+      "the element with a 7-track <code>gridTemplateColumns</code>" (this file's probe technique — robust against
+      Plan.tsx's three CSS-hidden DOM subtrees, where a class-name selector isn't) has a rendered height that
+      GROWS between 900px and 1080px viewport heights for the same populated week fixture, rather than staying
+      pinned at 393px both times as measured today.</td></tr>
+    <tr><td>Shopping shows ≥2 category cards per row at ≥1440px, and content height also tracks viewport height
+      (same shape as the Plan assertion above)</td><td>Same bounding-rect column check as Pantry, against a fixture
+      with ≥4 categories; same grow-with-viewport check as Plan.</td></tr>
     <tr><td>Recipe photo is always exactly 320px, never resized to a neighbour's width</td><td>Assert
       <code>.rphoto</code>'s computed width equals the shared token (not a magic number duplicated per screen) at
       768, 1024, 1440 and 1920px — and assert it is <em>not equal</em> to the pantry rail's computed width, which
@@ -651,11 +742,20 @@ table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weigh
       <td>A dedicated regression test: render <code>SegmentedControl</code> with 4 options in a 230px-wide parent,
       assert it lays out 2×2 (via row count from bounding rects) rather than overflowing — this is the specific
       case <code>STATUS.md</code> names as caught by review, not by process, twice already.</td></tr>
-    <tr><td>Dead-space gate</td><td>For each of Pantry/Plan/Shopping with a populated fixture at 1512×950: measure
-      the distance from the bottom of rendered content to the viewport bottom; assert it's under some agreed
-      threshold (proposal: 150px — roughly one more row's worth). This directly operationalises "40–80% empty
-      below the fold" as a number that fails CI if it regresses, rather than waiting for the next screenshot
-      review to notice.</td></tr>
+    <tr><td>Dead-space gate</td><td>For each of Pantry/Plan/Shopping with a populated fixture: measure the deepest
+      visible descendant of <code>&lt;main&gt;</code> (NOT <code>&lt;main&gt;</code>'s own rect — measured in this
+      pass, <code>&lt;main&gt;</code> stretches to fill the viewport regardless of content, which would make this
+      assertion always pass vacuously) against the viewport bottom at both 950px and 1080px window heights; assert
+      the gap is under an agreed threshold (proposal: 150px) AND does not grow between the two heights — the second
+      half is what actually catches this defect, since a fixed-but-small gap at 950px could still grow unbounded at
+      1080px the way Plan and Shopping do today (270px → 420px, 615px → 745px).</td></tr>
+    <tr><td>Pantry's freshness meter renders the same width regardless of the 1024px root-font-size tier flip</td>
+      <td>Assert <code>.meter</code>'s computed <code>max-width</code> is a literal px value (not resolvable to a
+      different px figure at 16px vs 18px root) — direct regression guard for the measured 163px→184px jump.</td></tr>
+    <tr><td>Plan's Remove button sits in the same visual cluster as Cook/Reroll/Pin, not isolated by an auto margin</td>
+      <td>Assert the gap between Remove and its nearest sibling action equals the gap between the other action
+      buttons (same flex <code>gap</code> value) rather than being visibly larger — a direct check that
+      <code>margin-left:auto</code> (or an equivalent push) is gone from that button specifically.</td></tr>
   </table>
   <p class="sub" style="margin-top:6px">All of these are assertable today with Playwright + <code>getComputedStyle</code>/
     <code>getBoundingClientRect</code> against the existing E2E harness (<code>TESTING.md</code>'s port table) — no
