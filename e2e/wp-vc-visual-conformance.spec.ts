@@ -235,7 +235,7 @@ test.describe("SegmentedControl is a 999px pill by default, --radius-md/--radius
     await addRecipe(page, "Pill Shape Test", 15);
     await page.getByRole("link", { name: "Pill Shape Test" }).click();
 
-    const group = page.getByRole("radiogroup", { name: "Household flag" });
+    const group = page.getByRole("radiogroup", { name: "Use in planning" });
     await expect(group).toBeVisible();
     const groupRadius = await group.evaluate((el) => getComputedStyle(el).borderRadius);
     expect(groupRadius).toBe("999px");

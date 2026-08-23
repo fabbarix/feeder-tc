@@ -54,7 +54,7 @@ function contextFor(store: ReturnType<typeof createFakeWorkbookStore>): Workbook
 
 /**
  * WP-stale-save: RecipeDetail.tsx has two blind write sites this workstream
- * closes — the "Household flag" toggle (`recipes.upsert`) and "Mark cooked"
+ * closes — the "Use in planning" toggle (`recipes.upsert`) and "Mark cooked"
  * (`planSlots.upsert`). Both used to write from this route's own
  * once-loaded local copy; both now re-read fresh first.
  */

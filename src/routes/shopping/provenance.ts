@@ -110,20 +110,31 @@ export function buildProvenanceText(
 
 /**
  * Each row's own "Why is this on my list?" sentence (UI_DESIGN.md §13 / the
- * mock's "Why 5 tomatoes?" card — fix-ua-integrity moved this from a
- * single desktop-only rail entry into `ShoppingRow.tsx`'s own per-row
- * disclosure, so it always names the line it's actually attached to):
- * "Monday dinner (Tomato pasta) needs 2, Thursday lunch (Tomato salad)
- * needs 3, and no viable lot expires on or after those dates." — one clause
- * per source, in the engine's own (date-then-slot) order, ending in the
- * fixed closing clause the mock uses verbatim (DESIGN.md's viable-stock
- * rule: "a lot counts only if its expiry is on/after the planned cook
- * date"). Each clause names its recipe (`sourceLabelWithRecipe`) — a design
- * review caught that two DIFFERENT recipes both needing the same ingredient
- * on the same day/slot used to render as two identical, unlabelled clauses
- * ("Monday dinner needs 500, Monday dinner needs 100"), the same underlying
- * flaw as the rail explaining the wrong item: the text didn't identify what
- * it was talking about.
+ * mock's "Why 5 tomatoes?" card): "Monday dinner (Tomato pasta) needs 2,
+ * Thursday lunch (Tomato salad) needs 3, and what's already in the pantry
+ * won't still be good by those dates." — one clause per source, in the
+ * engine's own (date-then-slot) order, ending in a fixed closing clause
+ * (DESIGN.md's viable-stock rule: "a lot counts only if its expiry is
+ * on/after the planned cook date").
+ *
+ * Two usability findings landed on this sentence at once, from reviewers
+ * who had never seen our docs, and both were the same flaw: the text did
+ * not identify what it was talking about.
+ *
+ *   - It lived in a single desktop-only rail entry explaining whichever
+ *     line happened to be first-unchecked, so its answer silently stopped
+ *     matching the row a person was reading. It now lives in
+ *     `ShoppingRow.tsx`'s own per-row disclosure, where it can only ever be
+ *     about the line it is attached to.
+ *   - Each clause named only a day and a meal slot, so two DIFFERENT
+ *     recipes needing the same ingredient on the same day rendered as two
+ *     identical, unlabelled clauses ("Monday dinner needs 500, Monday
+ *     dinner needs 100"). `sourceLabelWithRecipe` now names the recipe.
+ *
+ * The closing clause is deliberately not the rule's own wording: "lot" is
+ * warehouse vocabulary a household never needs, and the sibling
+ * `buildRoundingExplanation` just below is the plain-language model to
+ * follow (e.g. "sold in 250 g jars").
  */
 export function buildWhyExplanation(
   line: ShoppingListLine,
@@ -134,7 +145,7 @@ export function buildWhyExplanation(
     const label = sourceLabelWithRecipe(source, "long", ctx);
     return amount === undefined ? label : `${label} needs ${formatAmount(amount)}`;
   });
-  return `${clauses.join(", ")}, and no viable lot expires on or after those dates.`;
+  return `${clauses.join(", ")}, and what's already in the pantry won't still be good by those dates.`;
 }
 
 /**

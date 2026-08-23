@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { saveRecipeThroughNudges } from "./support/recipes.ts";
 
 // WP-PHOTO UI: the user-facing half of WP-PHOTO's contract/pipeline (merged,
 // but with zero UI before this package). Covers: the RecipeEditor
@@ -41,7 +42,7 @@ test("A recipe photo, and a step's detail + duration + photo, save and survive a
 
   // Save navigates back to the Recipes list (RecipeEditor.tsx), not
   // straight to the new recipe's own page — open it from its card.
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
   await page.getByRole("link", { name: "Chili E2E" }).click();
   await expect(page.getByRole("heading", { name: "Chili E2E" })).toBeVisible();
@@ -81,7 +82,7 @@ test("A recipe photo, and a step's detail + duration + photo, save and survive a
   // not the dashed "Add" affordance — proof the existing photos round-tripped.
   await expect(page.getByRole("button", { name: "Replace" })).toHaveCount(2);
 
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 
   // The Recipes grid card now shows a real photo, not the placeholder glyph.

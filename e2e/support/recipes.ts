@@ -2,6 +2,33 @@ import { expect, type Page } from "@playwright/test";
 import { TINY_PHOTO_PATH } from "./fixtures.ts";
 
 /**
+ * Clicks "Save recipe", then clicks through either (or both, in sequence)
+ * of RecipeEditor.tsx's save-time nudge dialogs (UA review #3b "no meal
+ * tags", #4 "nothing to cook from yet") if one appears — neither is a hard
+ * block (both are legitimate states a recipe can be saved in), so most
+ * setup helpers across this suite create recipes without meal tags,
+ * ingredients or steps and don't care about either nudge; this is what
+ * keeps every one of them working unchanged. A no-op when neither nudge
+ * fires (an untagged-but-populated recipe, or a real edit of an
+ * already-tagged/populated recipe — e.g. wp-30-multi-client.spec.ts's
+ * stale-save conflict dialog, which reuses the SAME "Save anyway" label
+ * but is a different dialog this never touches because that recipe already
+ * has tags and an ingredient line from its own setup).
+ */
+export async function saveRecipeThroughNudges(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Save recipe" }).click();
+  const confirmButton = page.getByRole("button", { name: "Save anyway" });
+  for (let i = 0; i < 2; i += 1) {
+    const appeared = await confirmButton
+      .waitFor({ state: "visible", timeout: 1000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!appeared) return;
+    await confirmButton.click();
+  }
+}
+
+/**
  * Adds a minimal cooked recipe through the real "Add recipe" flow — name and
  * cook time only, no ingredient lines or steps, which is all any spec using
  * this needs. Shared by every spec that just needs "a recipe exists" as
@@ -14,7 +41,7 @@ export async function addRecipe(page: Page, name: string, cookMinutes: number): 
   await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill(String(cookMinutes));
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 }
 
@@ -76,7 +103,7 @@ export async function addRichCookedRecipe(page: Page, name: string, options: Ric
   }
 
   if (options.staple) {
-    await page.getByRole("radiogroup", { name: "Household flag" }).getByRole("radio", { name: "Staple" }).click();
+    await page.getByRole("radiogroup", { name: "Use in planning" }).getByRole("radio", { name: "Staple" }).click();
   }
 
   for (const ingredient of options.ingredients ?? []) {
@@ -107,6 +134,6 @@ export async function addRichCookedRecipe(page: Page, name: string, options: Ric
     }
   }
 
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 }

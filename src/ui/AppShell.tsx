@@ -469,7 +469,7 @@ function NoWorkbookScreen({
     <section className={styles.gate}>
       <h1>Get started</h1>
       <p className={styles.gateDescription}>
-        Create a new meal planner workbook, or open one a household member already shared with you.
+        Create a new meal planner, or open one a household member already shared with you.
       </p>
       <div className={styles.gateActions}>
         <button type="button" className={styles.primaryAction} onClick={onCreateWorkbook}>

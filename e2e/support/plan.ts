@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import { saveRecipeThroughNudges } from "./recipes.ts";
 
 export async function goToPlan(page: Page): Promise<void> {
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Plan", exact: true }).click();
@@ -93,7 +94,7 @@ export async function addDinnerRecipe(page: Page, name: string): Promise<void> {
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await page.getByRole("group", { name: "Meal tags" }).getByRole("button", { name: "Dinner" }).click();
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes", level: 1 })).toBeVisible();
 }
 

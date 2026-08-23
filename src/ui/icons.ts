@@ -83,4 +83,7 @@ export {
   // and TypeScript caught the duplicate instead — one icon, one export.
   Timer,
   Pause,
+  // Route error boundary (RouteError.tsx) — a genuine "this address doesn't
+  // exist" 404, distinct from WarningCircle's "something went wrong".
+  Compass,
 } from "@phosphor-icons/react";

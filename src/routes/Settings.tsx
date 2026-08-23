@@ -119,8 +119,8 @@ export function Settings() {
       {!loading && (missingSettingsRow || (!error && !settings)) ? (
         <EmptyState
           icon={GearSix}
-          title="This workbook has no settings saved yet"
-          description="That's normal for a workbook created before this feature existed — set up sensible defaults (2 people, breakfast/lunch/dinner every day) and adjust them right after."
+          title="No settings saved yet"
+          description="That's normal for a meal planner created before this feature existed — set up sensible defaults (2 people, breakfast/lunch/dinner every day) and adjust them right after."
           action={
             <button type="button" className={forms.addButton} onClick={setUpDefaults}>
               Set up defaults

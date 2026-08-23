@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { saveRecipeThroughNudges } from "./support/recipes.ts";
 
 // IMPLEMENTATION_PLAN.md WP-22, `@e2e`:
 //
@@ -83,7 +84,7 @@ async function addDinnerRecipe(
     .click();
   if (options.staple) {
     await page
-      .getByRole("radiogroup", { name: "Household flag" })
+      .getByRole("radiogroup", { name: "Use in planning" })
       .getByRole("radio", { name: "Staple" })
       .click();
   }
@@ -94,7 +95,7 @@ async function addDinnerRecipe(
     await page.getByRole("textbox", { name: /amount/i }).fill(options.ingredient.amount);
   }
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes", level: 1 })).toBeVisible();
   await dismissToasts(page);
 }

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { saveRecipeThroughNudges } from "./support/recipes.ts";
 
 // IMPLEMENTATION_PLAN.md WP-20, `@e2e`:
 //
@@ -34,7 +35,7 @@ test("Creating a bought meal", async ({ page }) => {
     .getByRole("textbox", { name: "Instruction" })
     .fill("375 degrees, 30 min covered, 20 uncovered");
 
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
 
   // Then the recipe saves with prep time 0 — back on the recipe list, the
   // card is tagged "Bought" and shows "0 prep" / "50 cook" directly...
@@ -90,7 +91,7 @@ test("Retiring a recipe", async ({ page }) => {
   await page.getByRole("link", { name: "Add recipe" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill("Liver stew");
   await page.getByRole("textbox", { name: "Cook time (min)" }).fill("40");
-  await page.getByRole("button", { name: "Save recipe" }).click();
+  await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 
   // When the user sets "Liver stew" status to retired. The "Household

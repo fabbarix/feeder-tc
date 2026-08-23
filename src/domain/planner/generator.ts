@@ -99,6 +99,30 @@ export interface GenerateWeekInput {
 export interface GenerateWeekResult {
   readonly slots: readonly PlanSlot[];
   readonly staplePlanState: StaplePlanState;
+  /**
+   * Slots this call actually placed a recipe into (staples in step 1, plus
+   * the weighted random fill in step 2) — never counts a preserved
+   * (pinned/already-cooked) slot, since this call didn't touch those.
+   * Added so a caller (usePlanWeek.ts) can tell the user what generation
+   * actually did, rather than leaving a silent "some slots filled, most
+   * didn't" result the way it used to (owner/UA-review finding: "Generate
+   * week" gave no feedback at all).
+   */
+  readonly filledCount: number;
+  /**
+   * Slots this call left empty because step 2 found no eligible candidate
+   * (`candidatesForSlot` returned nothing after excluding recently-cooked
+   * and already-placed-this-week recipes) — i.e. genuinely unfillable given
+   * today's recipe library and tags, not a bug.
+   */
+  readonly emptyCount: number;
+  /**
+   * Meal tags that had at least one slot go unfilled for lack of an
+   * eligible in-rotation candidate — the concrete "what would let it fill
+   * more" the caller can name (tag more recipes for these meals, or widen
+   * the rotation).
+   */
+  readonly starvedMealTags: readonly MealTag[];
 }
 
 export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
@@ -143,6 +167,9 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
   }
 
   const fillings = new Array<PlanSlotFilling | undefined>(specs.length);
+  let filledCount = 0;
+  let emptyCount = 0;
+  const starvedMealTags = new Set<MealTag>();
 
   const nextStaplePlanState: Record<MealTag, StapleRotationState> = {
     breakfast: input.staplePlanState?.breakfast ?? initialStapleRotationState,
@@ -171,6 +198,7 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
       const slotIndex = openIndexesForTag[placedIndex];
       if (slotIndex === undefined) return;
       fillings[slotIndex] = { kind: "recipe", recipeId };
+      filledCount += 1;
       weekPlacedRecipeIds.add(recipeId);
       for (const id of ingredientIdsByRecipe.get(recipeId) ?? EMPTY_INGREDIENT_SET) {
         weekIngredientIds.add(id);
@@ -192,6 +220,8 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
 
     if (pool.length === 0) {
       fillings[i] = { kind: "empty" };
+      emptyCount += 1;
+      starvedMealTags.add(spec.slotType);
       continue;
     }
 
@@ -204,6 +234,7 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
     );
     const picked = weightedPick(pool, weights, input.rng);
     fillings[i] = { kind: "recipe", recipeId: picked.id };
+    filledCount += 1;
     weekPlacedRecipeIds.add(picked.id);
     for (const id of ingredientIdsByRecipe.get(picked.id) ?? EMPTY_INGREDIENT_SET) {
       weekIngredientIds.add(id);
@@ -235,7 +266,13 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
     });
   }
 
-  return { slots, staplePlanState: nextStaplePlanState };
+  return {
+    slots,
+    staplePlanState: nextStaplePlanState,
+    filledCount,
+    emptyCount,
+    starvedMealTags: [...starvedMealTags],
+  };
 }
 
 // ---------------------------------------------------------------------------

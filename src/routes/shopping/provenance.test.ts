@@ -119,7 +119,7 @@ describe("buildProvenanceText", () => {
 describe("buildWhyExplanation", () => {
   it("reads like the mock's 'Why 5 tomatoes?' card, naming each source's recipe", () => {
     expect(buildWhyExplanation(LINE, CTX)).toBe(
-      "Monday dinner (Tomato pasta) needs 2, Thursday lunch (Tomato salad) needs 3, and no viable lot expires on or after those dates.",
+      "Monday dinner (Tomato pasta) needs 2, Thursday lunch (Tomato salad) needs 3, and what's already in the pantry won't still be good by those dates.",
     );
   });
 

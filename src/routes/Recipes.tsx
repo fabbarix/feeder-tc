@@ -76,7 +76,7 @@ export function Recipes() {
         if (result.warnings.length > 0) {
           showToast({
             variant: "warning",
-            title: `${result.warnings.length} recipe row${result.warnings.length === 1 ? "" : "s"} skipped`,
+            title: `${result.warnings.length} ${result.warnings.length === 1 ? "recipe" : "recipes"} skipped`,
             ...(firstReason !== undefined ? { description: firstReason } : {}),
           });
         }

@@ -59,7 +59,7 @@ export function Ingredients() {
         if (result.warnings.length > 0) {
           showToast({
             variant: "warning",
-            title: `${result.warnings.length} ingredient row${result.warnings.length === 1 ? "" : "s"} skipped`,
+            title: `${result.warnings.length} ${result.warnings.length === 1 ? "ingredient" : "ingredients"} skipped`,
             ...(firstReason !== undefined ? { description: firstReason } : {}),
           });
         }
@@ -138,7 +138,7 @@ export function Ingredients() {
           <EmptyState
             icon={Carrot}
             title="No ingredients yet"
-            description="The seeded catalog should have loaded when your workbook was created — add one by hand if it's missing."
+            description="A starter list of common ingredients should have loaded when this meal planner was set up — add one by hand if it's missing."
             action={
               <Link to="/recipes/ingredients/new" className={styles.addButton}>
                 Add ingredient
