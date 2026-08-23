@@ -1,0 +1,690 @@
+<title>Feeder — Desktop Earns Its Width</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Archivo:wght@400;500;600;700&display=swap">
+
+<style>
+:root{
+  --accent-hue:155;
+  --paper:oklch(0.985 0.006 var(--accent-hue));
+  --surface:oklch(1 0 0);
+  --surface-2:oklch(0.965 0.008 var(--accent-hue));
+  --line:oklch(0.90 0.010 var(--accent-hue));
+  --line-soft:oklch(0.945 0.008 var(--accent-hue));
+  --text:oklch(0.24 0.020 var(--accent-hue));
+  --text-dim:oklch(0.50 0.016 var(--accent-hue));
+  --text-faint:oklch(0.63 0.012 var(--accent-hue));
+  --accent:oklch(0.45 0.18 var(--accent-hue));
+  --accent-text:oklch(0.99 0.02 var(--accent-hue));
+  --accent-bg:oklch(0.95 0.05 var(--accent-hue));
+  --accent-line:oklch(0.80 0.09 var(--accent-hue));
+  --warn:oklch(0.72 0.15 72); --warn-bg:oklch(0.95 0.06 72);
+  --crit:oklch(0.58 0.19 27); --crit-bg:oklch(0.95 0.05 27);
+  --shadow-1:0 1px 2px oklch(0.24 0.02 var(--accent-hue)/0.06);
+  --shadow-2:0 4px 18px -5px oklch(0.24 0.02 var(--accent-hue)/0.16);
+  --r-sm:8px; --r-md:14px; --r-lg:22px;
+  --ease:cubic-bezier(.22,.61,.36,1);
+  --display:"Fraunces",Georgia,serif;
+  --ui:"Archivo",ui-sans-serif,system-ui,sans-serif;
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:oklch(0.17 0.012 var(--accent-hue));--surface:oklch(0.215 0.014 var(--accent-hue));--surface-2:oklch(0.255 0.016 var(--accent-hue));
+  --line:oklch(0.33 0.016 var(--accent-hue));--line-soft:oklch(0.27 0.014 var(--accent-hue));--text:oklch(0.95 0.010 var(--accent-hue));
+  --text-dim:oklch(0.74 0.014 var(--accent-hue));--text-faint:oklch(0.60 0.014 var(--accent-hue));--accent:oklch(0.76 0.13 var(--accent-hue));
+  --accent-text:oklch(0.18 0.03 var(--accent-hue));--accent-bg:oklch(0.30 0.06 var(--accent-hue));--accent-line:oklch(0.45 0.08 var(--accent-hue));
+  --warn:oklch(0.82 0.14 78);--warn-bg:oklch(0.32 0.06 78);--crit:oklch(0.72 0.17 27);--crit-bg:oklch(0.32 0.07 27);
+  --shadow-1:0 1px 2px oklch(0 0 0/0.4);--shadow-2:0 6px 22px -6px oklch(0 0 0/0.55);
+}}
+:root[data-theme="dark"]{
+  --paper:oklch(0.17 0.012 var(--accent-hue));--surface:oklch(0.215 0.014 var(--accent-hue));--surface-2:oklch(0.255 0.016 var(--accent-hue));
+  --line:oklch(0.33 0.016 var(--accent-hue));--line-soft:oklch(0.27 0.014 var(--accent-hue));--text:oklch(0.95 0.010 var(--accent-hue));
+  --text-dim:oklch(0.74 0.014 var(--accent-hue));--text-faint:oklch(0.60 0.014 var(--accent-hue));--accent:oklch(0.76 0.13 var(--accent-hue));
+  --accent-text:oklch(0.18 0.03 var(--accent-hue));--accent-bg:oklch(0.30 0.06 var(--accent-hue));--accent-line:oklch(0.45 0.08 var(--accent-hue));
+  --warn:oklch(0.82 0.14 78);--warn-bg:oklch(0.32 0.06 78);--crit:oklch(0.72 0.17 27);--crit-bg:oklch(0.32 0.07 27);
+  --shadow-1:0 1px 2px oklch(0 0 0/0.4);--shadow-2:0 6px 22px -6px oklch(0 0 0/0.55);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--text);font:400 16px/1.55 var(--ui);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1900px;margin:0 auto;padding:0 24px 100px}
+header.top{padding:56px 0 32px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.eyebrow{font:600 12px/1 var(--ui);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+h1{font:300 clamp(32px,5vw,52px)/1.06 var(--display);font-variation-settings:"opsz" 120;letter-spacing:-.02em;margin:0 0 16px;text-wrap:balance}
+h1 em{font-style:italic;color:var(--accent)}
+.standfirst{font-size:17.5px;color:var(--text-dim);max-width:76ch;margin:0 0 10px}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px}
+.toc a{font:500 13px/1 var(--ui);text-decoration:none;color:var(--text-dim);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:8px 13px;transition:border-color 180ms var(--ease),color 180ms var(--ease)}
+.toc a:hover{border-color:var(--accent-line);color:var(--accent)}
+section{margin-top:64px;scroll-margin-top:20px}
+h2{font:400 clamp(22px,3vw,30px)/1.15 var(--display);font-variation-settings:"opsz" 60;letter-spacing:-.015em;margin:0 0 8px;text-wrap:balance}
+h3{font:600 15px/1.3 var(--ui);margin:26px 0 10px;color:var(--text)}
+.sub{color:var(--text-dim);margin:0 0 22px;max-width:80ch;font-size:15.5px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden}
+.card-head{font:600 11px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);padding:13px 15px;border-bottom:1px solid var(--line-soft)}
+.card-pad{padding:7px}
+.card-pad-lg{padding:16px}
+.note{margin-top:22px;padding:18px 20px;border-radius:var(--r-md);background:var(--accent-bg);border:1px solid var(--accent-line);font-size:14.5px;max-width:100ch}
+.note strong{color:var(--accent)}
+.note code{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.92em}
+.warncard{margin-top:22px;padding:18px 20px;border-radius:var(--r-md);background:var(--warn-bg);border:1px solid var(--warn);font-size:14.5px;max-width:100ch}
+.warncard strong{color:color-mix(in oklch, var(--warn) 70%, var(--text))}
+code{background:var(--surface-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.9em}
+table.spec{border-collapse:collapse;width:100%;font-size:14px;margin:14px 0}
+table.spec th,table.spec td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+table.spec th{background:var(--surface-2);font:600 11.5px/1.3 var(--ui);letter-spacing:.02em;color:var(--text-dim)}
+table.spec td{font-size:13.5px;color:var(--text-dim)}
+table.spec td.num{font-variant-numeric:tabular-nums;color:var(--text);font-weight:600}
+.tierstrip{display:flex;flex-direction:column;gap:26px}
+.tier-label{display:flex;align-items:baseline;gap:10px;margin:0 0 8px 2px}
+.tier-name{font:600 11px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}
+.tier-range{font:600 12px/1 var(--ui);color:var(--accent);font-variant-numeric:tabular-nums}
+.tier-note{font:400 12.5px/1.4 var(--ui);color:var(--text-faint);margin:0 0 8px 2px;max-width:70ch}
+.tier-frame{overflow-x:auto;padding-bottom:4px}
+.browser{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;box-shadow:var(--shadow-2)}
+.browser-bar{display:flex;align-items:center;gap:14px;padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--line-soft)}
+.dots{display:flex;gap:6px}.dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+.urlbar{flex:1;font:500 11.5px/1 var(--ui);color:var(--text-faint);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 11px;max-width:280px}
+.dt-top{display:flex;align-items:center;gap:22px;padding:0 18px;border-bottom:1px solid var(--line-soft)}
+.brand{display:flex;align-items:center;gap:8px;font:600 15px/1 var(--ui);padding:13px 0;letter-spacing:-.01em}
+.brand-mark{width:23px;height:23px;border-radius:7px;background:var(--accent);display:grid;place-items:center;flex:none}
+.brand-mark svg{width:14px;height:14px;stroke:var(--accent-text);fill:none;stroke-width:2;stroke-linecap:round}
+.dt-nav{display:flex;gap:1px;margin-right:auto}
+.dt-nav button{position:relative;border:0;background:transparent;cursor:pointer;font:500 13.5px/1 var(--ui);color:var(--text-dim);padding:16px 11px}
+.dt-nav button[aria-current="page"]{color:var(--accent);font-weight:600}
+.dt-nav button[aria-current="page"]::after{content:"";position:absolute;left:11px;right:11px;bottom:-1px;height:2px;background:var(--accent);border-radius:2px 2px 0 0}
+.dt-actions{display:flex;align-items:center;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;font:500 12.5px/1 var(--ui);color:var(--text-dim);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:7px 12px}
+.avatar{width:29px;height:29px;border-radius:50%;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-line);display:grid;place-items:center;font:600 11.5px/1 var(--ui)}
+.dt-body{padding:22px 18px 26px}
+.dt-head{display:flex;align-items:baseline;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.dt-h1{font:400 25px/1.1 var(--display);font-variation-settings:"opsz" 60;letter-spacing:-.015em}
+.dt-sub{color:var(--text-faint);font-size:13px;margin:2px 0 18px}
+.btn{font:600 13.5px/1 var(--ui);padding:11px 17px;border-radius:999px;border:0;background:var(--accent);color:var(--accent-text);cursor:pointer}
+.btn.ghost{background:var(--surface-2);color:var(--text);border:1px solid var(--line)}
+.btn.sm{font-size:12.5px;padding:9px 13px}
+.row{display:grid;grid-template-columns:26px 1fr auto;gap:11px;align-items:center;width:100%;text-align:left;padding:10px 9px;border:0;border-radius:var(--r-sm);background:transparent;color:inherit;cursor:pointer;font:inherit}
+.row:hover{background:var(--surface-2)}
+.row.rowimg{grid-template-columns:44px 1fr auto}
+.row-name{font:500 14px/1.25 var(--ui);display:block}
+.row-sub{font:400 11.5px/1.3 var(--ui);color:var(--text-faint);margin-top:2px;display:block}
+.rowgroup{font:600 10px/1 var(--ui);letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);padding:12px 8px 6px}
+.badge{font:600 10.5px/1 var(--ui);padding:5px 8px;border-radius:999px;white-space:nowrap}
+.badge.ok{background:var(--surface-2);color:var(--text-faint)}
+.badge.w{background:var(--warn-bg);color:var(--warn)}
+.badge.c{background:var(--crit-bg);color:var(--crit)}
+.badge.a{background:var(--accent-bg);color:var(--accent)}
+.meter{height:4px;border-radius:999px;background:var(--line-soft);overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.meter.w i{background:var(--warn)}.meter.c i{background:var(--crit)}
+.plot{padding:9px;border-radius:var(--r-sm)}
+.plot:hover{background:var(--surface-2)}
+.plot-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.plotrow{display:flex;gap:9px;align-items:flex-start;padding:9px;border-radius:var(--r-sm)}
+.plotrow .plot{padding:0;flex:1;min-width:0}
+.media{position:relative;overflow:hidden;background:var(--surface-2)}
+.media.empty{display:grid;place-items:center;color:var(--text-faint)}
+.media.empty svg{stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.6}
+.media.photo{background:linear-gradient(135deg,oklch(0.64 0.09 48),oklch(0.5 0.1 24))}
+.media.loading{background:linear-gradient(100deg,var(--surface-2) 30%,var(--line-soft) 45%,var(--surface-2) 60%)}
+.ithumb{width:44px;height:44px;border-radius:9px;flex:none}
+.ithumb.empty svg{width:16px;height:16px}
+.rcard-media{width:80px;height:80px;border-radius:var(--r-sm);flex:none}
+.rphoto{aspect-ratio:4/3;border-radius:var(--r-md);width:100%}
+.rphoto.empty svg{width:28px;height:28px}
+.rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:11px}
+.rcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:10px;display:flex;gap:11px;align-items:flex-start}
+.rcard h4{font:500 14.5px/1.2 var(--ui);margin:0 0 4px}
+.rcard .rmeta{font:400 11.5px/1.3 var(--ui);color:var(--text-faint);display:flex;gap:8px;flex-wrap:wrap}
+.rcard .rtags{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.tagpill{font:600 9.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:5px;background:var(--surface-2);color:var(--text-faint)}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px}
+.day{background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--r-sm);padding:8px;display:flex;flex-direction:column;min-height:118px}
+.day-n{font:600 9.5px/1 var(--ui);letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px}
+.slot{font:500 11px/1.25 var(--ui);background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px;margin-bottom:5px;display:flex;align-items:center;gap:7px}
+.slot img,.slot .sthumb{width:28px;height:28px;border-radius:6px;flex:none;background:var(--surface-2)}
+.slot.pin{border-color:var(--accent-line);background:var(--accent-bg)}
+.slot.left{border-style:dashed;color:var(--text-dim)}
+.slot.add{color:var(--text-faint);text-align:center;border-style:dashed;justify-content:center}
+.day.istoday{border-color:var(--accent-line);background:var(--accent-bg)}
+.day.istoday .day-n{color:var(--accent)}
+.weeknav{display:inline-flex;align-items:center;gap:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:4px}
+.weeknav-btn{width:30px;height:30px;border-radius:50%;border:0;background:transparent;color:var(--text-dim);display:grid;place-items:center;font:600 15px/1 var(--ui)}
+.weeknav-range{font:600 14px/1 var(--ui);padding:0 9px;color:var(--text)}
+.weeknav-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.fchip{font:500 12px/1 var(--ui);padding:7px 11px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text-dim)}
+.fchip[aria-pressed="true"]{background:var(--accent-bg);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+.seg{display:inline-flex;background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{font:500 12.5px/1 var(--ui);padding:6px 12px;border:0;border-radius:999px;background:transparent;color:var(--text-dim)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-text)}
+/* ---- new for this file: real desktop density mechanisms ---- */
+.dtcols-rail{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:18px;align-items:start}
+.dtcols-photorail{display:grid;grid-template-columns:320px minmax(0,1fr);gap:24px;align-items:start}
+.pantrygrid{display:grid;grid-template-columns:repeat(2,1fr);gap:0 14px}
+.shopgrid2{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
+.deadzone{position:relative;border:1.5px dashed var(--crit);border-radius:var(--r-sm);background:repeating-linear-gradient(135deg,oklch(0.58 0.19 27/.06) 0 10px,transparent 10px 20px)}
+.deadzone::after{content:attr(data-label);position:absolute;top:8px;left:10px;font:700 10.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--crit)}
+.fillzone{position:relative;border:1.5px dashed var(--accent-line);border-radius:var(--r-sm);background:var(--accent-bg)}
+.fillzone::after{content:attr(data-label);position:absolute;top:8px;left:10px;font:700 10.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.pxdim{position:absolute;bottom:6px;right:10px;font:600 11px/1 var(--ui);color:var(--text-faint);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+.framewrap{position:relative}
+.calldebatable{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);padding:16px 18px;margin-bottom:14px}
+.calldebatable h4{margin:0 0 6px;font:600 14.5px/1.3 var(--ui)}
+.calldebatable .verdict{font:600 11px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--accent);display:inline-block;margin-bottom:6px}
+.calldebatable p{margin:0;font-size:13.8px;color:var(--text-dim);line-height:1.6}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">Layout system · desktop density · 1440–1920px</div>
+  <h1>Desktop is <em>not</em> a wide phone</h1>
+  <p class="standfirst">
+    <code>design/mock-responsive.html</code> (owner-approved, merged <code>5ef96ba</code>) added the missing
+    768–1439px tablet tier and fixed the segmented-control and tag-wrap defects it found there. It left one line
+    unexamined for every screen: <em>"Desktop · ≥1440px (unchanged from the approved mock)."</em> That line is the
+    subject here. An independent reviewer, then <code>STATUS.md</code>'s own "Known debt" entry (2026-08-22 round-2
+    tablet review), both measured the same thing: Pantry, Plan, Shopping, Recipe detail and Home each leave
+    <b>40–80% of a 1512×950 or 1920×1080 viewport empty on a populated screen</b>, because the desktop tier reflows
+    width (via <code>AppShell</code>'s <code>.mainWide</code> 1680px cap and <code>.rgrid</code>'s auto-fill grid)
+    but never reflows <em>height</em> — every list, card stack and calendar column is sized as if it were still on
+    a 900px tablet, just centred in more air. This file is the missing pass: what desktop earns beyond 1440px, and
+    what it still deliberately does not touch.
+  </p>
+  <p class="standfirst">
+    It extends <code>mock-responsive.html</code>; it does not replace it. Phone and the 768–1439px tablet tier are
+    unchanged and are not repeated here — go there for those. The token layer (spacing, type scale, colour) is a
+    parallel proposal from another agent; every value below is described by <em>role</em> ("a touch-target row",
+    "a card-head label"), not by px or rem, so the two proposals can be reconciled without either one re-deciding
+    the other's numbers.
+  </p>
+  <div class="toc">
+    <a href="#system">The system</a><a href="#recipes">Recipes</a><a href="#recipe">A recipe</a>
+    <a href="#pantry">Pantry</a><a href="#plan">Plan</a><a href="#shopping">Shopping</a>
+    <a href="#other">Home · Ingredients · Editors · Scan · Prices · Settings</a>
+    <a href="#photo">The photo question</a><a href="#density">Density, in numbers</a>
+    <a href="#unchanged">Left alone</a><a href="#conformance">How we'd know</a>
+  </div>
+</header>
+
+<!-- ══ SYSTEM ══ -->
+<section id="system">
+  <h2>The system</h2>
+  <p class="sub">The reviewer's real charge isn't "desktop looks wrong" — it's that no rule decided what desktop
+    should look like, so flexbox decided by default. Here is the rule, stated once, so every screen below is an
+    application of it rather than a fresh judgement call.</p>
+
+  <h3>Breakpoints — unchanged, restated</h3>
+  <table class="spec">
+    <tr><th>Tier</th><th>Range</th><th>Input model</th><th>What changes here</th></tr>
+    <tr><td>Phone</td><td class="num">0–767px</td><td>Thumb, one-handed</td><td>Nothing — out of scope for this file</td></tr>
+    <tr><td>Tablet</td><td class="num">768–1439px</td><td>Touch, two-handed or propped</td><td>Nothing new — <code>mock-responsive.html</code> owns this tier</td></tr>
+    <tr><td>Desktop</td><td class="num">1440–1919px</td><td>Pointer, full peripheral vision</td><td><b>This file:</b> vertical density + genuine multi-column content</td></tr>
+    <tr><td>Wide desktop</td><td class="num">≥1920px</td><td>Pointer, external monitor</td><td><b>This file:</b> same column counts as 1440–1919 — see below for why not more</td></tr>
+  </table>
+  <p class="sub" style="margin-top:2px">1920px is <em>not</em> a new breakpoint with new rules — it's evidence for
+    the existing 1680px cap on <code>.mainWide</code>. A 1920px browser window still hands content a 1680px column;
+    the extra 240px is margin, and margin is the one thing <code>UI_DESIGN.md</code> §13 already says desktop should
+    not be paid in ("width buys information, not padding"). Adding a fifth tier to grow columns further at 1920
+    would violate that rule, not honour it. The fix desktop needs is not "more columns as the window grows" — the
+    <code>auto-fill</code> grids already do that correctly, up to the cap — it's "more rows visible per column,"
+    which is a height problem, not a width one.</p>
+
+  <h3>The actual defect, traced</h3>
+  <div class="note">
+    Four screens, one shape of bug. <code>pantry.module.css</code>'s rail is a fixed 250–290px column (already
+    correct — an earlier draft's <code>2fr</code> proportional rail was fixed before this pass) beside a
+    <code>minmax(0,1fr)</code> list — but the list itself is one column of 44–48px rows, so at 950px of viewport
+    height it shows ~14 rows and stops, with everything below the fold blank. <code>plan.module.css</code>'s
+    <code>.week</code> is <code>repeat(7,minmax(0,1fr))</code> — correct column count — over <code>.day</code> cells
+    fixed at <code>min-height:118px</code>, so the calendar renders as a ~160px strip at the top of a 950px page no
+    matter how tall the window is. <code>shopping.module.css</code> repeats the pantry shape: fixed rail, single
+    list column, same shortfall. Recipe detail's <code>.rphoto</code> is capped at 320px (correct — see
+    <a href="#photo">the photo section</a>) but sits inside the same 840px reading measure as its ingredient list,
+    so the photo and the two-line "serves 4 · 45 min" caption are the only things beside each other; nothing else
+    on the page uses the second dimension of the space a photo rail implies. None of these need a new grid system —
+    they need the existing grids given permission to <em>use height</em>, and in two cases (Plan, Recipe detail) a
+    second column that does not exist yet.
+  </div>
+
+  <h3>Three rules that generalise across every screen below</h3>
+  <table class="spec">
+    <tr><th>Rule</th><th>Says</th></tr>
+    <tr><td><b>A column earns a second column</b></td><td>only when the second column answers a question the first
+      one raises — "why is this on my list" (Shopping), "what else needs using soon" (Plan) — never as decoration.
+      A screen with nothing to say in a second column stays one column at every tier. Recipe editor, Ingredient
+      editor and Settings are forms; forms don't get wider, they get shorter reading lines (§ Left alone).</td></tr>
+    <tr><td><b>Vertical density is "does the fold matter."</b></td><td>A screen is done at a width when, for a
+      realistic populated household (the fixtures already in <code>src/sheets/mocks</code>, not an empty demo),
+      the *first visible screenful* contains most of what a person came for — tonight's meal, the week ahead, the
+      items about to expire — without the page reading as mostly background. Concretely: no list/grid may render
+      with a fixed <code>min-height</code> that stops well short of its container's available height when there is
+      more content to show.</td></tr>
+    <tr><td><b>Multi-column content stays list-first</b></td><td>(<code>UI_DESIGN.md</code> §6). Turning Pantry's
+      rows into two side-by-side columns of <code>ListRow</code>s is still a list — same semantics, same
+      component — just wrapped at a column boundary instead of only a viewport boundary. It is not the same move as
+      switching to <code>EntityTable</code>, which stays reserved for screens with genuinely tabular columns (Price
+      history, below).</td></tr>
+  </table>
+</section>
+
+<!-- ══ RECIPES ══ -->
+<section id="recipes">
+  <h2>Recipes</h2>
+  <p class="sub">Reviewer's number: cards ending at x=751 in a 1480px column, ~51% used. <b>Caveat, stated plainly:</b>
+    the live source I read (<code>recipes.module.css:121</code>) is already
+    <code>grid-template-columns:repeat(auto-fill,minmax(230px,1fr))</code> inside <code>.mainWide</code>'s 1680px
+    cap — a grid that reflows correctly by construction, and <code>/recipes</code> is already in
+    <code>WIDE_ROUTES</code>. I could not reproduce the 51% figure by reading the CSS alone; it may predate the
+    WP-PHOTO-era bump from 168px to 230px cards, or reflect a viewport this pass didn't check live. <b>Recommend
+    re-measuring live before writing any ticket against this screen</b> — the design below assumes the grid already
+    reflows, and focuses the real remaining gap: how many rows are visible without scrolling.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">1512×950</span></div>
+      <p class="tier-note">1512 − 48px gutter ≈ 1464px content. <code>minmax(230,1fr)</code> + 11px gaps ⇒ 6 columns
+        (⌊1464/241⌋). Card height ≈ 168px (80px thumb-adjacent card padding + 2 lines meta + tag row). At 950px
+        viewport minus ~210px of header/greeting chrome ⇒ ~740px of grid ⇒ 4 full rows before scroll.</p>
+      <div class="tier-frame framewrap"><div class="browser" style="width:1512px">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes</div></div>
+        <div class="dt-top"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button aria-current="page">Recipes</button><button>Pantry</button><button>Plan</button><button>Shopping</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div></div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Recipes</span><button class="btn sm">New recipe</button></div>
+          <p class="dt-sub">42 recipes · 9 staples</p>
+          <div class="rgrid" id="rg1"></div>
+        </div>
+      </div><span class="pxdim">1512 × 950 — 6 cols × 4 rows = 24 cards visible</span></div>
+    </div>
+  </div>
+  <div class="note"><strong>What changed here: nothing structural.</strong> The grid mechanism is correct; the
+    density fix is that card height stays close to the phone/tablet card (thumbnail + name + one meta line + tags)
+    rather than growing to fill leftover vertical space — a taller card at desktop would show fewer rows for no
+    benefit. 24 visible cards at 1512×950 is the number to protect (see <a href="#density">Density</a> and
+    <a href="#conformance">conformance</a>).</div>
+</section>
+
+<!-- ══ RECIPE DETAIL ══ -->
+<section id="recipe">
+  <h2>A recipe</h2>
+  <p class="sub"><b>Divergence from the current per-route decision, stated explicitly:</b> today every recipe page
+    lives inside <code>AppShell.tsx</code>'s default <code>.mainMeasure</code> (840px), same as Settings and the
+    editors. I'm proposing a fourth container mode — call it <code>mainDetail</code>, ~1080px — <em>only</em> for
+    <code>/recipes/:id</code>. Reasoning: the photo (§ below) is a fixed 320px element that does not belong inside
+    an 840px reading column stealing width from ingredient lines; it belongs beside them. 320px photo + 24px gap +
+    an unchanged ~680px reading measure for ingredients/steps ≈ 1024px, so 1080 is the honest number, not 1680 —
+    this is still a detail/reading screen, not a browse grid, and should not get <code>WIDE_ROUTES</code>'s cap.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Photo + metadata card pinned left at a fixed 320px (identical size to tablet — the photo
+        never grows past its stored resolution, see <a href="#photo">the photo section</a>); ingredients and method
+        keep their existing reading measure on the right. This is new width, not new content — nothing here is
+        invented, the photo and the ingredient list both already exist, they were just stacked instead of paired.</p>
+      <div class="tier-frame framewrap"><div class="browser" style="width:1180px">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/recipes/12</div></div>
+        <div class="dt-top"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Recipes</button><button aria-current="page">Pantry</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div></div>
+        <div class="dt-body">
+          <div class="dtcols-photorail">
+            <div>
+              <div class="media rphoto photo"></div>
+              <div class="card" style="margin-top:14px"><div class="card-pad-lg" style="font-size:13px;color:var(--text-dim);display:grid;gap:8px">
+                <div><b>Serves</b> 4</div><div><b>Prep</b> 20 min</div><div><b>Cook</b> 45 min</div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px"><span class="tagpill">STAPLE</span><span class="tagpill">DINNER</span></div>
+              </div></div>
+            </div>
+            <div>
+              <div class="dt-h1" style="margin-bottom:4px">Roast chicken</div>
+              <p class="dt-sub">Household favourite · cooked 9 times</p>
+              <div class="card" style="margin-bottom:14px"><div class="card-head">Ingredients</div><div class="card-pad">
+                <div class="row"><span></span><span><span class="row-name">Chicken, whole</span></span><span class="row-sub">1.8 kg</span></div>
+                <div class="row"><span></span><span><span class="row-name">Potatoes</span></span><span class="row-sub">800 g</span></div>
+                <div class="row"><span></span><span><span class="row-name">Fresh rosemary</span></span><span class="row-sub">4 sprigs</span></div>
+              </div></div>
+              <div class="card"><div class="card-head">Method</div><div class="card-pad-lg" style="font-size:13.5px;color:var(--text-dim);line-height:1.7">
+                1. Heat oven to 220°C.<br>2. Pat chicken dry, season generously.<br>3. Roast 20 min, then add potatoes around it.
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+  <div class="warncard"><strong>Flag this one to the owner explicitly.</strong> Widening a detail route's container
+    is exactly the kind of "which routes are wide" change the brief calls out as needing justification, not a quiet
+    change. I think the case is strong (a fixed-size photo has nowhere honest to sit inside a prose measure) but it
+    is a new precedent — the next agent who wants a 1080px cap for some other screen should not be able to point at
+    this as blanket permission.</div>
+</section>
+
+<!-- ══ PANTRY ══ -->
+<section id="pantry">
+  <h2>Pantry</h2>
+  <p class="sub">The clearest case of "the rail measured, the list didn't." <code>pantry.module.css</code>'s rail is
+    already a correct fixed width (250px, growing to 290px only at ≥1512 to hold three filter chips — not the
+    proportional <code>2fr</code> the reviewer describes, so that part of the original defect appears already
+    fixed on this branch). The list beside it is one column of ~48px rows. At 950px of usable list height that's
+    ~14 lots before scroll, in a household that easily has 30–50 active lots.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Each pantry-group section (Fridge, Freezer, Pantry) lays its lot rows into a 2-column
+        card grid instead of one column — this is <code>ListSection</code>'s existing <code>grid</code> prop
+        (already used for the Ingredients catalog at tablet), extended to fire at desktop for Pantry specifically,
+        not a new component. Row height is unchanged; only the column count changes, so ~14 rows becomes ~28 in
+        the same vertical space. Rail stays fixed-width and unchanged.</p>
+      <div class="tier-frame framewrap"><div class="browser" style="width:1512px">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/pantry</div></div>
+        <div class="dt-top"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Recipes</button><button aria-current="page">Pantry</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div></div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Pantry</span><button class="btn sm">Add a lot</button></div>
+          <p class="dt-sub">38 lots · 2 expiring soon</p>
+          <div class="dtcols-rail">
+            <div>
+              <div class="rowgroup">Fridge · 14 lots</div>
+              <div class="pantrygrid" id="pg1"></div>
+              <div class="rowgroup" style="margin-top:8px">Freezer · 9 lots</div>
+              <div class="pantrygrid" id="pg2"></div>
+            </div>
+            <div class="card"><div class="card-head">Filter</div><div class="card-pad-lg" style="display:grid;gap:10px">
+              <div class="seg" style="width:100%;justify-content:space-between"><button aria-pressed="true">All</button><button>Fridge</button><button>Freezer</button><button>Pantry</button></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="fchip" aria-pressed="true">Expiring</span><span class="fchip">Opened</span></div>
+            </div></div>
+          </div>
+        </div>
+      </div><span class="pxdim">1512 × 950 — 2 cols × ~7 rows/group visible</span></div>
+    </div>
+  </div>
+  <div class="note"><strong>Why 2 columns, not 3.</strong> A pantry row is name + quantity + freshness meter — at
+    3 columns inside a ~1170px list pane (1512 − 290px rail − gaps) each column is ~380px, comfortable; the reason
+    to stop at 2 rather than push to 3 is that most households' individual pantry groups (Fridge, Freezer, Pantry)
+    run 6–15 lots each, so 2 columns already clears most groups without scrolling, and a 3rd column mostly serves
+    the rare 20+-lot Pantry-dry-goods group at the cost of a visibly thinner column everywhere else. This is a
+    judgement call, not a measured constraint — worth revisiting once real household data volumes are known.</div>
+</section>
+
+<!-- ══ PLAN ══ -->
+<section id="plan">
+  <h2>Plan</h2>
+  <p class="sub"><b>Not touching the tablet band.</b> The 4-column Mon–Thu/Fri–Sun grid at 768–1439px is the
+    approved mock, replaced a seven-column layout that measured unusable at that width, and a separate tablet
+    review independently confirmed it — I have no new data that overturns that, so it stays exactly as shipped.
+    This section is only about ≥1440px, where the app already renders the full seven-column week
+    (<code>plan.module.css:74</code>, unaffected by the tablet decision) — and where <code>.day</code>'s
+    <code>min-height:118px</code> is the entire defect: seven correct columns, each one a ~160px-tall strip at the
+    top of a 950px page.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">1440–1679px</span></div>
+      <p class="tier-note">Day columns stretch to fill the available row height (<code>align-items:stretch</code>
+        instead of a fixed <code>min-height</code>), so more of the week's slots become visible without opening a
+        day — pinned staples, generated picks and leftover placements all show at once instead of only the first
+        1–2. No rail yet: seven stretched columns plus a 250px+ rail doesn't fit at 1440 without narrowing a day
+        column below a legible width (7 × ~150px + rail ≈ 1300px content, workable; adding the ≥120px gap a rail
+        needs pushes a day column under ~135px, where a slot's recipe name + servings stepper starts wrapping).</p>
+      <div class="tier-frame framewrap"><div class="browser" style="width:1440px">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/plan</div></div>
+        <div class="dt-top"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Pantry</button><button aria-current="page">Plan</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div></div>
+        <div class="dt-body">
+          <div class="weeknav-row"><div class="weeknav"><button class="weeknav-btn">‹</button><span class="weeknav-range">24–30 Aug</span><button class="weeknav-btn">›</button></div><button class="btn sm ghost">Generate week</button></div>
+          <div class="week" id="wk1" style="min-height:520px"></div>
+        </div>
+      </div><span class="pxdim">1440 × 950 — 7 cols, stretched to ~520px tall</span></div>
+    </div>
+    <div class="tier"><div class="tier-label"><span class="tier-name">Wide desktop</span><span class="tier-range">≥1680px</span></div>
+      <p class="tier-note">Only past the 1680px cap does a rail fit without squeezing a day column: reuse the
+        existing "Use these first" freshness card (already built for Home/Pantry) as Plan's rail — it answers a
+        real Plan-adjacent question ("what should I be cooking with this week") that the calendar itself doesn't
+        show, satisfying the "a second column earns its place" rule. Below 1680 this card doesn't render at all
+        (not squeezed, not hidden behind a toggle — simply absent) rather than existing in a cramped form.</p>
+      <div class="tier-frame framewrap"><div class="browser" style="width:1680px">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/plan</div></div>
+        <div class="dt-top"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Pantry</button><button aria-current="page">Plan</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div></div>
+        <div class="dt-body">
+          <div class="weeknav-row"><div class="weeknav"><button class="weeknav-btn">‹</button><span class="weeknav-range">24–30 Aug</span><button class="weeknav-btn">›</button></div><button class="btn sm ghost">Generate week</button></div>
+          <div class="dtcols-rail" style="grid-template-columns:minmax(0,1fr) 260px">
+            <div class="week" id="wk2" style="min-height:520px"></div>
+            <div class="card"><div class="card-head">Use these first</div><div class="card-pad">
+              <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span class="row-name">Milk</span><span class="badge c">2 days</span></div><div class="meter c"><i style="width:14%"></i></div></div></div>
+              <div class="plotrow"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><div class="plot"><div class="plot-top"><span class="row-name">Chicken breast</span><span class="badge w">4 days</span></div><div class="meter w"><i style="width:33%"></i></div></div></div>
+            </div></div>
+          </div>
+        </div>
+      </div><span class="pxdim">1680 × 950 — 7 cols + rail</span></div>
+    </div>
+  </div>
+  <div class="warncard"><strong>Second most debatable call in this proposal.</strong> A rail that appears only past
+    1680px is an unusual pattern — most of this system treats 1440–1919 as one tier. I chose it because the
+    alternative (rail at all desktop widths) measurably breaks the seven-column week, which is the one thing
+    <code>UI_DESIGN.md</code> §13 explicitly says "is the screen that justifies desktop" — I'd rather ship a rail
+    that only sometimes appears than one that always appears and sometimes ruins the calendar. But "a component
+    that silently disappears at 1679px and reappears at 1680px" is also exactly the kind of thing that reads as a
+    bug in a screenshot review. Worth the owner's explicit sign-off.</div>
+</section>
+
+<!-- ══ SHOPPING ══ -->
+<section id="shopping">
+  <h2>Shopping</h2>
+  <p class="sub">Same shape as Pantry: fixed rail (already correct), single-column category list beside it. Shopping
+    categories (produce, dairy, pantry staples, …) run short — typically 2–8 items — so a single column stacks
+    6–10 short category blocks vertically, most of which have visible whitespace under their last row before the
+    next category header, while the two-thirds of the width left of the rail sits unused.</p>
+  <div class="tierstrip">
+    <div class="tier"><div class="tier-label"><span class="tier-name">Desktop</span><span class="tier-range">≥1440px</span></div>
+      <p class="tier-note">Category cards lay out 2-up in the list pane, ordered top-to-bottom-then-across (reading
+        order, not aisle order — aisle order only matters in-store, i.e. on phone, which is untouched). This is
+        the one screen where I considered and rejected a masonry/balanced-column layout: simple row-major 2-up
+        keeps category order predictable, which matters more here than perfectly even column heights.</p>
+      <div class="tier-frame framewrap"><div class="browser" style="width:1512px">
+        <div class="browser-bar"><div class="dots"><i></i><i></i><i></i></div><div class="urlbar">feeder.torchetti.us/shopping</div></div>
+        <div class="dt-top"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M6 13a6 6 0 0 0 12 0"/><path d="M12 4c2 2 2 4 0 6-2-2-2-4 0-6z"/></svg></span>Feeder</div>
+          <nav class="dt-nav"><button>Plan</button><button aria-current="page">Shopping</button></nav>
+          <div class="dt-actions"><button class="avatar">FT</button></div></div>
+        <div class="dt-body">
+          <div class="dt-head"><span class="dt-h1">Shopping</span><span class="fchip" aria-pressed="true">This week</span></div>
+          <p class="dt-sub">17 items · $64 estimated</p>
+          <div class="dtcols-rail">
+            <div class="shopgrid2">
+              <div class="card"><div class="card-head">Produce</div><div class="card-pad">
+                <div class="row"><span></span><span><span class="row-name">Carrots</span></span><span class="row-sub">1 kg</span></div>
+                <div class="row"><span></span><span><span class="row-name">Fresh basil</span></span><span class="row-sub">1 bunch</span></div>
+              </div></div>
+              <div class="card"><div class="card-head">Dairy</div><div class="card-pad">
+                <div class="row"><span></span><span><span class="row-name">Milk</span></span><span class="row-sub">2 L</span></div>
+                <div class="row"><span></span><span><span class="row-name">Parmesan</span></span><span class="row-sub">100 g</span></div>
+              </div></div>
+              <div class="card"><div class="card-head">Meat &amp; fish</div><div class="card-pad">
+                <div class="row"><span></span><span><span class="row-name">Chicken breast</span></span><span class="row-sub">800 g</span></div>
+              </div></div>
+              <div class="card"><div class="card-head">Pantry</div><div class="card-pad">
+                <div class="row"><span></span><span><span class="row-name">Pasta</span></span><span class="row-sub">500 g</span></div>
+                <div class="row"><span></span><span><span class="row-name">Olive oil</span></span><span class="row-sub">1 bottle</span></div>
+              </div></div>
+            </div>
+            <div class="card"><div class="card-head">Why is this on my list?</div><div class="card-pad-lg" style="font-size:12.5px;color:var(--text-dim)">
+              <b>Carrots</b> — Roast chicken (Wed), Carbonara (Thu)<br><br><b>Milk</b> — Household staple, low stock
+            </div></div>
+          </div>
+        </div>
+      </div><span class="pxdim">1512 × 950 — 4 category cards visible at once, not 2</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ OTHER SCREENS ══ -->
+<section id="other">
+  <h2>Home · Ingredients · editors · Scan · Price history · Settings</h2>
+  <p class="sub">Not every screen needed a desktop pass. Here's the disposition of each, briefly, and why.</p>
+
+  <h3>Home</h3>
+  <p class="sub" style="margin:0 0 10px">Already correct. <code>mock-responsive.html</code>'s desktop frame
+    (two-column: day cards + freshness rail) matches the "second column earns its place" rule directly — no
+    defect was reported here and none was found. Leaving it alone. One temptation resisted: adding a third widget
+    in the freed space at 1920px ("recently cooked," "shopping preview"). Rejected — Home's job is "what's for
+    dinner and what's about to spoil," and a third card competes with that rather than extending it.</p>
+
+  <h3>Ingredients (catalog)</h3>
+  <p class="sub" style="margin:0 0 10px">Explicitly not re-solved here — a separate agent owns the live regression
+    where <code>ListSection.module.css:28</code> scopes the tablet grid to <code>768–1439.98px</code> and reverts
+    to one column at 1440+. The one thing this pass adds: whatever fix lands there should extend the existing rule
+    rather than add a new one — the grid should keep widening past 1439.98px inside the same <code>mainWide</code>
+    1680px cap the Recipes grid already uses, landing at a similar column count (5–6 at 1512px for a
+    230px-minmax card, per the Recipes math above), not stop at the tablet's 3.</p>
+
+  <h3>Recipe editor, Ingredient editor, Settings</h3>
+  <p class="sub" style="margin:0 0 10px">Stay single-column, capped at the reading measure, at every tier. These are
+    forms — WP-VC4 already gave the recipe editor real per-step cards, which is the correct desktop enhancement for
+    a form (shorter scroll, not more columns). A two-column form fights how people actually fill one in: field N+1
+    is either below or it's nowhere obvious. This is the clearest "screen that should stay one column" answer the
+    brief asked for.</p>
+
+  <h3>Scan (barcode)</h3>
+  <p class="sub" style="margin:0 0 10px">Camera-first; desktop use is rare (no camera, or a webcam nobody points at
+    a can). Leave centred and narrow. Widening a live camera viewport or a manual-entry fallback form buys nothing
+    — there's no multi-column content here to reflow into.</p>
+
+  <h3>Price history</h3>
+  <p class="sub" style="margin:0 0 10px">The one screen that should adopt <code>EntityTable</code>
+    (<code>UI_DESIGN.md</code> §6: "retained only where columns genuinely mean something") rather than a list —
+    date, price, unit price and source are real independent columns, not a leading/trailing-slot row. Proposal:
+    a chart across the full <code>mainWide</code> column at top, the <code>EntityTable</code> below it at the
+    reading measure — the chart is the browse surface that earns width, the table is reference detail that doesn't
+    need to be wider than it is legible.</p>
+</section>
+
+<!-- ══ PHOTO ══ -->
+<section id="photo">
+  <h2>The photo question</h2>
+  <p class="sub">Verdict: <b>agree the current desktop treatment undersells it; disagree that the fix is bigger.</b>
+    The right fix is a role, held constant, not a size increase.</p>
+  <div class="note">
+    <strong>The role already exists and is right — it just isn't being honoured.</strong>
+    <code>mock-responsive.html</code>'s own CSS comment states the rule precisely: photos are encoded at 512px /
+    32KB, and <b>the display cap is the storage cap seen from the other end</b> — nothing should ever render wider
+    than that source, or it's an upscale of a photo the user already took, which reads as soft and cheap on any 2x
+    display. Per-context caps are already defined: 80px leading card thumbnail, <b>320px 4:3 detail inset</b>,
+    240px step image, 44–52px list glyph. The reviewer's complaint — "squeezed into a 290px sidebar, matched to an
+    unrelated card's width" — is exactly what happens when a screen borrows some <em>other</em> column's width
+    (Pantry's rail happens to be ~290px) instead of using the photo's own 320px token. That's not an undersized
+    photo, it's a photo with no seat of its own.</p>
+  <p style="font-size:14.5px;color:var(--text-dim);max-width:90ch;line-height:1.65;margin:14px 0 0">The fix, applied
+    above in <a href="#recipe">Recipe detail</a>: give the photo a fixed 320px column that is <em>its own</em>
+    layout primitive, present at every tier ≥768px, never resized to match a neighbour. Held constant across
+    tablet and desktop — not because desktop couldn't fit something bigger, but because bigger than 320 CSS px is
+    already past the point of showing the real photo, on the one class of display (2x) most people actually
+    have. I disagree with the premise that a meal planner's highest-value glance signal needs to be <em>large</em>
+    to do its job — recognition ("yes, that's the roast chicken") needs less resolution than the reviewer's framing
+    implies, and a consistent modest size across every screen is worth more than a hero treatment on one screen and
+    a shrunk one everywhere else.</p>
+  </div>
+</section>
+
+<!-- ══ DENSITY ══ -->
+<section id="density">
+  <h2>Density, in numbers</h2>
+  <p class="sub">Concrete, not adjectives — rows/cards visible without scrolling, for a realistically populated
+    household, before and after this proposal. Tablet column is <code>mock-responsive.html</code>'s existing,
+    already-shipped tier, included for contrast. Desktop figures below are derived from the CSS constants read
+    from source (row/card heights, existing gap tokens) at 950px viewport height minus ~200px of chrome (top nav +
+    page header) — treat as a design target to verify against the built app, not a live measurement.</p>
+  <table class="spec">
+    <tr><th>Screen</th><th>Phone (390px)</th><th>Tablet (~900px)</th><th>Desktop today (1512px, unchanged tier)</th><th>Desktop, this proposal</th></tr>
+    <tr><td>Recipes grid</td><td class="num">1 col × 3 rows = 3 cards</td><td class="num">3 × 2 = 6 cards</td><td class="num">6 × 4 = 24 cards <i>(grid already correct — see caveat above)</i></td><td class="num">24 cards <i>(protected, not increased)</i></td></tr>
+    <tr><td>Pantry lots</td><td class="num">~8 rows</td><td class="num">~12 rows</td><td class="num">~14 rows, 1 col</td><td class="num">~28 rows, 2 col</td></tr>
+    <tr><td>Plan — slots/day visible</td><td class="num">2–3 (scroll per day)</td><td class="num">2–3 × 4 banded cols</td><td class="num">2 × 7 cols, tall dead space below</td><td class="num">4–5 × 7 cols, stretched</td></tr>
+    <tr><td>Shopping categories visible</td><td class="num">~2</td><td class="num">~3</td><td class="num">~3, 1 col</td><td class="num">~6, 2 col</td></tr>
+  </table>
+  <p class="sub" style="margin-top:4px">The pattern across all four: <b>tablet and "desktop today" are nearly the
+    same number</b> — the reviewer's actual finding, restated as data. This proposal's job is specifically to make
+    that last column stop equalling the one before it.</p>
+</section>
+
+<!-- ══ UNCHANGED ══ -->
+<section id="unchanged">
+  <h2>What this deliberately does not touch</h2>
+  <div class="calldebatable"><h4>Plan's tablet 4-column band</h4><p>Explicitly out of scope per the brief — approved
+    mock, independently reviewed, no new evidence against it. Desktop's 7-column week (≥1440px) is untouched in
+    column count; only row height changes.</p></div>
+  <div class="calldebatable"><h4>The 1680px cap on <code>.mainWide</code></h4><p>Kept exactly as is. The problem
+    this file solves is vertical, and widening the cap further would only add more narrow columns on an ultrawide
+    monitor — the opposite of the fix.</p></div>
+  <div class="calldebatable"><h4>Forms (Recipe editor, Ingredient editor, Settings)</h4><p>Stay single-column,
+    capped at the reading measure, at every tier — see <a href="#other">above</a>.</p></div>
+  <div class="calldebatable"><h4>The photo's maximum displayed size</h4><p>320px held constant from tablet through
+    1920px+ — see <a href="#photo">the photo section</a>. Resisting the temptation to let it grow just because
+    desktop has the room.</p></div>
+  <div class="calldebatable"><h4>Ingredients catalog's actual fix</h4><p>Owned by another agent already in flight;
+    this file states only the constraint it should converge on (§ Other screens).</p></div>
+  <div class="calldebatable"><h4>Colour, spacing and type tokens</h4><p>Owned by the parallel token-layer proposal.
+    Every measurement above is stated as a role, not a value, for exactly that reason.</p></div>
+</section>
+
+<!-- ══ CONFORMANCE ══ -->
+<section id="conformance">
+  <h2>How we'd know it shipped</h2>
+  <p class="sub">Three approved designs on this project reached the mock and never reached the code — photos, the
+    Plan calendar, and the segmented-control wrap fix, the last one demoed at almost exactly the width that later
+    broke in production (<code>STATUS.md</code>, "Known debt"). The lesson taken here: every claim above becomes an
+    assertion on <em>measured geometry</em>, not a screenshot a reviewer eyeballs once.</p>
+  <table class="spec">
+    <tr><th>Assertion</th><th>How</th></tr>
+    <tr><td>Recipes grid renders ≥6 columns at 1512px</td><td>Playwright at <code>1512×950</code>: read
+      <code>getComputedStyle(.rgrid).gridTemplateColumns</code>, split on whitespace, assert
+      <code>length &gt;= 6</code>. Re-run at 1920×1080, same viewport-independent assertion — proves the 1680px cap
+      is holding column count flat, not growing it.</td></tr>
+    <tr><td>Pantry lots lay out 2 columns at ≥1440px, 1 column at &lt;1440px</td><td>Bounding-rect diff: assert the
+      x-position of the 2nd visible lot row differs from the 1st at 1512px (same row, second column) and equals it
+      at 1024px (stacked).</td></tr>
+    <tr><td>Plan day columns fill available height, not a fixed 118px</td><td>Assert
+      <code>.day</code>'s rendered height at 1512×950 is within, say, 20px of the <code>.week</code> container's
+      height — not a fixed constant — for a populated week fixture (not the empty-state one).</td></tr>
+    <tr><td>Shopping shows ≥2 category cards per row at ≥1440px</td><td>Same bounding-rect column check as Pantry,
+      against a fixture with ≥4 categories.</td></tr>
+    <tr><td>Recipe photo is always exactly 320px, never resized to a neighbour's width</td><td>Assert
+      <code>.rphoto</code>'s computed width equals the shared token (not a magic number duplicated per screen) at
+      768, 1024, 1440 and 1920px — and assert it is <em>not equal</em> to the pantry rail's computed width, which
+      is the literal bug being fixed.</td></tr>
+    <tr><td>The 230px-container <code>SegmentedControl</code> wrap fix (already in the mock, never shipped)</td>
+      <td>A dedicated regression test: render <code>SegmentedControl</code> with 4 options in a 230px-wide parent,
+      assert it lays out 2×2 (via row count from bounding rects) rather than overflowing — this is the specific
+      case <code>STATUS.md</code> names as caught by review, not by process, twice already.</td></tr>
+    <tr><td>Dead-space gate</td><td>For each of Pantry/Plan/Shopping with a populated fixture at 1512×950: measure
+      the distance from the bottom of rendered content to the viewport bottom; assert it's under some agreed
+      threshold (proposal: 150px — roughly one more row's worth). This directly operationalises "40–80% empty
+      below the fold" as a number that fails CI if it regresses, rather than waiting for the next screenshot
+      review to notice.</td></tr>
+  </table>
+  <p class="sub" style="margin-top:6px">All of these are assertable today with Playwright + <code>getComputedStyle</code>/
+    <code>getBoundingClientRect</code> against the existing E2E harness (<code>TESTING.md</code>'s port table) — no
+    new tooling. The point is process, not technology: geometry assertions land in the same PR as the layout change,
+    so "approved but unshipped" stops being possible for this feature the way it was for photos, the calendar and
+    the segmented control.</p>
+</section>
+
+</div>
+
+<script>
+function rcard(name,meta,tag){return `<div class="rcard"><div class="media rcard-media ${Math.random()>0.5?'photo':'empty'}"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></div><div class="rcard-body"><h4>${name}</h4><div class="rmeta">${meta}</div><div class="rtags"><span class="tagpill">${tag}</span></div></div></div>`}
+var names=["Roast chicken","Carbonara","Store lasagna","Fish tacos","Veg curry","Beef stew","Pesto pasta","Miso soup","Chili","Stir-fry","Shakshuka","Ratatouille","Paella","Frittata","Tacos","Risotto","Gnocchi","Tikka masala","Chowder","Burritos","Bibimbap","Gumbo","Falafel","Lasagna"];
+document.getElementById('rg1').innerHTML=names.map(function(n){return rcard(n,"45 min · serves 4","DINNER")}).join('');
+function prow(n,q){return `<div class="row rowimg"><span class="media ithumb empty"><svg viewBox="0 0 24 24"><path d="M4 4.5h16v14H4z"/><path d="M4 10h16"/></svg></span><span><span class="row-name">${n}</span><span class="row-sub">${q}</span></span><span class="badge ok">Fresh</span></div>`}
+var fridge=["Milk","Butter","Eggs","Carrots","Yoghurt","Chicken breast","Parmesan","Fresh basil","Leftover chili","Bell peppers","Spinach","Cream cheese","Bacon","Hummus"];
+var freezer=["Peas","Frozen berries","Ground beef","Fish fillets","Bread","Ice cream","Frozen pizza","Chicken thighs","Corn"];
+document.getElementById('pg1').innerHTML=fridge.map(function(n){return prow(n,"in stock")}).join('');
+document.getElementById('pg2').innerHTML=freezer.map(function(n){return prow(n,"in stock")}).join('');
+function dayCol(dn,today,slots){return `<div class="day${today?' istoday':''}"><div class="day-n">${dn}</div>${slots}</div>`}
+function slot(t,n,cls){return `<div class="slot${cls?' '+cls:''}"><span class="sthumb"></span><span><span style="display:block;font:600 8.5px/1 var(--ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)">${t}</span>${n}</span></div>`}
+var week=[["MON",[slot("LUNCH","Leftover: Chili","left"),slot("DINNER","Carbonara")]],
+["TUE",[slot("LUNCH","Sandwiches"),slot("DINNER","Fish tacos","pin")]],
+["WED",[slot("LUNCH","Salad"),slot("DINNER","Roast chicken","pin"),slot("SNACK","Fruit")]],
+["THU",[slot("DINNER","Store lasagna")]],
+["FRI",[slot("LUNCH","Leftover: Roast chicken","left"),slot("DINNER","Stir-fry")]],
+["SAT",[slot("DINNER","Add a meal","add")]],
+["SUN",[slot("LUNCH","Family brunch","pin"),slot("DINNER","Paella","pin")]]];
+var wkHtml=week.map(function(d,i){return dayCol(d[0],i===2,d[1].join(''))}).join('');
+document.getElementById('wk1').innerHTML=wkHtml;
+document.getElementById('wk2').innerHTML=wkHtml;
+</script>
