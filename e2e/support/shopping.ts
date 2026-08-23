@@ -99,15 +99,17 @@ export async function adjustQuantity(page: Page, ingredientRowText: RegExp, time
 }
 
 /**
- * Opens a row's own "Why?" disclosure (`ShoppingRow.tsx`'s `.why`, built
- * from `provenance.ts`'s `buildRoundingExplanation`) — present at every
- * tier, no viewport gating, BUT only rendered when the suggested buy amount
- * differs from the raw need (a loose ingredient with no catalog pack size,
- * e.g. Rice, is never rounded, so plain "needs 274 g" lines never grow this
- * disclosure at all — confirmed empirically, not assumed). Returns `false`
- * without clicking anything if this line has no such disclosure, so a
- * caller can assert on that absence instead of hanging forever waiting for
- * an element that will never appear.
+ * Opens a row's own "Why?" disclosure (`ShoppingRow.tsx`'s `.why`) — present
+ * at every tier, no viewport gating, for every unchecked line (fix-ua-
+ * integrity: it now always carries `provenance.ts`'s `buildWhyExplanation`
+ * day/source sentence, since a rendered line always has at least one
+ * shortfall source; a rounding sentence from `buildRoundingExplanation` is
+ * appended only when there's pack/indivisible-recipe math to explain — a
+ * loose ingredient with no catalog pack size, e.g. Rice, still gets the
+ * day/source sentence, just never that second one). Returns `false` without
+ * clicking anything only if this line has no disclosure at all (e.g. it's
+ * already checked off), so a caller can assert on that absence instead of
+ * hanging forever waiting for an element that will never appear.
  */
 export async function openWhyDisclosureIfPresent(page: Page, ingredientName: string): Promise<boolean> {
   const row = page.getByRole("checkbox", { name: new RegExp(ingredientName, "i") }).locator("xpath=ancestor::label[1]");

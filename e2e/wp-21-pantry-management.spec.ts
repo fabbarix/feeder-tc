@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { E2E_CREATED_SPREADSHEET_ID, E2E_FAKE_ACCESS_TOKEN } from "../src/mocks/handlers.ts";
 
 // IMPLEMENTATION_PLAN.md WP-21, `@e2e`:
 //
@@ -161,4 +162,70 @@ test("Lot actions: move, open, correct (never 'Edit'), and spoil", async ({ page
   await page.getByRole("textbox", { name: /amount/i }).fill("100");
   await page.getByRole("button", { name: "Confirm spoilage" }).click();
   await expect(page.getByRole("main")).toContainText("800 g");
+});
+
+// Regression (fix-ua-integrity): a usability review reported that
+// "Correct quantity or expiry" updates the LOTS card's quantity but the
+// HISTORY card below keeps showing only the events recorded before the
+// correction — as if the correction never happened. The dialog promises
+// "This adds a correction on top of the history rather than changing what
+// was already recorded" (invariant 1: `InventoryEvents` rows are immutable,
+// a correction is a new `adjust` event, never an edit).
+//
+// Root cause turned out to be `PantryItem.tsx`'s History panel fetching
+// `store.inventoryEvents.readFrom(0)` exactly once, in a `useEffect` keyed
+// only on `[store]` — so the panel never re-read the sheet after any
+// action taken on THIS page (correct, use, open, move, spoil), including
+// the very correction the test below performs. The write itself was never
+// the problem (the event landed in `InventoryEvents` correctly, invariant 1
+// intact) — only the read that renders History was stale.
+//
+// This asserts the property that actually broke: that the just-recorded
+// `adjust` event becomes VISIBLE in the History list, in the same page
+// session, with no reload — not merely that the Lots card's number changed
+// (which was already correct even with the bug, and would make a
+// weaker assertion pass on unfixed code).
+test("Correcting a lot immediately surfaces the correction in History (no reload)", async ({ page }) => {
+  await enterReadyShell(page, "pantry");
+  await page.getByRole("button", { name: "Add to pantry" }).click();
+  await openIngredientSheet(page, "Tomato");
+  await page.getByRole("textbox", { name: /amount/i }).fill("400");
+  await page.getByRole("button", { name: "Add to pantry" }).click();
+
+  await page.getByRole("link", { name: /Tomato/ }).click();
+  await expect(page.getByRole("heading", { name: "Tomato", level: 1 })).toBeVisible();
+
+  // Before correcting: History shows only the original purchase — this is
+  // the reviewer's own "three events" framing, minimised to the one event
+  // this test actually needs.
+  await expect(page.getByText(/purchased 400/i)).toBeVisible();
+  await expect(page.getByText(/corrected/i)).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Correct quantity or expiry" }).click();
+  await page.getByRole("textbox", { name: /adjust amount by/i }).fill("-50");
+  await page.getByRole("button", { name: "Save correction" }).click();
+
+  // The Lots card updating was never in doubt (the reviewer saw this part
+  // work) — the bug was specifically that History stayed frozen.
+  await expect(page.getByRole("main")).toContainText("350 g");
+  await expect(page.getByText(/corrected — adjusted -50/i)).toBeVisible();
+
+  // And it isn't just the screen: the immutable event genuinely landed in
+  // `InventoryEvents` as a NEW row (invariant 1) — the original purchase
+  // event is untouched, sitting alongside the new `adjust` event, not
+  // replaced by it.
+  const rows = await page.evaluate(
+    async ({ token, spreadsheetId }) => {
+      const sheetsPath = "/src/sheets/index.ts";
+      const sheets = await import(sheetsPath);
+      const auth = { getAccessToken: () => Promise.resolve(token), invalidate: () => undefined };
+      const transport = sheets.createGoogleSheetsTransport({ spreadsheetId, auth });
+      const store = sheets.createSheetsWorkbookStore(transport);
+      const page1 = await store.inventoryEvents.readFrom(0);
+      return page1.rows.filter((r: { ingredientId: string }) => r.ingredientId === "tomato");
+    },
+    { token: E2E_FAKE_ACCESS_TOKEN, spreadsheetId: E2E_CREATED_SPREADSHEET_ID },
+  );
+  expect(rows).toHaveLength(2);
+  expect(rows.map((r: { type: string }) => r.type).sort()).toEqual(["adjust", "purchase"]);
 });

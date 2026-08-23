@@ -117,10 +117,64 @@ describe("buildProvenanceText", () => {
 });
 
 describe("buildWhyExplanation", () => {
-  it("reads like the mock's 'Why 5 tomatoes?' card", () => {
+  it("reads like the mock's 'Why 5 tomatoes?' card, naming each source's recipe", () => {
     expect(buildWhyExplanation(LINE, CTX)).toBe(
-      "Monday dinner needs 2, Thursday lunch needs 3, and no viable lot expires on or after those dates.",
+      "Monday dinner (Tomato pasta) needs 2, Thursday lunch (Tomato salad) needs 3, and no viable lot expires on or after those dates.",
     );
+  });
+
+  it("distinguishes two DIFFERENT recipes needing the same ingredient on the SAME day/slot (design review: two identical unlabelled clauses used to be indistinguishable)", () => {
+    const chiliRecipe: Recipe = {
+      id: makeRecipeId("chili"),
+      name: "Chili",
+      kind: "cooked",
+      baseServings: 4,
+      prepMinutes: 10,
+      cookMinutes: 30,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+    };
+    const stewRecipe: Recipe = {
+      id: makeRecipeId("beef-stew"),
+      name: "Beef stew",
+      kind: "cooked",
+      baseServings: 4,
+      prepMinutes: 10,
+      cookMinutes: 90,
+      mealTags: ["dinner"],
+      status: "in-rotation",
+    };
+    const onion = makeIngredientId("onion");
+    const chiliSlot = makePlanSlotId("mon-dinner-chili");
+    const stewSlot = makePlanSlotId("mon-dinner-stew");
+    const monday = makeIsoDate("2026-08-17");
+    const ctx = {
+      planSlots: [
+        { id: chiliSlot, date: monday, slotType: "dinner" as const, slotIndex: 0, filling: { kind: "recipe" as const, recipeId: chiliRecipe.id }, state: "planned" as const, pinned: false },
+        { id: stewSlot, date: monday, slotType: "dinner" as const, slotIndex: 1, filling: { kind: "recipe" as const, recipeId: stewRecipe.id }, state: "planned" as const, pinned: false },
+      ],
+      recipes: [chiliRecipe, stewRecipe],
+      recipeIngredients: [
+        { recipeId: chiliRecipe.id, ingredientId: onion, quantity: makeQuantity(500, "g") },
+        { recipeId: stewRecipe.id, ingredientId: onion, quantity: makeQuantity(100, "g") },
+      ],
+      settings: { householdSize: 4, slotLayout: [], repeatExclusionWeeks: 3 },
+    };
+    const onionLine: ShoppingListLine = {
+      ingredientId: onion,
+      rangeStart: monday,
+      rangeEnd: monday,
+      neededQuantity: makeQuantity(600, "g"),
+      sources: [
+        { planSlotId: chiliSlot, date: monday, slotType: "dinner", slotIndex: 0, recipeId: chiliRecipe.id },
+        { planSlotId: stewSlot, date: monday, slotType: "dinner", slotIndex: 1, recipeId: stewRecipe.id },
+      ],
+    };
+    const explanation = buildWhyExplanation(onionLine, ctx);
+    expect(explanation).toContain("Monday dinner (Chili) needs 500");
+    expect(explanation).toContain("Monday dinner (Beef stew) needs 100");
+    // The two clauses must not collapse into the same unlabelled text.
+    expect(explanation).not.toContain("Monday dinner needs 500, Monday dinner needs 100");
   });
 });
 

@@ -226,17 +226,22 @@ test("A household's first week", async ({ page }) => {
   // Rice's baseServings-2 recipe scales x2 for this now-4-person household:
   // 137 g becomes a 274 g need. Rice is a plain loose "g" catalog ingredient
   // with no configured pack size, so the SUGGESTED buy amount is never
-  // rounded (confirmed empirically) — the per-row "Why?" disclosure
-  // (provenance.ts's buildRoundingExplanation) is therefore correctly
-  // absent for this line; that disclosure only ever appears for a
-  // pack-rounded or indivisible-recipe line.
+  // rounded — but (fix-ua-integrity) every row's own "Why?" disclosure now
+  // also answers "why is this on my list at all" from `line.sources`
+  // (`buildWhyExplanation`), not just the pack-rounding arithmetic, so it is
+  // present and correct here too, just without a rounding sentence tacked
+  // on.
   await seedShoppingNeed(page, { recipeName: "E2E rice dinner", ingredientId: "rice", amount: 137, unit: "g" });
   await goToShopping(page);
   const riceCheckbox = page.getByRole("checkbox", { name: /rice/i });
   const riceRow = riceCheckbox.locator("xpath=ancestor::label[1]");
   await expect(riceCheckbox).toBeVisible();
   await expect(riceRow).toContainText("274 g");
-  expect(await openWhyDisclosureIfPresent(page, "rice"), "a plain loose ingredient's buy amount isn't rounded").toBe(false);
+  expect(await openWhyDisclosureIfPresent(page, "rice"), "every row explains its own day/source, rounded or not").toBe(
+    true,
+  );
+  await expect(riceRow.locator("xpath=following-sibling::details[1]")).toContainText(/dinner \(E2E rice dinner\) needs/i);
+  await expect(riceRow.locator("xpath=following-sibling::details[1]")).not.toContainText(/sold in|round up/i);
 
   await selectRangePreset(page, "Next week");
   await expect(riceCheckbox).toHaveCount(0); // nothing planned next week
@@ -245,27 +250,21 @@ test("A household's first week", async ({ page }) => {
 
   await adjustQuantity(page, /rice/i, 1);
 
-  // The desktop/tablet "why is this on my list" rail (Shopping.tsx —
-  // ships at >=768px, i.e. BOTH the tablet and desktop tiers, not
-  // desktop-only as design/mock-responsive.html's own narrative claims) is
-  // present in the DOM at every tier (only CSS-hidden below 768px), so this
-  // must assert VISIBILITY, never `toContainText` — that matcher reads
-  // `textContent` regardless of `display:none` and would false-positive on
-  // phone. See reach-wide-rails.spec.ts for the dedicated tier-gating check.
-  // The rail explains exactly ONE line at a time — `Shopping.tsx`'s
-  // `whyEntry = uncheckedLines[0] ?? linesWithIngredient[0]` — not one card
-  // per line, so this must run while rice is the only (hence first)
-  // unchecked line, before the onion need below exists.
+  // fix-ua-integrity: the desktop/tablet rail used to also carry a single
+  // "Why N rice?" block naming whichever line was `uncheckedLines[0]` —
+  // that was the defect a usability review caught (the panel's answer
+  // silently stopped matching the row a person was looking at once other
+  // items existed or got checked off). The rail is now just the "N items
+  // still to buy" count; the day/source explanation lives entirely in each
+  // row's own disclosure, asserted above and in the dedicated regression
+  // test (e2e/wp-23-shopping-trip.spec.ts).
   const width = page.viewportSize()?.width ?? 0;
-  // Loose prefix/suffix match ("Why {qty} rice?") rather than pinning the
-  // exact formatted quantity — formatQuantity's rounding/unit choice isn't
-  // this assertion's concern, only that the rail names rice as the reason.
-  const whyRail = page.getByText(/^Why .*rice\?$/i);
+  const railStat = page.getByText("items still to buy");
   if (width >= WIDE_BREAKPOINT_PX) {
-    await expect(whyRail).toBeVisible();
+    await expect(railStat).toBeVisible();
   } else {
-    await expect(whyRail).toHaveCount(1); // present in the DOM, just not visible
-    await expect(whyRail).toBeHidden();
+    await expect(railStat).toHaveCount(1); // present in the DOM, just not visible
+    await expect(railStat).toBeHidden();
   }
 
   // Check off a SECOND need manually (the confirm sheet — location,
