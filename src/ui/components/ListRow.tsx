@@ -21,8 +21,8 @@ export interface ListRowProps {
    * "card" swaps the border-bottom list-row treatment for a bordered,
    * rounded card — the pairing for `ListSection`'s `layout="grid"` (see
    * that component's doc comment). Like the grid it belongs inside, this
-   * only takes visual effect within the 768-1439px tablet band
-   * (ListRow.module.css); outside it, `.row`'s ordinary list styling
+   * takes visual effect from 768px up with no upper bound
+   * (ListRow.module.css); below that, `.row`'s ordinary list styling
    * applies regardless of this prop. Ingredients is the only caller.
    */
   readonly variant?: "row" | "card";

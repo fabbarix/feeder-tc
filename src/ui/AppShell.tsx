@@ -80,19 +80,25 @@ const NAV_ITEMS: readonly NavItem[] = [
  * (`/recipes/:id`) is a detail/edit view, not a grid, so it deliberately
  * keeps the measure even though it nests under `/recipes`.
  *
- * `/recipes/ingredients` is deliberately NOT here, even though it is a
- * "browse" screen and a `RouteTabs` sibling of `/recipes`: at DESKTOP width
- * it renders as a single-column `ListSection`/`ListRow` (one short line of
- * text per ingredient), not a grid — going wide would only stretch each
- * row's own border/hover target across ~1600px of mostly blank trailing
- * space, which is padding, not information (UI_DESIGN.md §13's own rule for
- * why width is worth spending at all). See `TABLET_WIDE_ROUTES` just below
- * for the tablet-only exception: that reasoning was calibrated for
- * desktop's 1680px cap and never evaluated at 768-1439px, where the same
- * narrow measure instead left up to ~540px of dead margin next to the list
- * (tablet UI/UX review) — `ListSection`'s `grid` prop turns the list into a
- * three-column card grid there, and `TABLET_WIDE_ROUTES` is what gives it
- * the room to do that.
+ * `/recipes/ingredients` joined this set 2026-08-23 (previously its own
+ * `TABLET_WIDE_ROUTES` carve-out, wide only in the 768-1439px tablet band
+ * and snapped back to the 840px measure at >=1440px — deliberately, on the
+ * reasoning that its list was a single column at every width outside the
+ * tablet band, so extra width was blank margin, not information). That
+ * premise stopped holding once `ListSection.module.css`'s reflowing card
+ * grid (`layout="grid"`) was fixed to stay live from 768px up instead of
+ * cutting off at 1439.98px: with the grid live at desktop too, the OLD
+ * 840px snap-back became the exact same "tablet-only mechanism nobody
+ * extended upward" bug at the container level — the tablet band would grow
+ * to ~1400px (5 columns) right up to 1439px, then the container itself
+ * would suddenly drop to 840px (3 columns) one pixel later, a visible
+ * regression even after the grid's own cap was fixed. Folding this route
+ * into `WIDE_ROUTES` removes that second cliff the same way: no separate
+ * breakpoint, just the one container-width policy already used by every
+ * other multi-column browse route, so column count can only grow (never
+ * jump backward) as the viewport widens. `auto-fill`/`minmax(230px, 1fr)`
+ * still bounds how many columns appear — this does not make the catalog
+ * unboundedly wide, it just stops re-narrowing it past 1440px.
  */
 // `/plan` (WP-22) joins this set too: design/mock-screens.html's Plan
 // section is explicitly seven columns wide on desktop ("the week planner
@@ -105,24 +111,10 @@ const NAV_ITEMS: readonly NavItem[] = [
 // real width to earn its place (UI_DESIGN.md §13 "width buys information,
 // not padding") — the 840px reading measure would squeeze list+rail into a
 // column narrower than either wants.
-const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/pantry", "/plan", "/shopping"]);
-
-/**
- * Wide ONLY within the tablet band (768-1439px; `.mainTabletWide` below) —
- * distinct from `WIDE_ROUTES`, which is wide at every width from 768px up.
- * `/recipes/ingredients` is the only member: its list is capped at the
- * 840px reading measure at both phone and desktop widths (unchanged — see
- * `WIDE_ROUTES`'s own doc comment for why desktop stays narrow), but widens
- * in between so `ListSection`'s tablet-only `grid` prop (design/mock-
- * responsive.html's Ingredients tier note) has real width to lay out three
- * columns in, instead of reflowing inside the same 840px a single-column
- * list already fit in.
- */
-const TABLET_WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes/ingredients"]);
+const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/recipes/ingredients", "/pantry", "/plan", "/shopping"]);
 
 function mainContainerClass(pathname: string): string | undefined {
   if (WIDE_ROUTES.has(pathname)) return styles.mainWide;
-  if (TABLET_WIDE_ROUTES.has(pathname)) return styles.mainTabletWide;
   return styles.mainMeasure;
 }
 

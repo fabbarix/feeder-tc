@@ -150,10 +150,12 @@ export function Ingredients() {
           // `layout="grid"` (tablet UI/UX review, finding 3): unlike Pantry/
           // Shopping this catalogue is flat, alphabetical and browsed, not
           // worked through in a scan order, so a reflowing card grid loses
-          // nothing — see AppShell.tsx's `TABLET_WIDE_ROUTES` for the
-          // matching container-width change this needs to have room to show
-          // more than one column. `ListRow`'s `variant="card"` is the
-          // paired per-row visual (both only take effect at 768-1439px).
+          // nothing — see AppShell.tsx's `WIDE_ROUTES` for the matching
+          // container-width this needs to have room to show more than one
+          // column, at every width from 768px up (not just a tablet band —
+          // see both files' 2026-08-23 doc-comment updates). `ListRow`'s
+          // `variant="card"` is the paired per-row visual (also live from
+          // 768px up).
           <ListSection heading={`${filtered.length} of ${ingredients.length}`} layout="grid">
             {filtered.map((ingredient) => (
               <ListRow

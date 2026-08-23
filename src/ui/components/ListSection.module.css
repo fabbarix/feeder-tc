@@ -17,15 +17,25 @@
 
 /*
  * Opt-in reflowing card grid (ListSectionProps.layout === "grid") — see
- * ListSection.tsx's doc comment for who uses this and why. Gated to the
- * 768-1439px tablet band: below it there's no room for more than one
- * column anyway, and above it AppShell.tsx narrows Ingredients' own
- * container back to the 840px reading measure, where the desktop
- * single-column list is deliberately unchanged. Same `auto-fill,
- * minmax(230px, 1fr)` mechanism as recipes.module.css's `.grid`/the mock's
- * `.igrid` — not a bespoke breakpoint invented for this one screen.
+ * ListSection.tsx's doc comment for who uses this and why. Applies from
+ * 768px up with NO upper bound (fixed 2026-08-23: it used to stop at
+ * 1439.98px, reverting to a single column at desktop and making the
+ * widest viewport render FEWER columns than the tablet band — the same
+ * "tablet-only media query nobody extended upward" mistake as an earlier
+ * work package). `auto-fill`/`minmax(230px, 1fr)` already caps how narrow
+ * a column can get, so there's no ultrawide-sprawl risk from dropping the
+ * ceiling here: Ingredients' own container (AppShell.tsx's `WIDE_ROUTES`,
+ * `.mainWide`) caps at 1680px, so this settles at a handful of columns at
+ * any desktop width, never an unbounded sprawl. That container used to snap
+ * back to the 840px reading measure at >=1440px (`.mainTabletWide`,
+ * removed 2026-08-23) — with this grid alone fixed but that snap-back left
+ * in place, the container itself reproduced the exact same "column count
+ * drops at 1440px" bug one layer up, so both had to move together. Same
+ * `auto-fill, minmax(230px, 1fr)` mechanism as recipes.module.css's
+ * `.grid`/the mock's `.igrid` — not a bespoke breakpoint invented for this
+ * one screen.
  */
-@media (min-width: 768px) and (max-width: 1439.98px) {
+@media (min-width: 768px) {
   .rowsGrid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
