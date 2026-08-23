@@ -101,7 +101,7 @@
     display: grid;
     /*
      * 290px, not the mock's literal 250px. Originally widened because the
-     * rail's "Household flag" card, at exactly 250px, clipped the 3-option
+     * rail's "Use in planning" card, at exactly 250px, clipped the 3-option
      * Staple/Rotation/Retired SegmentedControl — its rendered content
      * needed 246px inside a card whose padding left only ~218-220px.
      * `SegmentedControl.module.css`'s UX-review-round-2 fix (grid

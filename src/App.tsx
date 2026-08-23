@@ -7,6 +7,7 @@ import { useToast } from "./ui/components/Toast/useToast.ts";
 import { Skeleton } from "./ui/components/Skeleton.tsx";
 import { Home } from "./routes/Home";
 import { Shopping } from "./routes/Shopping";
+import { NotFoundPanel, RouteError } from "./routes/RouteError.tsx";
 import { env, missingEnvVars } from "./env.ts";
 import { ConfigMissingScreen } from "./ui/ConfigMissingScreen.tsx";
 import { systemClock, createSeededRng } from "./domain/index.ts";
@@ -293,8 +294,8 @@ function ShellContainer() {
   const handleCreateWorkbook = useCallback(async () => {
     showToast({
       variant: "info",
-      title: "Setting up your workbook…",
-      description: "Creating the spreadsheet and writing the seeded ingredient catalog.",
+      title: "Setting up your meal planner…",
+      description: "Getting things ready, including a starter list of common ingredients.",
       durationMs: 4000,
     });
     try {
@@ -316,12 +317,12 @@ function ShellContainer() {
       // `refreshActiveWorkbook()` above is what flips `ShellState` to
       // "ready" and mounts the real nav/Home behind it — the app actually
       // appearing IS the confirmation that setup finished, on top of the
-      // "Setting up your workbook…" toast just above already having said
+      // "Setting up your meal planner…" toast just above already having said
       // what was happening. A second toast announcing the same thing the
       // whole screen just did was pure noise riding on top of it.
       refreshActiveWorkbook();
     } catch (err) {
-      showToast({ variant: "error", title: "Couldn't create the workbook", description: messageOf(err) });
+      showToast({ variant: "error", title: "Couldn't set up your meal planner", description: messageOf(err) });
     }
   }, [auth, registry, refreshActiveWorkbook, showToast]);
 
@@ -332,13 +333,13 @@ function ShellContainer() {
         refreshActiveWorkbook();
         showToast({
           variant: "success",
-          title: "Workbook opened",
+          title: "Meal planner opened",
           description: `Switched to "${picked.name}".`,
           durationMs: 5000,
         });
       }
     } catch (err) {
-      showToast({ variant: "error", title: "Couldn't open the picker", description: messageOf(err) });
+      showToast({ variant: "error", title: "Couldn't open that meal planner", description: messageOf(err) });
     }
   }, [auth, pickerLauncher, registry, refreshActiveWorkbook, showToast]);
 
@@ -466,32 +467,54 @@ const router = createBrowserRouter(
     {
       path: "/",
       element: <ShellContainer />,
+      // Last-resort net for a crash in `ShellContainer` itself, before any
+      // shell has even rendered — see RouteError.tsx's doc comment for why
+      // this is a SEPARATE errorElement from the one below, not redundant
+      // with it.
+      errorElement: <RouteError />,
       children: [
-        // Home and Shopping are the hot path (see the code-splitting doc
-        // comment above) — the only two feature routes still eagerly
-        // bundled into the shell's own chunk.
-        { index: true, element: <Home /> },
-        { path: "shopping", element: <Shopping /> },
-        // Everything else is a separately-fetched lazy chunk.
-        { path: "recipes", element: lazyRoute(<Recipes />) },
-        { path: "recipes/ingredients", element: lazyRoute(<Ingredients />) },
-        { path: "recipes/ingredients/new", element: lazyRoute(<IngredientEditor />) },
-        { path: "recipes/ingredients/:ingredientId", element: lazyRoute(<IngredientEditor />) },
-        { path: "recipes/new", element: lazyRoute(<RecipeEditor />) },
-        { path: "recipes/:recipeId", element: lazyRoute(<RecipeDetail />) },
-        { path: "recipes/:recipeId/edit", element: lazyRoute(<RecipeEditor />) },
-        { path: "pantry", element: lazyRoute(<Pantry />) },
-        { path: "pantry/:ingredientId", element: lazyRoute(<PantryItem />) },
-        { path: "plan", element: lazyRoute(<Plan />) },
-        // Same component as "plan" — `Plan.tsx` reads `useLocation` to pick
-        // week vs. month/quarter (see its own doc comment on why this is a
-        // real route, not just local state).
-        { path: "plan/month", element: lazyRoute(<Plan />) },
-        { path: "settings", element: lazyRoute(<Settings />) },
-        { path: "scan", element: lazyRoute(<Scan />) },
-        { path: "products/prices", element: lazyRoute(<PriceHistory />) },
-        { path: "products/prices/ingredient/:ingredientId", element: lazyRoute(<PriceHistoryIngredient />) },
-        { path: "products/prices/product/:barcode", element: lazyRoute(<PriceHistoryProduct />) },
+        // Wrapped in a pathless route (no path, no element — the standard
+        // React Router "preserve the layout" shape) so an error thrown by
+        // any feature route below replaces only ITS OWN `<Outlet/>` slot,
+        // not `ShellContainer`'s — the header and nav stay on screen
+        // (RouteError.tsx, UA review finding #1). Every existing child
+        // route/path is unchanged; only the nesting is new.
+        {
+          errorElement: <RouteError />,
+          children: [
+            // Home and Shopping are the hot path (see the code-splitting doc
+            // comment above) — the only two feature routes still eagerly
+            // bundled into the shell's own chunk.
+            { index: true, element: <Home /> },
+            { path: "shopping", element: <Shopping /> },
+            // Everything else is a separately-fetched lazy chunk.
+            { path: "recipes", element: lazyRoute(<Recipes />) },
+            { path: "recipes/ingredients", element: lazyRoute(<Ingredients />) },
+            { path: "recipes/ingredients/new", element: lazyRoute(<IngredientEditor />) },
+            { path: "recipes/ingredients/:ingredientId", element: lazyRoute(<IngredientEditor />) },
+            { path: "recipes/new", element: lazyRoute(<RecipeEditor />) },
+            { path: "recipes/:recipeId", element: lazyRoute(<RecipeDetail />) },
+            { path: "recipes/:recipeId/edit", element: lazyRoute(<RecipeEditor />) },
+            { path: "pantry", element: lazyRoute(<Pantry />) },
+            { path: "pantry/:ingredientId", element: lazyRoute(<PantryItem />) },
+            { path: "plan", element: lazyRoute(<Plan />) },
+            // Same component as "plan" — `Plan.tsx` reads `useLocation` to pick
+            // week vs. month/quarter (see its own doc comment on why this is a
+            // real route, not just local state).
+            { path: "plan/month", element: lazyRoute(<Plan />) },
+            { path: "settings", element: lazyRoute(<Settings />) },
+            { path: "scan", element: lazyRoute(<Scan />) },
+            { path: "products/prices", element: lazyRoute(<PriceHistory />) },
+            { path: "products/prices/ingredient/:ingredientId", element: lazyRoute(<PriceHistoryIngredient />) },
+            { path: "products/prices/product/:barcode", element: lazyRoute(<PriceHistoryProduct />) },
+            // Any path that matches none of the above — a genuine bad URL
+            // (UA review finding #1). A real route match, not an error, so
+            // it renders like any other route: inside this same wrapper,
+            // inside ShellContainer's shell. Must stay LAST — react-router
+            // tries routes in order and this matches everything.
+            { path: "*", element: <NotFoundPanel /> },
+          ],
+        },
       ],
     },
   ],

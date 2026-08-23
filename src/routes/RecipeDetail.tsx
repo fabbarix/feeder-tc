@@ -466,16 +466,20 @@ export function RecipeDetail() {
                 />
               ) : null}
               <div className={formsStyles.sectionCard}>
-                <div className={formsStyles.sectionCardHead}>Household flag</div>
+                <div className={formsStyles.sectionCardHead}>Use in planning</div>
                 <div className={formsStyles.sectionCardBody}>
                   <div className={formsStyles.fullWidthControl}>
                     <SegmentedControl<RecipeStatus>
-                      aria-label="Household flag"
+                      aria-label="Use in planning"
                       options={STATUS_OPTIONS}
                       value={recipe.status}
                       onChange={(status) => void handleStatusChange(status)}
                     />
                   </div>
+                  <p className={formsStyles.hint}>
+                    Staple: added to every week automatically. Rotation: picked at random. Retired: skipped when
+                    generating a week.
+                  </p>
                 </div>
               </div>
 

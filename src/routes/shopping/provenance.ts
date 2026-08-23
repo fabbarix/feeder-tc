@@ -87,10 +87,13 @@ export function buildProvenanceText(
 /**
  * The desktop rail's explanation sentence (UI_DESIGN.md §13 / the mock's
  * "Why 5 tomatoes?" card): "Monday dinner needs 2, Thursday lunch needs 3,
- * and no viable lot expires on or after those dates." — one clause per
- * source, in the engine's own (date-then-slot) order, ending in the fixed
- * closing clause the mock uses verbatim (DESIGN.md's viable-stock rule:
- * "a lot counts only if its expiry is on/after the planned cook date").
+ * and what's already in the pantry won't still be good by those dates." —
+ * one clause per source, in the engine's own (date-then-slot) order, ending
+ * in the fixed closing clause the mock uses verbatim in spirit (DESIGN.md's
+ * viable-stock rule: "a lot counts only if its expiry is on/after the
+ * planned cook date" — "lot" being warehouse vocabulary the household
+ * never needs, per the sibling `buildRoundingExplanation`'s own
+ * plain-language model just below, e.g. "sold in 250 g jars").
  */
 export function buildWhyExplanation(
   line: ShoppingListLine,
@@ -101,7 +104,7 @@ export function buildWhyExplanation(
     const label = sourceLabel(source, "long");
     return amount === undefined ? label : `${label} needs ${formatAmount(amount)}`;
   });
-  return `${clauses.join(", ")}, and no viable lot expires on or after those dates.`;
+  return `${clauses.join(", ")}, and what's already in the pantry won't still be good by those dates.`;
 }
 
 /**

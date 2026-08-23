@@ -28,6 +28,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkbookContext } from "../../workbook-context.ts";
 import { useToast } from "../../ui/components/Toast/useToast.ts";
+import { MEAL_TAG_OPTIONS } from "../recipe-options.ts";
 import {
   addDays,
   buildUseEvent,
@@ -535,10 +536,33 @@ export function usePlanWeek(): UsePlanWeekResult {
         setStaplePlanState(result.staplePlanState);
         const plannerStateStore = createLocalStoragePlannerStateStore();
         await plannerStateStore.save(workbookId, result.staplePlanState);
-        // No success toast (UX review round 2, "quieten the toasts"):
-        // `setAllSlots` above fills the whole week grid with the newly
-        // generated meals, right where the user is already looking — a
-        // toast saying "done" on top of that is noise, not information.
+        // UA review finding #3a: "Generate week" used to fill some slots
+        // and say nothing at all, leaving the person no way to learn WHY
+        // the rest stayed empty (the no-repeat window and per-meal tagging
+        // both cap how much a small library can fill, but neither is
+        // visible from the grid alone). A full fill stays silent — same
+        // "quieten the toasts" reasoning as before, the grid itself already
+        // shows it — but a PARTIAL or empty result now says so, and names
+        // the concrete fix (tag more recipes for the starved meal(s)).
+        if (result.emptyCount > 0) {
+          const starvedLabels = result.starvedMealTags.map(
+            (tag) => MEAL_TAG_OPTIONS.find((o) => o.value === tag)?.label ?? tag,
+          );
+          const totalOpen = result.filledCount + result.emptyCount;
+          const fillSummary = `Filled ${result.filledCount} of ${totalOpen} empty slot${totalOpen === 1 ? "" : "s"} this time.`;
+          const suggestion =
+            starvedLabels.length > 0
+              ? ` No eligible recipes for ${starvedLabels.join(", ")} — tag more recipes for ${
+                  starvedLabels.length === 1 ? "that meal" : "those meals"
+                }, or take some off Retired, to fill the rest.`
+              : " Every remaining recipe for those slots was already used this week or cooked too recently — add more recipes, or shorten the no-repeat window in Settings, to fill the rest.";
+          showToast({
+            variant: "info",
+            title: `${result.emptyCount} slot${result.emptyCount === 1 ? "" : "s"} still empty`,
+            description: fillSummary + suggestion,
+            durationMs: 8000,
+          });
+        }
       } catch (err) {
         showToast({ variant: "error", title: "Couldn't generate the week", description: messageOf(err) });
       } finally {

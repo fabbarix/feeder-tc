@@ -82,7 +82,7 @@
  * lives in a field wide enough that the grid never drops below one row
  * (the ~720px ingredient-editor/recipe-editor fields, ConfirmDialog's
  * 420px), or is a short 3-option list in a rail wide enough to clear
- * ≥3×72px plus gaps (RecipeDetail's/RecipeEditor's 290px "Household flag"
+ * ≥3×72px plus gaps (RecipeDetail's/RecipeEditor's 290px "Use in planning"
  * rail) — none of those wrap, so none of those give up the pill.
  */
 .group.wrap {

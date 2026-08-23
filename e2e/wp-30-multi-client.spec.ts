@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
-import { addRecipe } from "./support/recipes.ts";
+import { addRichCookedRecipe } from "./support/recipes.ts";
 import { addPantryStock } from "./support/pantry.ts";
 import { bridgedPath, createSharedWorkbookBackend } from "./support/shared-workbook.ts";
 
@@ -73,7 +73,15 @@ test.describe("Multi-client: two browser contexts, one workbook", () => {
       const pageB = await ctxB.newPage();
 
       await enterReadyShell(pageA, bridgedPath());
-      await addRecipe(pageA, "Weeknight Pasta", 20);
+      // Tagged and with an ingredient line (unlike `addRecipe`'s bare-bones
+      // shape) so neither of RecipeEditor.tsx's save-time nudge dialogs
+      // (UA review #3b/#4) ever appears on the plain-Name-edit saves below —
+      // this test is about the STALE-conflict dialog specifically, which
+      // happens to reuse the same "Save anyway" label as those nudges.
+      await addRichCookedRecipe(pageA, "Weeknight Pasta", {
+        cookMinutes: 20,
+        ingredients: [{ name: "Ground beef", amount: "100" }],
+      });
 
       await pageB.goto(bridgedPath());
       await pageB.getByRole("button", { name: "Sign in with Google" }).click();

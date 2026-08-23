@@ -1,0 +1,25 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 480px;
+  margin: var(--space-6) auto;
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target);
+  padding: 0 var(--space-5);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+  font-size: 1rem;
+  text-decoration: none;
+}

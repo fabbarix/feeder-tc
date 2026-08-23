@@ -55,7 +55,7 @@
 /* One label style throughout a form (WP-VC4, owner-reported: the recipe
    editor mixed this rule's old sentence-case/0.9rem look with
    `.fieldLabel`'s uppercase eyebrow on the very same screen — e.g.
-   "Household flag" vs "Name" reading as two different kinds of label).
+   "Use in planning" vs "Name" reading as two different kinds of label).
    Identical declarations to `.fieldLabel` below, on purpose: a `<label>`
    (TextField/IntegerField's own markup) and a bare `<span
    className={styles.fieldLabel}>` (RecipeEditor's Kind/Meal tags/Household

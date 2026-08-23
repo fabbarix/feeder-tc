@@ -153,6 +153,15 @@ export function RecipeEditor() {
   // new recipe, which has no prior row to go stale against.
   const loadedRecipeRef = useRef<Recipe | undefined>(undefined);
   const [staleConflict, setStaleConflict] = useState<Recipe | undefined>(undefined);
+  // UA review findings #3b/#4: neither "no meal tags" nor "nothing to cook
+  // from" ever blocked Save (and shouldn't — both are legitimate states for
+  // a recipe someone means to finish later), but neither said anything
+  // either, so the consequence only ever surfaced later, somewhere else
+  // entirely (a "Pick a meal" sheet with no explanation, or a shopping list
+  // silently missing a recipe's ingredients). A nudge dialog at the moment
+  // that matters — Save — makes the consequence visible without making
+  // either field mandatory. `undefined` when neither nudge is pending.
+  const [pendingNudge, setPendingNudge] = useState<"no-tags" | "empty" | undefined>(undefined);
 
   const [ingredientsCatalog, setIngredientsCatalog] = useState<readonly Ingredient[]>([]);
   const [linkedIngredientId, setLinkedIngredientId] = useState<IngredientId | undefined>(undefined);
@@ -282,8 +291,8 @@ export function RecipeEditor() {
         if (warningCount > 0) {
           showToast({
             variant: "warning",
-            title: `${warningCount} row${warningCount === 1 ? "" : "s"} skipped while loading`,
-            description: "Some workbook rows didn't match the expected shape.",
+            title: `${warningCount} ${warningCount === 1 ? "entry" : "entries"} skipped while loading`,
+            description: "Some saved data didn't match what we expected, so it was left out.",
           });
         }
       })
@@ -370,7 +379,7 @@ export function RecipeEditor() {
     setSteps((current) => current.filter((_, i) => i !== index));
   }
 
-  async function handleSave(force = false): Promise<void> {
+  async function handleSave(force = false, skipTagsNudge = false, skipEmptyNudge = false): Promise<void> {
     if (name.trim() === "" || baseServings === null || baseServings <= 0 || cookMinutes === null) {
       showToast({
         variant: "warning",
@@ -386,6 +395,36 @@ export function RecipeEditor() {
         variant: "warning",
         title: "Every ingredient line needs an ingredient and a positive amount.",
       });
+      return;
+    }
+
+    // #3b: no meal tags means this recipe can never be picked for a meal —
+    // not by "Generate week" (candidatesForSlot filters on tag), and not
+    // from the "Pick a meal" sheet, which just says "No recipes for this
+    // meal yet" with no hint that a taggable recipe exists but isn't
+    // tagged. Checked before the emptiness nudge below so the two never
+    // show at once — confirming this one re-runs handleSave, which then
+    // checks the next.
+    if (!skipTagsNudge && mealTags.length === 0) {
+      setPendingNudge("no-tags");
+      return;
+    }
+
+    // #4: a cooked recipe with no ingredient lines and no non-blank step is
+    // saved as a name and nothing else — it contributes nothing to a
+    // shopping list and can't actually be cooked from. The partial-line
+    // check above already refuses a HALF-filled ingredient row; this is the
+    // matching guard for the "not even started" case that check can't
+    // catch, as a nudge rather than a block (someone saving a placeholder
+    // to finish later is legitimate). Bought recipes are exempt — they have
+    // no manual ingredient lines or steps to fill in the first place.
+    if (
+      !skipEmptyNudge &&
+      kind === "cooked" &&
+      lines.length === 0 &&
+      !steps.some((s) => s.description.trim() !== "")
+    ) {
+      setPendingNudge("empty");
       return;
     }
 
@@ -837,15 +876,19 @@ export function RecipeEditor() {
                     <p className={styles.hint}>Scales in whole units — extras become leftovers.</p>
                   </div>
                   <div className={styles.field}>
-                    <span className={styles.fieldLabel}>Household flag</span>
+                    <span className={styles.fieldLabel}>Use in planning</span>
                     <div className={styles.fullWidthControl}>
                       <SegmentedControl<RecipeStatus>
-                        aria-label="Household flag"
+                        aria-label="Use in planning"
                         options={STATUS_OPTIONS}
                         value={status}
                         onChange={setStatus}
                       />
                     </div>
+                    <p className={styles.hint}>
+                      Staple: added to every week automatically. Rotation: picked at random. Retired: skipped when
+                      generating a week.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -918,6 +961,30 @@ export function RecipeEditor() {
           void handleSave(true);
         }}
         onCancel={() => setStaleConflict(undefined)}
+      />
+      <ConfirmDialog
+        open={pendingNudge === "no-tags"}
+        title="No meal tags"
+        description='Without a breakfast, lunch, dinner or snack tag, this recipe never appears in "Generate week" or the "Pick a meal" sheet. Save it untagged anyway?'
+        confirmLabel="Save anyway"
+        cancelLabel="Add a tag"
+        onConfirm={() => {
+          setPendingNudge(undefined);
+          void handleSave(false, true, false);
+        }}
+        onCancel={() => setPendingNudge(undefined)}
+      />
+      <ConfirmDialog
+        open={pendingNudge === "empty"}
+        title="Nothing to cook from yet"
+        description="This recipe has no ingredients and no steps — it won't add anything to a shopping list or show how to cook it. Save it as a placeholder anyway?"
+        confirmLabel="Save anyway"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          setPendingNudge(undefined);
+          void handleSave(false, true, true);
+        }}
+        onCancel={() => setPendingNudge(undefined)}
       />
     </section>
   );

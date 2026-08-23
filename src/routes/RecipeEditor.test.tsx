@@ -122,6 +122,24 @@ describe("RecipeEditor — step round-trip (WP-PHOTO regression)", () => {
   });
 });
 
+/**
+ * Clicks "Save recipe", then clicks through any of the two save-time nudge
+ * dialogs RecipeEditor.tsx now shows (UA review #3b "no meal tags", #4
+ * "nothing to cook from yet") — neither is what the tests below are about,
+ * so this just gets past them the same way a household member confirming
+ * "Save anyway" would, rather than every one of those tests having to set
+ * up a fully-tagged, fully-populated recipe just to reach the assertion
+ * that actually matters to it.
+ */
+async function saveRecipe(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "Save recipe" }));
+  for (let i = 0; i < 2; i += 1) {
+    const confirmButton = screen.queryByRole("button", { name: "Save anyway" });
+    if (!confirmButton) break;
+    await user.click(confirmButton);
+  }
+}
+
 function contextValue(store: ReturnType<typeof createFakeWorkbookStore>): WorkbookContextValue {
   return {
     store,
@@ -160,7 +178,7 @@ describe("RecipeEditor — Can't be split (DESIGN_PURCHASING.md §4/§8)", () =>
     renderEditor(contextValue(store), "/recipes/new");
     await user.type(await screen.findByLabelText("Name"), "Frozen pizza");
     await user.click(screen.getByRole("radio", { name: "Store-bought" }));
-    await user.click(screen.getByRole("button", { name: "Save recipe" }));
+    await saveRecipe(user);
     await screen.findByText("Recipes list");
 
     const savedBought = (await store.recipes.readAll()).rows.find((r) => r.name === "Frozen pizza");
@@ -177,7 +195,7 @@ describe("RecipeEditor — Can't be split (DESIGN_PURCHASING.md §4/§8)", () =>
     // "Can't be split" anyway (a single 9-inch quiche can't be split either,
     // per §4).
     await user.click(screen.getByRole("radio", { name: "Can't be split" }));
-    await user.click(screen.getByRole("button", { name: "Save recipe" }));
+    await saveRecipe(user);
     await screen.findByText("Recipes list");
 
     const saved = (await store.recipes.readAll()).rows.find((r) => r.name === "Big batch soup");
@@ -210,7 +228,7 @@ describe("RecipeEditor — recipe entry units (DESIGN_PURCHASING.md §10)", () =
     await user.click(screen.getByRole("button", { name: /^ingredient\b/i }));
     await user.click(await screen.findByRole("option", { name: "Flour" }));
     await user.type(screen.getByLabelText(/Amount/), "450");
-    await user.click(screen.getByRole("button", { name: "Save recipe" }));
+    await saveRecipe(user);
     await screen.findByText("Recipes list");
 
     const lines = (await store.recipeIngredients.readAll()).rows;
@@ -241,7 +259,7 @@ describe("RecipeEditor — recipe entry units (DESIGN_PURCHASING.md §10)", () =
     // typed and the canonical number the app is reasoning about.
     expect(await screen.findByText(/1 cup flour \(130(\.\d)? g\)/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Save recipe" }));
+    await saveRecipe(user);
     await screen.findByText("Recipes list");
 
     const lines = (await store.recipeIngredients.readAll()).rows;
