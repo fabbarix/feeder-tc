@@ -39,6 +39,9 @@ export interface ShoppingRowProps {
   readonly today: IsoDate;
   readonly failed: boolean;
   readonly provenanceContext: ProvenanceContext;
+  readonly currencySymbol: string;
+  /** Previously-used `source` (shop) values, most-recent-first — offered as datalist suggestions on the optional "where did you buy this" field. */
+  readonly previousSources: readonly string[];
   readonly onRetryFailed: () => void;
   readonly onCheckOff: (input: CheckOffInput) => void;
   readonly onUncheck: () => void;
@@ -74,6 +77,8 @@ export function ShoppingRow({
   today,
   failed,
   provenanceContext,
+  currencySymbol,
+  previousSources,
   onRetryFailed,
   onCheckOff,
   onUncheck,
@@ -84,6 +89,10 @@ export function ShoppingRow({
   const [amount, setAmount] = useState<number | null>(buy.amount);
   const [location, setLocation] = useState<StorageLocation>(ingredient.defaultLocation);
   const [expiryOverride, setExpiryOverride] = useState<IsoDate | null>(null);
+  const [priceOpen, setPriceOpen] = useState(false);
+  const [price, setPrice] = useState<number | null>(null);
+  const [source, setSource] = useState("");
+  const sourceListId = `shop-sources-${ingredient.id}`;
 
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustAmount, setAdjustAmount] = useState<number>(buy.amount);
@@ -111,6 +120,9 @@ export function ShoppingRow({
     setAmount(buy.amount);
     setLocation(ingredient.defaultLocation);
     setExpiryOverride(null);
+    setPriceOpen(false);
+    setPrice(null);
+    setSource("");
     setSheetOpen(true);
   }
 
@@ -128,6 +140,8 @@ export function ShoppingRow({
       actualQuantity: makeQuantity(amount, ingredient.unit),
       location,
       ...(expiryOverride !== null ? { expiryOverride } : {}),
+      ...(price !== null && price > 0 ? { price } : {}),
+      ...(source.trim() !== "" ? { source: source.trim() } : {}),
     });
     setSheetOpen(false);
   }
@@ -228,6 +242,31 @@ export function ShoppingRow({
               onChange={setExpiryOverride}
               allowPick
             />
+            {priceOpen ? (
+              <>
+                <QuantityInput label="Price paid" unit={currencySymbol} value={price} onChange={(q) => setPrice(q?.amount ?? null)} />
+                <div className={forms.field}>
+                  <label htmlFor={sourceListId}>Where did you buy this? (optional)</label>
+                  <input
+                    id={sourceListId}
+                    type="text"
+                    list={`${sourceListId}-options`}
+                    value={source}
+                    onChange={(event) => setSource(event.target.value)}
+                    placeholder="e.g. Trader Joe's"
+                  />
+                  <datalist id={`${sourceListId}-options`}>
+                    {previousSources.map((value) => (
+                      <option key={value} value={value} />
+                    ))}
+                  </datalist>
+                </div>
+              </>
+            ) : (
+              <button type="button" className={styles.adjustButton} onClick={() => setPriceOpen(true)}>
+                + Record the price you paid
+              </button>
+            )}
           </div>
         }
         confirmLabel="Mark bought"

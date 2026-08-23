@@ -25,18 +25,21 @@ import type {
   EntryUnit,
   Ingredient,
   IngredientId,
-  Product,
   ShoppingListLine,
 } from "../../domain/index.ts";
+import type { NewProductInput } from "./useScanFlow.ts";
 import { IntegerField, TextField } from "../fields.tsx";
 import { BULK_OPTIONS, ENTRY_UNIT_OPTIONS, SHELF_LIFE_PRESET_DAYS, entryUnitsFor } from "./scan-options.ts";
 import styles from "./scan.module.css";
 import forms from "../forms.module.css";
 
 export interface ProductEditorSaveInput {
-  readonly product: Product;
+  /** WP-PRODUCTS-MODEL: no `id` yet — `useScanFlow.ts`'s `saveProduct` mints the `ProductId` at save time (see that function's own doc comment). */
+  readonly product: NewProductInput;
   readonly photoDataUrl?: string;
   readonly price?: number;
+  /** Free text naming where this was bought — see the module doc comment on `RecordPriceInput.source`. */
+  readonly source?: string;
 }
 
 export interface ProductEditorPanelProps {
@@ -44,6 +47,8 @@ export interface ProductEditorPanelProps {
   readonly ingredients: readonly Ingredient[];
   readonly shoppingNeedByIngredient: ReadonlyMap<IngredientId, ShoppingListLine>;
   readonly currencySymbol: string;
+  /** Previously-used `source` (shop) values, most-recent-first — offered as datalist suggestions. */
+  readonly previousSources: readonly string[];
   readonly saving: boolean;
   readonly onSave: (input: ProductEditorSaveInput) => void;
   readonly onCancel: () => void;
@@ -76,6 +81,7 @@ export function ProductEditorPanel({
   ingredients,
   shoppingNeedByIngredient,
   currencySymbol,
+  previousSources,
   saving,
   onSave,
   onCancel,
@@ -89,6 +95,7 @@ export function ProductEditorPanel({
   const [purchaseMode, setPurchaseMode] = useState<"packaged" | "bulk">("packaged");
   const [priceOpen, setPriceOpen] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
+  const [source, setSource] = useState("");
   const [photoDataUrl, setPhotoDataUrl] = useState<string | undefined>(undefined);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [validationError, setValidationError] = useState<string | undefined>(undefined);
@@ -146,8 +153,7 @@ export function ProductEditorPanel({
       return;
     }
 
-    const product: Product = {
-      barcode,
+    const product: NewProductInput = {
       name: name.trim(),
       ...(brand.trim() !== "" ? { brand: brand.trim() } : {}),
       ingredientId: ingredient.id,
@@ -163,6 +169,7 @@ export function ProductEditorPanel({
       product,
       ...(photoDataUrl !== undefined ? { photoDataUrl } : {}),
       ...(price !== null && price > 0 ? { price } : {}),
+      ...(source.trim() !== "" ? { source: source.trim() } : {}),
     });
   }
 
@@ -249,7 +256,25 @@ export function ProductEditorPanel({
         </div>
 
         {priceOpen ? (
-          <QuantityInput label="Price paid" unit={currencySymbol} value={price} onChange={(q) => setPrice(q?.amount ?? null)} />
+          <>
+            <QuantityInput label="Price paid" unit={currencySymbol} value={price} onChange={(q) => setPrice(q?.amount ?? null)} />
+            <div className={forms.field}>
+              <label htmlFor="product-price-source">Where did you buy this? (optional)</label>
+              <input
+                id="product-price-source"
+                type="text"
+                list="product-price-source-options"
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                placeholder="e.g. Trader Joe's"
+              />
+              <datalist id="product-price-source-options">
+                {previousSources.map((value) => (
+                  <option key={value} value={value} />
+                ))}
+              </datalist>
+            </div>
+          </>
         ) : (
           <button type="button" className={styles.buyAdjustLink} onClick={() => setPriceOpen(true)}>
             + Record the price you paid

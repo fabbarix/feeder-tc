@@ -28,6 +28,7 @@ const WORKBOOK_SHEET_NAMES = [
   "InventoryEvents",
   "ShoppingItems",
   "Products",
+  "ProductBarcodes",
   "Photos",
   "PriceObservations",
 ] as const satisfies readonly WorkbookSheetName[];

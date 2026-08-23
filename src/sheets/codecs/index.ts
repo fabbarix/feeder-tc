@@ -16,6 +16,7 @@ export * from "./plan-slots.ts";
 export * from "./inventory-events.ts";
 export * from "./shopping-items.ts";
 export * from "./products.ts";
+export * from "./product-barcodes.ts";
 export * from "./photos.ts";
 export * from "./price-observations.ts";
 
@@ -27,6 +28,7 @@ import { META_HEADER } from "./meta.ts";
 import { PHOTOS_HEADER } from "./photos.ts";
 import { PLAN_SLOTS_HEADER } from "./plan-slots.ts";
 import { PRICE_OBSERVATIONS_HEADER } from "./price-observations.ts";
+import { PRODUCT_BARCODES_HEADER } from "./product-barcodes.ts";
 import { PRODUCTS_HEADER } from "./products.ts";
 import { RECIPE_INGREDIENTS_HEADER } from "./recipe-ingredients.ts";
 import { RECIPE_STEPS_HEADER } from "./recipe-steps.ts";
@@ -46,6 +48,7 @@ export const WORKBOOK_HEADERS: Record<WorkbookSheetName, CellRow> = {
   InventoryEvents: INVENTORY_EVENTS_HEADER,
   ShoppingItems: SHOPPING_ITEMS_HEADER,
   Products: PRODUCTS_HEADER,
+  ProductBarcodes: PRODUCT_BARCODES_HEADER,
   Photos: PHOTOS_HEADER,
   PriceObservations: PRICE_OBSERVATIONS_HEADER,
 };

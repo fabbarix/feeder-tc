@@ -103,9 +103,10 @@ describeFeature(feature, ({ Scenario }) => {
         "ShoppingItems",
       ]);
       // M6-A addition (DESIGN_PRODUCTS.md §2), `ProductPhotos` renamed/folded
-      // into `Photos` by WP-PHOTO (DESIGN_PHOTOS.md §7) — also bootstrapped,
+      // into `Photos` by WP-PHOTO (DESIGN_PHOTOS.md §7), `ProductBarcodes`
+      // added by WP-PRODUCTS-MODEL's barcode-set re-key — also bootstrapped,
       // with a header row, on every fresh workbook from here on.
-      expect([...WORKBOOK_SHEET_NAMES].slice(9)).toEqual(["Products", "Photos", "PriceObservations"]);
+      expect([...WORKBOOK_SHEET_NAMES].slice(9)).toEqual(["Products", "ProductBarcodes", "Photos", "PriceObservations"]);
       for (const sheet of WORKBOOK_SHEET_NAMES) {
         const row = await transport.readRange(`${sheet}!A1:Z1`);
         expect(row[0]).toEqual(WORKBOOK_HEADERS[sheet]);

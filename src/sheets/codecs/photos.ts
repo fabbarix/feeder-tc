@@ -24,9 +24,9 @@
 import type { CellRow } from "../../domain/contracts.ts";
 import {
   MAX_PHOTO_DATA_URL_LENGTH,
-  makeBarcode,
   makeIngredientId,
   makeIsoTimestamp,
+  makeProductId,
   makeRecipeId,
   makeStepId,
   type Photo,
@@ -43,7 +43,18 @@ export { MAX_PHOTO_DATA_URL_LENGTH } from "../../domain/types.ts";
 
 export const PHOTOS_HEADER: CellRow = ["owner_kind", "owner_id", "data_url", "updated_at"];
 
-/** Reconstructs the correctly-branded owner id for `ownerKind` — the one place that has to know all four owner id brands at once. */
+/**
+ * Reconstructs the correctly-branded owner id for `ownerKind` — the one
+ * place that has to know all four owner id brands at once.
+ *
+ * WP-PRODUCTS-MODEL: `"product"` used to decode as a `Barcode` (a product's
+ * only identity at the time); it now decodes as a `ProductId`. A pre-re-key
+ * row's `owner_id` cell held a barcode string, which is always a non-empty
+ * string and therefore already a valid `ProductId` (`makeProductId`'s rules
+ * are a strict subset of `makeBarcode`'s) — so a legacy `Photos` row for a
+ * product decodes here with ZERO change, same reasoning as
+ * `src/sheets/codecs/products.ts`'s own column-0 reinterpretation.
+ */
 function decodeOwnerId(ownerKind: PhotoOwnerKind, raw: string): PhotoOwnerId {
   switch (ownerKind) {
     case "recipe":
@@ -53,7 +64,7 @@ function decodeOwnerId(ownerKind: PhotoOwnerKind, raw: string): PhotoOwnerId {
     case "ingredient":
       return makeIngredientId(raw);
     case "product":
-      return makeBarcode(raw);
+      return makeProductId(raw);
   }
 }
 

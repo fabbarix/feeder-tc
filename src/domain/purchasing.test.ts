@@ -6,7 +6,7 @@
  * ordering) — see this repo's PR description for the row-by-row map.
  */
 import { describe, expect, it } from "vitest";
-import { makeBarcode, makeIngredientId, makeQuantity, makeRecipeId, type Ingredient, type Product, type Recipe } from "./types.ts";
+import { makeIngredientId, makeProductId, makeQuantity, makeRecipeId, type Ingredient, type Product, type Recipe } from "./types.ts";
 import { defaultPurchaseMode, isIndivisible, scaleIndivisible, suggestPurchase, withPurchaseOverride } from "./purchasing.ts";
 
 function ingredient(overrides: Partial<Ingredient> & Pick<Ingredient, "unit">): Ingredient {
@@ -135,7 +135,7 @@ describe("suggestPurchase — §5 scenario table", () => {
   it("a known Product's canonicalQuantity overrides the ingredient's typical packSize (§3)", () => {
     const mayo = ingredient({ unit: "g", purchaseMode: "whole", packSize: makeQuantity(250, "g") });
     const product: Product = {
-      barcode: makeBarcode("8001120000123"),
+      id: makeProductId("big-jar-mayo"),
       name: "Big Jar Mayo",
       ingredientId: mayo.id,
       canonicalQuantity: makeQuantity(500, "g"),

@@ -1,7 +1,9 @@
 # Design addendum — Products, barcodes and prices
 
-**Status: SETTLED (2026-08-20).** Units, cost tracking and photo storage are all
-decided by the owner. Scheduled as M6, after the M1–M5 pipeline.
+**Status: SETTLED (2026-08-20); re-keyed 2026-08-23 (WP-PRODUCTS-MODEL, §8).**
+Units, cost tracking and photo storage are all decided by the owner. M6 shipped;
+the product re-key (§8) is a subsequent, owner-approved contract change on top of
+it, not a new milestone.
 
 Companion to `DESIGN.md` (authoritative product design) and `HANDOVER.md` §4
 (invariants).
@@ -34,21 +36,29 @@ settings with a photo, a description, and a "use current location" pick. Not now
 ## 2. What this adds to the domain
 
 A **Product** is a new first-class entity, distinct from an `Ingredient`. An
-ingredient is *rice*; a product is *Riso Gallo Arborio 1 kg, barcode 8001120000123*.
-Many products map to one ingredient. This is the missing layer that makes a barcode
-meaningful.
+ingredient is *rice*; a product is *Riso Gallo Arborio 1 kg*. Many products map to
+one ingredient. This is the missing layer that makes a barcode meaningful.
 
-Provisional sheets, following the existing one-row-one-fact rule (invariant 6):
+**Re-keyed 2026-08-23 (WP-PRODUCTS-MODEL, owner-approved).** A `Product` now owns
+its own identity (`ProductId`), independent of any one barcode — see §8 below for
+why and what changed. What follows is the CURRENT schema; the original
+barcode-as-identity design that shipped as M6-A is kept in git history, not here.
+
+Sheets, following the existing one-row-one-fact rule (invariant 6):
 
 | Sheet | Contents |
 |---|---|
-| `Products` | `barcode, name, brand, ingredient_id, canonical_quantity, canonical_unit, display_quantity, display_unit, shelf_life_days, is_bulk, has_photo` |
-| `ProductPhotos` | `barcode, data_url` — **a separate sheet on purpose** |
+| `Products` | `id, name, brand, ingredient_id, canonical_quantity, canonical_unit, display_quantity, display_unit, shelf_life_days, is_bulk, has_photo` |
+| `ProductBarcodes` | `product_id, barcode` — one row per barcode a product is sold under |
+| `Photos` | one shared sheet for every photo-owning entity, keyed `(owner_kind, owner_id)` — a product's `owner_id` is its `ProductId` (see DESIGN_PHOTOS.md) |
 | `PriceObservations` | append-only: `timestamp, barcode?, ingredient_id, quantity, unit, price, source` |
 
 `canonical_*` drives every calculation; `display_*` is shown to the human ("1 lb
 bag") and never used in arithmetic. `PriceObservations` carries no currency column —
-the household has one currency, held in Settings.
+the household has one currency, held in Settings. `PriceObservations.barcode` is
+unchanged by the re-key: an observation genuinely happened at a specific barcode,
+and resolving which product that barcode currently belongs to is a lookup over
+`ProductBarcodes`, never a rewrite of price history.
 
 `PriceObservations` is append-only for the same reason `InventoryEvents` is: it is
 a time series, corrections are new rows, and two clients appending never collide.
@@ -194,3 +204,53 @@ the M1–M5 pipeline currently in flight, as **M6**, and should not disturb it.
 Shop detection (owner-deferred) would be M7: a `Shops` sheet, a geolocation pick,
 and `PriceObservations.source` pointing at a shop id — which is why that column
 exists in §2 now, so adding shops later does not require rewriting price history.
+
+## 8. The product re-key (WP-PRODUCTS-MODEL, 2026-08-23, owner-approved)
+
+**The problem, in the owner's own words:** tomatoes carry a different barcode in
+each shop, but they are one product and one ingredient. Under M6-A's original
+design, `Product.barcode` WAS the product's identity — so the same physical
+product sold under a different barcode became a different `Product`: duplicated
+name/brand/photo/shelf-life, and price history that could never be recombined
+across shops.
+
+**Decision: a `Product` is its own entity, owning a *set* of barcodes.** This is
+the correct normalisation, chosen knowingly over a lower-risk alias scheme. See
+§2 above for the resulting schema (`ProductId`, `ProductBarcodes`) and
+`src/domain/README.md`'s changelog entry for the exact contract diff.
+
+**Existing duplicates are merged only with the owner's confirmation** — never
+automatically. `src/domain/products.ts` exports pure, unit-tested detection
+(`suggestProductMerges`) and planning (`planProductMerge`) functions; nothing
+calls them yet. The detection rule requires ALL of: same `ingredientId` (exact),
+same canonical package size (same unit, amount within 2% — tolerating
+unit-conversion rounding), and overlapping names (token-Jaccard similarity
+≥ 0.5) — deliberately biased toward under-suggesting, because a wrong confident
+merge prompt shown against the owner's real data is worse than a missed one.
+`confidence: "high"` when names are near-identical or the brand also matches,
+`"medium"` otherwise; a UI may use this to word the prompt, never to skip
+confirmation.
+
+**Migration.** A legacy (pre-re-key) `Products` row's identity WAS a validated
+barcode string — which is always a non-empty string, so it decodes unchanged as
+a `ProductId` with zero row-shape change. What a legacy workbook is missing is
+the `ProductBarcode` row linking that same string back to itself; this is
+backfilled idempotently and non-destructively every time a workbook opens (see
+`src/sheets/product-barcode-migration.ts`), never as a one-time irreversible
+script against the owner's only live workbook.
+
+**Price charts** (owner decision 3: one line per product, split by shop) are the
+next, still-undispatched UI task. This package makes that buildable — `Product`
+has a stable identity to group by, and price/shop data now exists to plot,
+thanks to §"Source capture" below — but builds no screen. The existing
+price-history views (`src/routes/products/**`) still group by barcode, not by
+`ProductId`; a merged product's several barcodes render as separate rows there
+until that follow-up lands. Nothing is lost in the meantime — every observation
+still shows, under whichever barcode named it.
+
+**Source capture.** `PriceObservation.source` was specified in §2 from the start
+but, until now, written in exactly one place: a test. The scan flow's product
+editor, the known-product confirm dialog, and the shopping route's check-off
+sheet all now offer an optional free-text "Where did you buy this?" field,
+suggesting previously-used values (most-recent first) via a `<datalist>` — never
+a picklist, since §7 defers a structured `Shops` sheet to M7.

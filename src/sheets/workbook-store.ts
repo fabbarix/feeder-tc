@@ -50,6 +50,7 @@ import type {
   PlanSlot,
   PriceObservation,
   Product,
+  ProductBarcode,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -69,6 +70,7 @@ import {
   decodePlanSlot,
   decodePriceObservation,
   decodeProduct,
+  decodeProductBarcode,
   decodeRecipe,
   decodeRecipeIngredient,
   decodeRecipeStep,
@@ -82,6 +84,7 @@ import {
   encodePlanSlot,
   encodePriceObservation,
   encodeProduct,
+  encodeProductBarcode,
   encodeRecipe,
   encodeRecipeIngredient,
   encodeRecipeStep,
@@ -94,6 +97,7 @@ import {
   PHOTOS_HEADER,
   PLAN_SLOTS_HEADER,
   PRICE_OBSERVATIONS_HEADER,
+  PRODUCT_BARCODES_HEADER,
   PRODUCTS_HEADER,
   RECIPE_INGREDIENTS_HEADER,
   RECIPE_STEPS_HEADER,
@@ -398,7 +402,24 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
         return readAllOf(transport, "Products", PRODUCTS_HEADER, decodeProduct);
       },
       async upsert(product: Product): Promise<void> {
-        await upsertByKey(transport, "Products", PRODUCTS_HEADER, decodeProduct, encodeProduct, (p) => p.barcode, product);
+        await upsertByKey(transport, "Products", PRODUCTS_HEADER, decodeProduct, encodeProduct, (p) => p.id, product);
+      },
+    },
+
+    productBarcodes: {
+      async readAll(): Promise<DecodeResult<ProductBarcode>> {
+        return readAllOf(transport, "ProductBarcodes", PRODUCT_BARCODES_HEADER, decodeProductBarcode);
+      },
+      async upsert(row: ProductBarcode): Promise<void> {
+        await upsertByKey(
+          transport,
+          "ProductBarcodes",
+          PRODUCT_BARCODES_HEADER,
+          decodeProductBarcode,
+          encodeProductBarcode,
+          (r) => r.barcode,
+          row,
+        );
       },
     },
 

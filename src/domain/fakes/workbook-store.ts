@@ -24,6 +24,8 @@ import {
   type PriceObservation,
   type PriceObservationId,
   type Product,
+  type ProductBarcode,
+  type ProductId,
   type Recipe,
   type RecipeId,
   type RecipeIngredient,
@@ -58,7 +60,8 @@ export function createFakeWorkbookStore(): WorkbookStore {
   const planSlots = new Map<PlanSlotId, PlanSlot>();
   const inventoryEvents: InventoryEvent[] = [];
   const shoppingItems = new Map<string, ShoppingItem>();
-  const products = new Map<Barcode, Product>();
+  const products = new Map<ProductId, Product>();
+  const productBarcodes = new Map<Barcode, ProductBarcode>();
   const photos = new Map<string, Photo>();
   const priceObservations = new Map<PriceObservationId, PriceObservation>();
 
@@ -148,7 +151,15 @@ export function createFakeWorkbookStore(): WorkbookStore {
         return ok(Array.from(products.values()));
       },
       async upsert(product) {
-        products.set(product.barcode, product);
+        products.set(product.id, product);
+      },
+    },
+    productBarcodes: {
+      async readAll() {
+        return ok(Array.from(productBarcodes.values()));
+      },
+      async upsert(row) {
+        productBarcodes.set(row.barcode, row);
       },
     },
     photos: {

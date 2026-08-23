@@ -29,6 +29,7 @@ export {
   type WorkbookRegistry,
   type WorkbookRegistryEntry,
 } from "./registry.ts";
+export { runProductBarcodeMigration, type RunProductBarcodeMigrationResult } from "./product-barcode-migration.ts";
 export { createSpreadsheet, createWorkbook, type CreateSpreadsheetOptions } from "./spreadsheet.ts";
 export {
   createGoogleSheetsTransport,

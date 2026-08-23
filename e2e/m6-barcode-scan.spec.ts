@@ -54,8 +54,14 @@ async function seedProduct(page: Page, input: SeedProductInput): Promise<void> {
       const auth = { getAccessToken: () => Promise.resolve(token), invalidate: () => undefined };
       const transport = sheets.createGoogleSheetsTransport({ spreadsheetId, auth });
       const store = sheets.createSheetsWorkbookStore(transport);
+      // WP-PRODUCTS-MODEL: a Product's identity is now its own ProductId,
+      // not the barcode — mint one and record the barcode as a separate
+      // ProductBarcodes row (one row per barcode, invariant 6).
+      const rng = domain.createSeededRng(7);
+      const productId = domain.newProductId(rng);
+      const barcode = domain.makeBarcode(input.barcode);
       await store.products.upsert({
-        barcode: domain.makeBarcode(input.barcode),
+        id: productId,
         name: input.name,
         ingredientId: domain.makeIngredientId(input.ingredientId),
         canonicalQuantity: { amount: input.canonicalAmount, unit: input.canonicalUnit },
@@ -65,6 +71,7 @@ async function seedProduct(page: Page, input: SeedProductInput): Promise<void> {
         isBulk: input.isBulk,
         hasPhoto: false,
       });
+      await store.productBarcodes.upsert({ productId, barcode });
     },
     { token: E2E_FAKE_ACCESS_TOKEN, spreadsheetId: E2E_CREATED_SPREADSHEET_ID, input },
   );

@@ -134,8 +134,22 @@ export function aggregateByIngredient(
 
 export interface ProductPriceSummary {
   readonly product: Product;
+  /**
+   * WP-PRODUCTS-MODEL: the barcode this summary was grouped by — a `Product`
+   * no longer carries its own barcode(s) (it may own several), so callers
+   * building a per-product URL or photo key need this explicitly rather than
+   * reading `product.barcode` (which no longer exists). Grouping stays
+   * per-barcode, not per-`ProductId`, deliberately: DESIGN_PRODUCTS.md's
+   * "price charts split by shop" is the follow-up UI task this package's
+   * brief explicitly defers — see this file's own header comment. A merged
+   * product's several barcodes therefore still produce separate summaries
+   * here; nothing is lost (every observation is still present, just not yet
+   * combined into one line), which is exactly the non-destructive behaviour
+   * the brief asks for pending that follow-up.
+   */
+  readonly barcode: Barcode;
   readonly ingredient: Ingredient | undefined;
-  /** Only observations naming THIS product's barcode — oldest first. */
+  /** Only observations naming THIS barcode — oldest first. */
   readonly points: readonly NormalizedPoint[];
   readonly trend: PriceTrend;
 }
@@ -162,6 +176,7 @@ export function aggregateByProduct(
     if (points.length === 0) continue;
     summaries.push({
       product,
+      barcode,
       ingredient: ingredientsById.get(product.ingredientId),
       points,
       trend: buildTrend(points),

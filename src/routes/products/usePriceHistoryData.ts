@@ -25,6 +25,7 @@ import type {
   IngredientId,
   PriceObservation,
   Product,
+  ProductBarcode,
   Settings,
 } from "../../domain/index.ts";
 
@@ -53,6 +54,7 @@ export function usePriceHistoryData(): PriceHistoryData {
   const [error, setError] = useState<string | undefined>(undefined);
   const [ingredients, setIngredients] = useState<readonly Ingredient[]>([]);
   const [products, setProducts] = useState<readonly Product[]>([]);
+  const [productBarcodes, setProductBarcodes] = useState<readonly ProductBarcode[]>([]);
   const [observations, setObservations] = useState<readonly PriceObservation[]>([]);
   const [settings, setSettings] = useState<Settings | undefined>(undefined);
   const [reloadToken, setReloadToken] = useState(0);
@@ -64,20 +66,23 @@ export function usePriceHistoryData(): PriceHistoryData {
     let cancelled = false;
 
     async function boot(): Promise<void> {
-      const [ingredientsResult, productsResult, observationsResult] = await Promise.all([
+      const [ingredientsResult, productsResult, productBarcodesResult, observationsResult] = await Promise.all([
         store.ingredients.readAll(),
         store.products.readAll(),
+        store.productBarcodes.readAll(),
         store.priceObservations.readAll(),
       ]);
       if (cancelled) return;
 
       setIngredients(ingredientsResult.rows);
       setProducts(productsResult.rows);
+      setProductBarcodes(productBarcodesResult.rows);
       setObservations(observationsResult.rows);
 
       const warnings: readonly DataWarning[] = [
         ...ingredientsResult.warnings,
         ...productsResult.warnings,
+        ...productBarcodesResult.warnings,
         ...observationsResult.warnings,
       ];
       const first = warnings[0];
@@ -117,7 +122,16 @@ export function usePriceHistoryData(): PriceHistoryData {
   }, [store, reloadToken, showToast]);
 
   const ingredientsById = new Map(ingredients.map((ingredient) => [ingredient.id, ingredient] as const));
-  const productsByBarcode = new Map(products.map((product) => [product.barcode, product] as const));
+  // WP-PRODUCTS-MODEL: `Product` no longer carries its own barcode(s) — this
+  // join over `ProductBarcodes` reconstructs the barcode-keyed view every
+  // price-history route already expects (see useScanFlow.ts's identical join
+  // for the reasoning).
+  const productsById = new Map(products.map((product) => [product.id, product] as const));
+  const productsByBarcode = new Map<Barcode, Product>();
+  for (const row of productBarcodes) {
+    const product = productsById.get(row.productId);
+    if (product) productsByBarcode.set(row.barcode, product);
+  }
   const currencySymbol = settings?.currency ?? "$";
 
   const retry = useCallback(() => setReloadToken((t) => t + 1), []);

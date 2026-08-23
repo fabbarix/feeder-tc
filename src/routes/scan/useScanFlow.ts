@@ -39,6 +39,8 @@ import {
   checkOffShoppingItem,
   computeShoppingList,
   createApplyNewEvents,
+  newProductId,
+  resolveProductId,
 } from "../../domain/index.ts";
 import type {
   ApplyNewEvents,
@@ -53,7 +55,10 @@ import type {
   Outbox,
   PhotoOwnerKind,
   PlanSlot,
+  PriceObservation,
   Product,
+  ProductBarcode,
+  ProductId,
   Quantity,
   Recipe,
   RecipeIngredient,
@@ -109,7 +114,18 @@ export interface RecordPriceInput {
  * — `existing` is the row Sheets already has, so the caller can switch to
  * the normal known-product flow against it instead of overwriting it.
  */
-export type SaveProductResult = { readonly status: "created" } | { readonly status: "conflict"; readonly existing: Product };
+export type SaveProductResult = { readonly status: "created"; readonly product: Product } | { readonly status: "conflict"; readonly existing: Product };
+
+/**
+ * WP-PRODUCTS-MODEL: what `ProductEditorPanel` collects for a brand-new
+ * product does not yet include an `id` — a `Product`'s identity is minted
+ * here, at save time, from the injected `Rng` (`newProductId`), same as
+ * every other client-minted id in this codebase. `barcode` is passed
+ * alongside because it is no longer a field on `Product` itself; saving
+ * writes both the `Products` row and the `ProductBarcodes` row that links
+ * the two.
+ */
+export type NewProductInput = Omit<Product, "id">;
 
 export interface ScanFlow {
   readonly loading: boolean;
@@ -123,9 +139,11 @@ export interface ScanFlow {
   readonly currencySymbol: string;
   /** This week's live shopping need, keyed by ingredient — see the module doc comment. */
   readonly shoppingNeedByIngredient: ReadonlyMap<IngredientId, ShoppingListLine>;
+  /** Distinct `source` values already recorded on any past price observation, most-recently-seen first — see `RecordPriceInput.source`'s doc comment and the shopping route's identical field. */
+  readonly previousSources: readonly string[];
   readonly retry: () => void;
-  readonly saveProduct: (product: Product) => Promise<SaveProductResult>;
-  readonly savePhoto: (ownerKind: PhotoOwnerKind, ownerId: Barcode, dataUrl: string) => Promise<void>;
+  readonly saveProduct: (product: NewProductInput, barcode: Barcode) => Promise<SaveProductResult>;
+  readonly savePhoto: (ownerKind: PhotoOwnerKind, ownerId: ProductId, dataUrl: string) => Promise<void>;
   readonly recordPurchase: (input: RecordPurchaseInput) => Promise<void>;
   readonly recordPrice: (input: RecordPriceInput) => Promise<void>;
 }
@@ -139,6 +157,8 @@ export function useScanFlow(): ScanFlow {
   const [warnings, setWarnings] = useState<readonly DataWarning[]>([]);
   const [ingredients, setIngredients] = useState<readonly Ingredient[]>([]);
   const [products, setProducts] = useState<readonly Product[]>([]);
+  const [productBarcodes, setProductBarcodes] = useState<readonly ProductBarcode[]>([]);
+  const [priceObservations, setPriceObservations] = useState<readonly PriceObservation[]>([]);
   const [recipes, setRecipes] = useState<readonly Recipe[]>([]);
   const [recipeIngredients, setRecipeIngredients] = useState<readonly RecipeIngredient[]>([]);
   const [planSlots, setPlanSlots] = useState<readonly PlanSlot[]>([]);
@@ -186,30 +206,36 @@ export function useScanFlow(): ScanFlow {
       const [
         ingredientsResult,
         productsResult,
+        productBarcodesResult,
         recipesResult,
         recipeIngredientsResult,
         planSlotsResult,
         settingsResult,
         shoppingItemsResult,
+        priceObservationsResult,
       ] = await Promise.all([
         store.ingredients.readAll(),
         store.products.readAll(),
+        store.productBarcodes.readAll(),
         store.recipes.readAll(),
         store.recipeIngredients.readAll(),
         store.planSlots.readAll(),
         store.settings.read(),
         store.shoppingItems.readAll(),
+        store.priceObservations.readAll(),
       ]);
       if (cancelled) return;
 
       setError(undefined);
       setIngredients(ingredientsResult.rows);
       setProducts(productsResult.rows);
+      setProductBarcodes(productBarcodesResult.rows);
       setRecipes(recipesResult.rows);
       setRecipeIngredients(recipeIngredientsResult.rows);
       setPlanSlots(planSlotsResult.rows);
       setSettings(settingsResult);
       setShoppingItems(shoppingItemsResult.rows);
+      setPriceObservations(priceObservationsResult.rows);
 
       const allWarnings = [
         ...ingredientsResult.warnings,
@@ -290,10 +316,19 @@ export function useScanFlow(): ScanFlow {
     [ingredients],
   );
 
-  const productsByBarcode = useMemo(
-    () => new Map(products.map((product) => [product.barcode, product] as const)),
-    [products],
-  );
+  // WP-PRODUCTS-MODEL: a `Product` no longer carries its own barcode(s) —
+  // this join over `ProductBarcodes` reconstructs the same barcode-keyed
+  // view every caller in this route already expects, so `Scan.tsx`'s
+  // "known barcode -> product" lookup needed no reshaping.
+  const productsById = useMemo(() => new Map(products.map((product) => [product.id, product] as const)), [products]);
+  const productsByBarcode = useMemo(() => {
+    const map = new Map<Barcode, Product>();
+    for (const row of productBarcodes) {
+      const product = productsById.get(row.productId);
+      if (product) map.set(row.barcode, product);
+    }
+    return map;
+  }, [productBarcodes, productsById]);
 
   const today = clock.today();
 
@@ -324,18 +359,26 @@ export function useScanFlow(): ScanFlow {
    * against whichever definition Sheets already has.
    */
   const saveProduct = useCallback(
-    async (product: Product): Promise<SaveProductResult> => {
-      const latest = await store.products.readAll();
-      const existing = latest.rows.find((p) => p.barcode === product.barcode);
-      if (existing) {
-        setProducts((current) => [...current.filter((p) => p.barcode !== existing.barcode), existing]);
-        return { status: "conflict", existing };
+    async (input: NewProductInput, barcode: Barcode): Promise<SaveProductResult> => {
+      const [latestProducts, latestBarcodes] = await Promise.all([store.products.readAll(), store.productBarcodes.readAll()]);
+      const existingProductId = resolveProductId(barcode, latestBarcodes.rows);
+      if (existingProductId) {
+        const existing = latestProducts.rows.find((p) => p.id === existingProductId);
+        if (existing) {
+          setProducts((current) => [...current.filter((p) => p.id !== existing.id), existing]);
+          setProductBarcodes(latestBarcodes.rows);
+          return { status: "conflict", existing };
+        }
       }
+      const product: Product = { ...input, id: newProductId(rng) };
       await store.products.upsert(product);
-      setProducts((current) => [...current.filter((p) => p.barcode !== product.barcode), product]);
-      return { status: "created" };
+      const barcodeRow: ProductBarcode = { productId: product.id, barcode };
+      await store.productBarcodes.upsert(barcodeRow);
+      setProducts((current) => [...current.filter((p) => p.id !== product.id), product]);
+      setProductBarcodes((current) => [...current.filter((row) => row.barcode !== barcode), barcodeRow]);
+      return { status: "created", product };
     },
-    [store],
+    [store, rng],
   );
 
   // WP-stale-save: no stale-save protection here — a `Photo` row IS the
@@ -345,7 +388,7 @@ export function useScanFlow(): ScanFlow {
   // `photo-save.ts`'s `applyPhotoDraft` documents for the recipe/ingredient
   // photo forms.
   const savePhoto = useCallback(
-    async (ownerKind: PhotoOwnerKind, ownerId: Barcode, dataUrl: string): Promise<void> => {
+    async (ownerKind: PhotoOwnerKind, ownerId: ProductId, dataUrl: string): Promise<void> => {
       await store.photos.upsert({ ownerKind, ownerId, dataUrl, updatedAt: clock.now() });
     },
     [store, clock],
@@ -471,12 +514,25 @@ export function useScanFlow(): ScanFlow {
           rng,
         );
         await store.priceObservations.append(observation);
+        setPriceObservations((current) => [...current, observation]);
       } catch (err) {
         showToast({ variant: "error", title: "Couldn't save the price", description: messageOf(err) });
       }
     },
     [store, clock, rng, showToast],
   );
+
+  const previousSources = useMemo(() => {
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (let i = priceObservations.length - 1; i >= 0; i -= 1) {
+      const source = priceObservations[i]?.source;
+      if (source === undefined || source.trim() === "" || seen.has(source)) continue;
+      seen.add(source);
+      ordered.push(source);
+    }
+    return ordered;
+  }, [priceObservations]);
 
   const retry = useCallback(() => {
     setReloadToken((t) => t + 1);
@@ -493,6 +549,7 @@ export function useScanFlow(): ScanFlow {
     settings,
     currencySymbol,
     shoppingNeedByIngredient,
+    previousSources,
     retry,
     saveProduct,
     savePhoto,

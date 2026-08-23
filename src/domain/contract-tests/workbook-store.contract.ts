@@ -13,6 +13,7 @@ import {
   makeLotId,
   makePlanSlotId,
   makePriceObservationId,
+  makeProductId,
   makeQuantity,
   makeRecipeId,
   makeStepId,
@@ -22,6 +23,7 @@ import {
   type PlanSlot,
   type PriceObservation,
   type Product,
+  type ProductBarcode,
   type Recipe,
   type RecipeIngredient,
   type RecipeStep,
@@ -34,6 +36,7 @@ const CHILI = makeRecipeId("chili");
 const CHILI_STEP_1 = makeStepId("chili-step-1");
 const SLOT_1 = makePlanSlotId("slot-1");
 const RICE_BAG_BARCODE = makeBarcode("8001120000123");
+const RICE_BAG_ID = makeProductId("rice-bag-1");
 
 function riceIngredient(overrides: Partial<Ingredient> = {}): Ingredient {
   return {
@@ -117,7 +120,7 @@ function shoppingRice(): ShoppingItem {
 
 function riceBagProduct(overrides: Partial<Product> = {}): Product {
   return {
-    barcode: RICE_BAG_BARCODE,
+    id: RICE_BAG_ID,
     name: "Riso Gallo Arborio",
     brand: "Riso Gallo",
     ingredientId: RICE,
@@ -134,9 +137,17 @@ function riceBagProduct(overrides: Partial<Product> = {}): Product {
 function riceBagPhoto(overrides: Partial<Photo> = {}): Photo {
   return {
     ownerKind: "product",
-    ownerId: RICE_BAG_BARCODE,
+    ownerId: RICE_BAG_ID,
     dataUrl: "data:image/webp;base64,dGVzdC1waG90by1ieXRlcw==",
     updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
+    ...overrides,
+  };
+}
+
+function riceBagBarcodeRow(overrides: Partial<ProductBarcode> = {}): ProductBarcode {
+  return {
+    productId: RICE_BAG_ID,
+    barcode: RICE_BAG_BARCODE,
     ...overrides,
   };
 }
@@ -246,7 +257,7 @@ export function describeWorkbookStoreContract(makeSubject: () => WorkbookStore):
       expect(rows).toEqual([shoppingRice()]);
     });
 
-    it("products: upsert then readAll returns it, upsert with the same barcode replaces rather than duplicates", async () => {
+    it("products: upsert then readAll returns it, upsert with the same id replaces rather than duplicates", async () => {
       const store = makeSubject();
       await store.products.upsert(riceBagProduct());
       await store.products.upsert(riceBagProduct({ hasPhoto: true }));
@@ -255,18 +266,38 @@ export function describeWorkbookStoreContract(makeSubject: () => WorkbookStore):
       expect(warnings).toEqual([]);
     });
 
+    // WP-PRODUCTS-MODEL: one row per barcode a product owns.
+    it("productBarcodes: upsert then readAll returns it, upsert with the same barcode replaces rather than duplicates", async () => {
+      const store = makeSubject();
+      await store.productBarcodes.upsert(riceBagBarcodeRow());
+      const otherProduct = makeProductId("other-product");
+      await store.productBarcodes.upsert(riceBagBarcodeRow({ productId: otherProduct }));
+      const { rows, warnings } = await store.productBarcodes.readAll();
+      expect(rows).toEqual([riceBagBarcodeRow({ productId: otherProduct })]);
+      expect(warnings).toEqual([]);
+    });
+
+    it("productBarcodes: a product can own several barcodes as separate rows (invariant 6 — never a delimited list)", async () => {
+      const store = makeSubject();
+      const secondBarcode = makeBarcode("8001120000456");
+      await store.productBarcodes.upsert(riceBagBarcodeRow());
+      await store.productBarcodes.upsert(riceBagBarcodeRow({ barcode: secondBarcode }));
+      const { rows } = await store.productBarcodes.readAll();
+      expect(rows).toEqual([riceBagBarcodeRow(), riceBagBarcodeRow({ barcode: secondBarcode })]);
+    });
+
     it("photos: get(ownerKind, ownerId) is undefined before any upsert, and returns the photo after", async () => {
       const store = makeSubject();
-      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toBeUndefined();
+      expect(await store.photos.get("product", RICE_BAG_ID)).toBeUndefined();
       await store.photos.upsert(riceBagPhoto());
-      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toEqual(riceBagPhoto());
+      expect(await store.photos.get("product", RICE_BAG_ID)).toEqual(riceBagPhoto());
     });
 
     it("photos: upsert with the same (ownerKind, ownerId) replaces rather than duplicates", async () => {
       const store = makeSubject();
       await store.photos.upsert(riceBagPhoto());
       await store.photos.upsert(riceBagPhoto({ dataUrl: "data:image/webp;base64,dXBkYXRlZA==" }));
-      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toEqual(
+      expect(await store.photos.get("product", RICE_BAG_ID)).toEqual(
         riceBagPhoto({ dataUrl: "data:image/webp;base64,dXBkYXRlZA==" }),
       );
     });
@@ -297,22 +328,22 @@ export function describeWorkbookStoreContract(makeSubject: () => WorkbookStore):
     it("photos: remove deletes the row; removing a never-written key is a no-op", async () => {
       const store = makeSubject();
       await store.photos.upsert(riceBagPhoto());
-      await store.photos.remove("product", RICE_BAG_BARCODE);
-      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toBeUndefined();
-      await expect(store.photos.remove("product", RICE_BAG_BARCODE)).resolves.toBeUndefined();
+      await store.photos.remove("product", RICE_BAG_ID);
+      expect(await store.photos.get("product", RICE_BAG_ID)).toBeUndefined();
+      await expect(store.photos.remove("product", RICE_BAG_ID)).resolves.toBeUndefined();
     });
 
     it("photos: upsert refuses a data URL over the 50,000-character Sheets cell limit rather than truncating it", async () => {
       const store = makeSubject();
       const oversized: Photo = {
         ownerKind: "product",
-        ownerId: RICE_BAG_BARCODE,
+        ownerId: RICE_BAG_ID,
         dataUrl: "A".repeat(50_001),
         updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
       };
       await expect(store.photos.upsert(oversized)).rejects.toThrow(/50,000-character|Google Sheets cell limit/);
       // Nothing was written — not even a truncated row.
-      expect(await store.photos.get("product", RICE_BAG_BARCODE)).toBeUndefined();
+      expect(await store.photos.get("product", RICE_BAG_ID)).toBeUndefined();
     });
 
     it("priceObservations: append is the only write, readAll returns everything appended", async () => {

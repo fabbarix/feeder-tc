@@ -189,6 +189,80 @@ above, delivering the one field that package left out:**
   and the shopping row's buy-primary display
   (`src/routes/shopping/purchase-display.ts`).
 
+**WP-PRODUCTS-MODEL contract change (dedicated, owner-approved re-key —
+explicitly authorised as exceeding the usual additive-only exception; see
+the task brief and DESIGN_PRODUCTS.md). The first change here that
+re-keys a frozen entity's identity, not just widens it:**
+
+- **Why**: `Product.barcode` WAS the product's identity. The same physical
+  product sold under a different barcode in a different shop (the owner's
+  own example: tomatoes) became a different `Product` — duplicated
+  name/brand/photo/shelf-life, and price history split across rows with no
+  way to recombine it. A `Product` now owns a *set* of barcodes.
+- `types.ts` — **added**: `ProductId` (branded, client-minted via
+  `newProductId`, `src/domain/ids.ts`); `ProductBarcode` (`{ productId,
+  barcode }`, one row per barcode — invariant 6, never a delimited list);
+  `"ProductBarcodes"` added to `WorkbookSheetName`.
+- `types.ts` — **reshaped**: `Product.barcode: Barcode` **removed**,
+  replaced by `Product.id: ProductId`. `PhotoOwnerId`'s `Barcode` member
+  replaced by `ProductId` (a product's photo now keys on its identity, not
+  on any one barcode it happens to be sold under).
+  `PriceObservation.barcode` is **unchanged** — an observation genuinely
+  happened at a specific barcode; resolving it to a product is a lookup
+  (`src/domain/products.ts`'s `resolveProductId`) over `ProductBarcodes`,
+  never a rewrite of `PriceObservation` itself.
+- **Legacy rows still decode with ZERO row-shape change**: a pre-re-key
+  `Products` row's column 0 held a `Barcode` string (6-14 digits), which is
+  always a non-empty string and therefore already a valid `ProductId`
+  (`makeProductId`'s rules are a strict subset of `makeBarcode`'s) — so
+  `decodeProduct` reads it unchanged, just under a different name/type.
+  Same reasoning fixes `src/sheets/codecs/photos.ts`'s `decodeOwnerId` for
+  `ownerKind: "product"`. What a legacy workbook is actually MISSING is the
+  `ProductBarcode` row linking that same string back to itself as a
+  barcode — `src/domain/products.ts`'s `migrateLegacyProductBarcodes`
+  computes exactly those rows (idempotent, additive-only, never touches a
+  product that already has one), run via
+  `src/sheets/product-barcode-migration.ts`'s `runProductBarcodeMigration`
+  every time a workbook is opened (`App.tsx`, chained after
+  `ensureWorkbookSchema`).
+- `contracts.ts`: `WorkbookStore` gained `productBarcodes`
+  (`readAll`/`upsert` — insert-or-replace **by barcode**, since a barcode
+  belongs to exactly one product and reassigning it during a merge
+  overwrites its row rather than duplicating it; deliberately no `remove`).
+  `products.upsert` is now insert-or-replace by `id`, not `barcode`.
+- New pure domain module `src/domain/products.ts`: barcode↔product
+  resolution (`resolveProductId`, `buildBarcodeIndex`, `barcodesForProduct`,
+  `observationsForProduct`); the legacy migration computation
+  (`migrateLegacyProductBarcodes`); duplicate-merge **detection only**
+  (`suggestProductMerges` — same ingredient + same canonical package size
+  (±2%, tolerating unit-conversion rounding) + overlapping names
+  (token-Jaccard ≥ 0.5), biased hard toward under-suggesting because a
+  wrong confident merge prompt is worse than a missed one); and
+  `planProductMerge`, which computes the barcode reassignments a confirmed
+  merge needs to write (never applies them — no UI ships in this package).
+  Fully unit-tested in `src/domain/products.test.ts`, including the
+  idempotency/non-destructiveness properties the migration promises.
+- Sheets: new `ProductBarcodes` sheet (`product_id, barcode`) —
+  `src/sheets/codecs/product-barcodes.ts`. `Products`' header is unchanged
+  in shape; column 0 is relabelled `id` (was `barcode`).
+- Source capture (the chart the owner picked had no data —
+  `PriceObservation.source` was written in exactly one place, a test): the
+  scan flow's product editor and known-product confirm dialog, and the
+  shopping route's check-off sheet, now offer an optional free-text "Where
+  did you buy this?" field, pre-populated as datalist suggestions from
+  every distinct `source` already recorded (most-recently-used first) —
+  never a picklist, per DESIGN_PRODUCTS.md §7 deferring a structured
+  `Shops` sheet to M7.
+- Left for the follow-up UI task (explicitly out of this package's scope,
+  per the task brief): the products screen itself (list/edit/combine), and
+  re-grouping the existing price-history views by `ProductId`/shop rather
+  than by barcode — `aggregateByProduct`
+  (`src/routes/products/price-history-aggregate.ts`) still groups by
+  barcode, so a merged product's several barcodes currently render as
+  separate summaries rather than one combined line. Nothing is lost (every
+  observation is still shown, under whichever barcode it named), it just
+  isn't combined into the one-line-per-product view yet.
+
 ## The purity rule
 
 Every module in `src/domain` is pure: no I/O, no React, no browser/Node

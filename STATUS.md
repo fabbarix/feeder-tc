@@ -300,6 +300,47 @@ record of how they were resolved, not as outstanding work._
 - **M7 · Shop detection** — explicitly deferred by the owner. `PriceObservations.source`
   is specified now so adding shops later needs no rewrite of price history.
 
+## WP-PRODUCTS-MODEL — Product re-key (dispatched, ready for coordinator review) — 2026-08-23
+
+**Not yet merged to `main` — branch `wp-products-model`, pushed, awaiting the
+coordinator's review/merge (per this package's own instructions: "I merge").**
+
+Owner-approved re-key exceeding the usual additive-only exception:
+`Product.barcode` stops being the product's identity; `Product` gains its own
+`ProductId` and owns a *set* of barcodes via a new `ProductBarcodes` sheet
+(one row per barcode, invariant 6). Full rationale, schema, and migration
+design in `DESIGN_PRODUCTS.md` §8; exact contract diff in
+`src/domain/README.md`'s changelog.
+
+- **Legacy rows decode with zero row-shape change** — a pre-re-key barcode
+  string is already a valid `ProductId`. The only real migration is
+  backfilling `ProductBarcodes`, done idempotently/non-destructively on every
+  workbook open (`src/sheets/product-barcode-migration.ts`, wired into
+  `App.tsx` alongside `ensureWorkbookSchema`).
+- **Merge detection is pure suggestions only** (`src/domain/products.ts`) —
+  same ingredient + same canonical package size (±2%) + overlapping names
+  (token-Jaccard ≥ 0.5). Nothing calls it yet; no merge UI shipped.
+- **Source capture** closes the gap that would have left a shop-split price
+  chart with no data: the scan flow (product editor + known-product confirm)
+  and the shopping check-off sheet now offer an optional free-text "Where did
+  you buy this?" field with datalist suggestions from prior values.
+- **Left for the follow-up UI task** (per this package's explicit scope):
+  the products screen (list/edit/combine), and re-grouping price history by
+  `ProductId`/shop instead of by barcode — `aggregateByProduct` still groups
+  by barcode, so a merged product's barcodes render as separate rows until
+  that lands. Nothing is lost; it just isn't combined into one line yet.
+- **WorkbookSheetName is now thirteen members**, not twelve — `ProductBarcodes`
+  added. `Photos`' `owner_id` for `ownerKind: "product"` is now `ProductId`,
+  not `Barcode` (photo keys are unchanged in VALUE for a legacy product, since
+  its `ProductId` equals its old barcode string — only the type name changed).
+- Verified locally on the branch: lint/typecheck/build green; **1278 unit
+  tests** (1246 baseline + 32 new, covering the migration's idempotency/
+  non-destructiveness properties and the merge-detection rule); **306/306
+  E2E** (`E2E_PORT=6390`) — two runs showed one flaky failure each
+  (`wp-22-weekly-planning.spec.ts`'s "Mark cooked", `journey-household-week
+  .spec.ts` on `journey-phone`), both at steps unrelated to products/barcodes
+  and both pass reliably in isolation; not caused by this change.
+
 ## Integration log
 
 _(merge order per HANDOVER §6: transport/auth → engines → sync → UI shell → features)_

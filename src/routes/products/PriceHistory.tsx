@@ -166,8 +166,8 @@ export function PriceHistory() {
             <ListSection heading={`${productSummaries.length} tracked product${productSummaries.length === 1 ? "" : "s"}`}>
               {productSummaries.map((summary) => (
                 <Link
-                  key={summary.product.barcode}
-                  to={`/products/prices/product/${summary.product.barcode}`}
+                  key={summary.barcode}
+                  to={`/products/prices/product/${summary.barcode}`}
                   className={forms.itemLink}
                 >
                   <ListRow
@@ -176,7 +176,7 @@ export function PriceHistory() {
                         kind="product"
                         hasPhoto={summary.product.hasPhoto}
                         size="list"
-                        fetchPhoto={() => getPhotoDataUrl(store, "product", summary.product.barcode)}
+                        fetchPhoto={() => getPhotoDataUrl(store, "product", summary.product.id)}
                         alt={summary.product.name}
                       />
                     }
