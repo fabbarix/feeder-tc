@@ -112,6 +112,20 @@ export function PantryItem() {
           .sort(compareLotsForFifo);
   const openableLots = lots.filter((lot) => lot.openedAt === undefined);
 
+  // Re-fetched whenever `pantry.lots` changes identity, not just on mount:
+  // `lots` (usePantryInventory's optimistic read model) recomputes both the
+  // instant a mutation is submitted (its event joins `pending`) and again
+  // once the outbox flush confirms it (`refresh()` re-reads `pending`/
+  // `confirmed`) — see that hook's own doc comment. Depending only on
+  // `[store]` here used to mean "Correct"/"Use some"/etc. appended a real
+  // `adjust`/`use`/... row to the sheet (invariant 1: never edited, always a
+  // new event) that this card would never show again until a full remount
+  // (leaving Pantry and coming back) — the write was real, but this History
+  // list becomes silently stale the moment it exists. Re-running the same
+  // full read on every `lots` change costs one extra `inventoryEvents` fetch
+  // per action, but keeps this list in sync with reality, which is the
+  // entire reason "History is a read, never an edit" (this file's own
+  // module doc comment) exists as a promise to the user.
   const [events, setEvents] = useState<readonly InventoryEvent[]>([]);
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +138,7 @@ export function PantryItem() {
     return () => {
       cancelled = true;
     };
-  }, [store]);
+  }, [store, pantry.lots]);
 
   const history = events
     .filter((event) => event.ingredientId === ingredientId)
