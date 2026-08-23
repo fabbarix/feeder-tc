@@ -38,7 +38,10 @@ import { ProductEditorPanel, type ProductEditorSaveInput } from "./ProductEditor
 import styles from "./scan.module.css";
 import forms from "../forms.module.css";
 
-type Phase = { readonly kind: "scanning" } | { readonly kind: "known"; readonly product: Product } | { readonly kind: "new"; readonly barcode: Barcode };
+type Phase =
+  | { readonly kind: "scanning" }
+  | { readonly kind: "known"; readonly product: Product; readonly barcode: Barcode }
+  | { readonly kind: "new"; readonly barcode: Barcode };
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -63,7 +66,7 @@ export function Scan() {
     setManualError(undefined);
     setManualCode("");
     const product = flow.productsByBarcode.get(barcode);
-    setPhase(product ? { kind: "known", product } : { kind: "new", barcode });
+    setPhase(product ? { kind: "known", product, barcode } : { kind: "new", barcode });
   }
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -73,7 +76,7 @@ export function Scan() {
     setPhase({ kind: "scanning" });
   }
 
-  async function handleConfirmKnown(product: Product, input: KnownProductPurchaseInput): Promise<void> {
+  async function handleConfirmKnown(product: Product, barcode: Barcode, input: KnownProductPurchaseInput): Promise<void> {
     await flow.recordPurchase({
       ingredientId: product.ingredientId,
       buyQuantity: input.buyQuantity,
@@ -84,9 +87,10 @@ export function Scan() {
     if (input.price !== undefined) {
       await flow.recordPrice({
         ingredientId: product.ingredientId,
-        barcode: product.barcode,
+        barcode,
         quantity: input.buyQuantity,
         price: input.price,
+        ...(input.source !== undefined ? { source: input.source } : {}),
       });
     }
     backToScanning();
@@ -95,7 +99,7 @@ export function Scan() {
   async function handleSaveNewProduct(barcode: Barcode, input: ProductEditorSaveInput): Promise<void> {
     setSavingNew(true);
     try {
-      const saved = await flow.saveProduct(input.product);
+      const saved = await flow.saveProduct(input.product, barcode);
       if (saved.status === "conflict") {
         // WP-stale-save: someone else already added this exact barcode
         // between this device's scan and this save — see useScanFlow.ts's
@@ -107,11 +111,11 @@ export function Scan() {
           title: "Someone already added this product",
           description: "Using the product they already added instead of overwriting it.",
         });
-        setPhase({ kind: "known", product: saved.existing });
+        setPhase({ kind: "known", product: saved.existing, barcode });
         return;
       }
       if (input.photoDataUrl !== undefined) {
-        await flow.savePhoto("product", barcode, input.photoDataUrl);
+        await flow.savePhoto("product", saved.product.id, input.photoDataUrl);
       }
       await flow.recordPurchase({
         ingredientId: input.product.ingredientId,
@@ -125,6 +129,7 @@ export function Scan() {
           barcode,
           quantity: input.product.canonicalQuantity,
           price: input.price,
+          ...(input.source !== undefined ? { source: input.source } : {}),
         });
       }
       backToScanning();
@@ -224,7 +229,7 @@ export function Scan() {
               separate, reads-only route (src/routes/products/**); this is
               its one entry point from the scan flow itself. */}
           <p>
-            <Link to={`/products/prices/product/${phase.product.barcode}`} className={styles.backLink}>
+            <Link to={`/products/prices/product/${phase.barcode}`} className={styles.backLink}>
               View price history for this product
             </Link>
           </p>
@@ -234,7 +239,8 @@ export function Scan() {
             need={flow.shoppingNeedByIngredient.get(phase.product.ingredientId)}
             today={flow.today}
             currencySymbol={flow.currencySymbol}
-            onConfirm={(input) => void handleConfirmKnown(phase.product, input)}
+            previousSources={flow.previousSources}
+            onConfirm={(input) => void handleConfirmKnown(phase.product, phase.barcode, input)}
             onCancel={backToScanning}
           />
         </>
@@ -254,6 +260,7 @@ export function Scan() {
           ingredients={flow.ingredients}
           shoppingNeedByIngredient={flow.shoppingNeedByIngredient}
           currencySymbol={flow.currencySymbol}
+          previousSources={flow.previousSources}
           saving={savingNew}
           onSave={(input) =>
             void handleSaveNewProduct(phase.barcode, input).catch((err: unknown) =>

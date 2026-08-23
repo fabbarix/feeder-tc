@@ -22,6 +22,7 @@ import {
   fetchAuthenticatedUser,
   pickWorkbook,
   bootstrapWorkbook,
+  runProductBarcodeMigration,
   type GoogleAuth,
   type AuthState,
 } from "./sheets/index.ts";
@@ -390,23 +391,33 @@ function ShellContainer() {
   // when there is nothing to fix (one "list this spreadsheet's tabs" call,
   // no writes), so this costs at most one extra request per workbook open.
   useEffect(() => {
-    if (!activeWorkbook) return;
+    if (!activeWorkbook || !store) return;
     const spreadsheetId = activeWorkbook.id;
     const transport = createGoogleSheetsTransport({ spreadsheetId, auth });
     let cancelled = false;
-    void ensureWorkbookSchema({ spreadsheetId, auth, transport }).catch((err: unknown) => {
-      // Best-effort only. A failed attempt (offline, a transient API error)
-      // leaves the workbook exactly as tolerant as it already was — every
-      // reader still treats a missing tab as empty, and the next write to
-      // that sheet self-heals it via `ensureHeader`/`appendRows`'s own
-      // fallback (workbook-store.ts / transport.ts) regardless. Nothing here
-      // should ever surface a toast for a repair the user didn't ask for.
-      if (!cancelled) console.warn("Workbook schema migration failed", err);
-    });
+    void ensureWorkbookSchema({ spreadsheetId, auth, transport })
+      .then(() =>
+        // WP-PRODUCTS-MODEL: a workbook that predates the barcode-set re-key
+        // has `Products` rows but no `ProductBarcodes` rows at all — this
+        // backfills them, idempotently, every time a workbook is opened
+        // (see product-barcode-migration.ts's own header comment). Chained
+        // after the tab self-heal above so the `ProductBarcodes` tab is
+        // guaranteed to exist before this reads/writes it.
+        runProductBarcodeMigration(store),
+      )
+      .catch((err: unknown) => {
+        // Best-effort only. A failed attempt (offline, a transient API error)
+        // leaves the workbook exactly as tolerant as it already was — every
+        // reader still treats a missing tab as empty, and the next write to
+        // that sheet self-heals it via `ensureHeader`/`appendRows`'s own
+        // fallback (workbook-store.ts / transport.ts) regardless. Nothing here
+        // should ever surface a toast for a repair the user didn't ask for.
+        if (!cancelled) console.warn("Workbook schema migration failed", err);
+      });
     return () => {
       cancelled = true;
     };
-  }, [activeWorkbook, auth]);
+  }, [activeWorkbook, auth, store]);
 
   // `shellState.kind === "ready"` (derived from authState/user/activeWorkbook
   // alone, deriveShellState.ts) can be true for one render before

@@ -51,6 +51,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWorkbookContext } from "../../workbook-context.ts";
 import { useToast } from "../../ui/components/Toast/useToast.ts";
 import {
+  buildPriceObservation,
   checkOffShoppingItem,
   computeNeeds,
   computeShoppingList,
@@ -70,6 +71,7 @@ import type {
   Meta,
   Outbox,
   PlanSlot,
+  PriceObservation,
   Quantity,
   Recipe,
   RecipeIngredient,
@@ -120,6 +122,10 @@ export interface CheckOffInput {
   readonly actualQuantity?: Quantity;
   readonly location: StorageLocation;
   readonly expiryOverride?: IsoDate;
+  /** Price paid, if the shopper chose to record one — DESIGN_PRODUCTS.md §1.3/§4's "optionally record a new price", captured here too (not just the scan flow) so a shop-only check-off still feeds price history. */
+  readonly price?: number;
+  /** Free text naming where this was bought ("Trader Joe's", "corner store") — optional, never a picklist (DESIGN_PRODUCTS.md §7 defers a structured `Shops` sheet to M7). Ignored if `price` is absent. */
+  readonly source?: string;
 }
 
 export interface ShoppingListState {
@@ -151,6 +157,8 @@ export interface ShoppingListState {
    * `lines`'s merge via `withPurchaseOverride`).
    */
   readonly setPurchaseOverride: (line: ShoppingListLine, override: Quantity | undefined) => Promise<void>;
+  /** Distinct `source` values already recorded on any past price observation, most-recently-seen first — offered as suggestions so the free-text "where did you buy this" field converges on a small set without forcing a taxonomy (task brief). */
+  readonly previousSources: readonly string[];
 }
 
 const EMPTY_LOTS: readonly Lot[] = [];
@@ -168,6 +176,7 @@ export function useShoppingList(range: DateRange): ShoppingListState {
   const [planSlots, setPlanSlots] = useState<readonly PlanSlot[]>([]);
   const [settings, setSettings] = useState<Settings | undefined>(undefined);
   const [shoppingItems, setShoppingItems] = useState<readonly ShoppingItem[]>([]);
+  const [priceObservations, setPriceObservations] = useState<readonly PriceObservation[]>([]);
   const [confirmed, setConfirmed] = useState<Snapshot | undefined>(undefined);
   const [meta, setMeta] = useState<Meta | undefined>(undefined);
   const [pending, setPending] = useState<readonly InventoryEvent[]>([]);
@@ -181,18 +190,20 @@ export function useShoppingList(range: DateRange): ShoppingListState {
   const refresh = useCallback(async (): Promise<void> => {
     if (!engine) return;
     const snapshotStore = createLocalStorageSnapshotStore();
-    const [nextConfirmed, nextMeta, nextPending, planSlotsResult, shoppingItemsResult] = await Promise.all([
+    const [nextConfirmed, nextMeta, nextPending, planSlotsResult, shoppingItemsResult, priceObservationsResult] = await Promise.all([
       syncSnapshot({ workbookStore: store, snapshotStore, applyNewEvents: engine.applyNewEvents }, workbookId),
       store.meta.read(),
       engine.outbox.pending(),
       store.planSlots.readAll(),
       store.shoppingItems.readAll(),
+      store.priceObservations.readAll(),
     ]);
     setConfirmed(nextConfirmed);
     setMeta(nextMeta);
     setPending(nextPending);
     setPlanSlots(planSlotsResult.rows);
     setShoppingItems(shoppingItemsResult.rows);
+    setPriceObservations(priceObservationsResult.rows);
   }, [engine, store, workbookId]);
 
   const handleFlushResult = useCallback(
@@ -227,15 +238,23 @@ export function useShoppingList(range: DateRange): ShoppingListState {
     let releaseSharedSync: (() => void) | undefined;
 
     async function boot(): Promise<void> {
-      const [ingredientsResult, recipesResult, recipeIngredientsResult, planSlotsResult, settingsResult, shoppingItemsResult] =
-        await Promise.all([
-          store.ingredients.readAll(),
-          store.recipes.readAll(),
-          store.recipeIngredients.readAll(),
-          store.planSlots.readAll(),
-          store.settings.read(),
-          store.shoppingItems.readAll(),
-        ]);
+      const [
+        ingredientsResult,
+        recipesResult,
+        recipeIngredientsResult,
+        planSlotsResult,
+        settingsResult,
+        shoppingItemsResult,
+        priceObservationsResult,
+      ] = await Promise.all([
+        store.ingredients.readAll(),
+        store.recipes.readAll(),
+        store.recipeIngredients.readAll(),
+        store.planSlots.readAll(),
+        store.settings.read(),
+        store.shoppingItems.readAll(),
+        store.priceObservations.readAll(),
+      ]);
       if (cancelled) return;
 
       setError(undefined);
@@ -246,6 +265,7 @@ export function useShoppingList(range: DateRange): ShoppingListState {
       setPlanSlots(planSlotsResult.rows);
       setSettings(settingsResult);
       setShoppingItems(shoppingItemsResult.rows);
+      setPriceObservations(priceObservationsResult.rows);
 
       const allWarnings = [...ingredientsResult.warnings, ...recipesResult.warnings, ...recipeIngredientsResult.warnings, ...planSlotsResult.warnings];
       setWarnings(allWarnings);
@@ -436,8 +456,32 @@ export function useShoppingList(range: DateRange): ShoppingListState {
         ...(line.suggestedPurchase !== undefined ? { suggestedPurchase: line.suggestedPurchase } : {}),
         ...(line.purchaseOverride !== undefined ? { purchaseOverride: line.purchaseOverride } : {}),
       });
+
+      // WP-PRODUCTS-MODEL §"Source": a bare-ingredient price observation (no
+      // `barcode` — this is a shop check-off, not a scan) so a shop-split
+      // price chart has data to plot even for items never scanned. Best
+      // effort: a failure here must not undo the check-off that already
+      // succeeded above.
+      if (input.price !== undefined && input.price > 0) {
+        try {
+          const observation = buildPriceObservation(
+            {
+              ingredientId: line.ingredientId,
+              quantity: event.quantity,
+              price: input.price,
+              ...(input.source !== undefined && input.source.trim() !== "" ? { source: input.source.trim() } : {}),
+            },
+            clock,
+            rng,
+          );
+          await store.priceObservations.append(observation);
+          setPriceObservations((current) => [...current, observation]);
+        } catch (err) {
+          showToast({ variant: "error", title: "Couldn't save the price", description: messageOf(err) });
+        }
+      }
     },
-    [engine, clock, rng, showToast, persistShoppingItem],
+    [engine, clock, rng, showToast, persistShoppingItem, store],
   );
 
   const setPurchaseOverride = useCallback(
@@ -489,6 +533,21 @@ export function useShoppingList(range: DateRange): ShoppingListState {
     if (engine) void engine.controller.flushNow();
   }, [engine]);
 
+  const previousSources = useMemo(() => {
+    // Most-recently-seen first — a freshly-typed value should sort ahead of
+    // one not used in months (task brief: "converges on a small set without
+    // forcing a taxonomy").
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (let i = priceObservations.length - 1; i >= 0; i -= 1) {
+      const source = priceObservations[i]?.source;
+      if (source === undefined || source.trim() === "" || seen.has(source)) continue;
+      seen.add(source);
+      ordered.push(source);
+    }
+    return ordered;
+  }, [priceObservations]);
+
   return {
     loading,
     error,
@@ -507,5 +566,6 @@ export function useShoppingList(range: DateRange): ShoppingListState {
     checkOff,
     uncheck,
     setPurchaseOverride,
+    previousSources,
   };
 }

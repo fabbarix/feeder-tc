@@ -23,6 +23,7 @@ import type {
   PlanSlot,
   PriceObservation,
   Product,
+  ProductBarcode,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -176,10 +177,26 @@ export interface WorkbookStore {
     readAll(): Promise<DecodeResult<ShoppingItem>>;
     upsert(item: ShoppingItem): Promise<void>;
   };
-  /** M6-A — DESIGN_PRODUCTS.md §2. `upsert` is insert-or-replace by `barcode`, same as `ingredients`/`recipes` above. */
+  /** M6-A — DESIGN_PRODUCTS.md §2. `upsert` is insert-or-replace by `id`, same as `ingredients`/`recipes` above. WP-PRODUCTS-MODEL re-key: was keyed by `barcode` (the product's only identity at the time); see `Product.id`'s doc comment in types.ts and the `productBarcodes` namespace directly below for where the barcode(s) now live. */
   readonly products: {
     readAll(): Promise<DecodeResult<Product>>;
     upsert(product: Product): Promise<void>;
+  };
+  /**
+   * WP-PRODUCTS-MODEL re-key — DESIGN_PRODUCTS.md's `Product` gained its own
+   * identity; this is the sheet that owns the set of barcodes a product is
+   * sold under, one row per barcode (invariant 6 — never a delimited list in
+   * a `Products` cell). `upsert` is insert-or-replace BY `barcode` — a
+   * barcode belongs to exactly one product at a time, so reassigning one to
+   * a different product (a confirmed merge, `src/domain/products.ts`'s
+   * `planProductMerge`) overwrites its row instead of duplicating it.
+   * Deliberately no `remove`: nothing in this package needs to detach a
+   * barcode without reassigning it to another product; add one later only
+   * if a genuine need appears.
+   */
+  readonly productBarcodes: {
+    readAll(): Promise<DecodeResult<ProductBarcode>>;
+    upsert(row: ProductBarcode): Promise<void>;
   };
   /**
    * WP-PHOTO — DESIGN_PHOTOS.md §2/§6. One sheet for every photo-owning

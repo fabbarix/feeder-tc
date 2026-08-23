@@ -1,7 +1,18 @@
 /**
- * `Products` sheet codec (M6-A) — DESIGN_PRODUCTS.md §2:
- * `barcode, name, brand, ingredient_id, canonical_quantity, canonical_unit,
+ * `Products` sheet codec (M6-A, re-keyed by WP-PRODUCTS-MODEL) —
+ * DESIGN_PRODUCTS.md §2:
+ * `id, name, brand, ingredient_id, canonical_quantity, canonical_unit,
  * display_quantity, display_unit, shelf_life_days, is_bulk, has_photo`.
+ *
+ * Column 0 was `barcode` (a product's only identity at the time); it is now
+ * `id` (`ProductId`). This is a semantic reinterpretation, not a row-shape
+ * change: a pre-re-key row's column 0 held a `Barcode` string, which is
+ * always a non-empty string and therefore already a valid `ProductId`
+ * (`makeProductId`'s rules are a strict subset of `makeBarcode`'s) — so a
+ * legacy row decodes here with ZERO changes needed. What legacy rows are
+ * MISSING is a `ProductBarcode` row pointing back at that same string; see
+ * `src/domain/products.ts`'s `migrateLegacyProductBarcodes` and
+ * `src/sheets/codecs/product-barcodes.ts` for that half.
  *
  * `canonical_quantity`/`canonical_unit` are the only columns any engine or
  * fold may ever read for arithmetic (invariant 3). `display_quantity`/
@@ -12,12 +23,12 @@
  * codec.
  */
 import type { CellRow } from "../../domain/contracts.ts";
-import { makeBarcode, makeIngredientId, makeQuantity, type Product } from "../../domain/types.ts";
+import { makeIngredientId, makeProductId, makeQuantity, type Product } from "../../domain/types.ts";
 import { cellBoolean, cellEnum, cellNumber, cellOptionalString, cellString } from "./common.ts";
 import { ENTRY_UNITS, UNITS } from "./enums.ts";
 
 export const PRODUCTS_HEADER: CellRow = [
-  "barcode",
+  "id",
   "name",
   "brand",
   "ingredient_id",
@@ -32,7 +43,7 @@ export const PRODUCTS_HEADER: CellRow = [
 
 export function encodeProduct(product: Product): CellRow {
   return [
-    product.barcode,
+    product.id,
     product.name,
     product.brand ?? "",
     product.ingredientId,
@@ -47,7 +58,7 @@ export function encodeProduct(product: Product): CellRow {
 }
 
 export function decodeProduct(row: CellRow): Product {
-  const barcode = makeBarcode(cellString(row, 0, "barcode"));
+  const id = makeProductId(cellString(row, 0, "id"));
   const name = cellString(row, 1, "name");
   const brand = cellOptionalString(row, 2);
   const ingredientId = makeIngredientId(cellString(row, 3, "ingredient_id"));
@@ -70,7 +81,7 @@ export function decodeProduct(row: CellRow): Product {
   }
 
   return {
-    barcode,
+    id,
     name,
     ...(brand !== undefined ? { brand } : {}),
     ingredientId,

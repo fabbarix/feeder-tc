@@ -12,6 +12,7 @@ import {
   makeIngredientId,
   makeIsoTimestamp,
   makePriceObservationId,
+  makeProductId,
   makeQuantity,
   type Ingredient,
   type PriceObservation,
@@ -41,7 +42,7 @@ const milk: Ingredient = {
 };
 
 const riceGalloProduct: Product = {
-  barcode: RICE_BARCODE,
+  id: makeProductId("riso-gallo-arborio"),
   name: "Riso Gallo Arborio",
   brand: "Riso Gallo",
   ingredientId: RICE_ID,
@@ -196,7 +197,7 @@ describe("aggregateByProduct / productSummariesForIngredient", () => {
     const summaries = aggregateByProduct(observations, productsByBarcode, ingredientsById);
     expect(summaries).toHaveLength(1);
     expect(summaries[0]!.points).toHaveLength(1);
-    expect(summaries[0]!.product.barcode).toBe(RICE_BARCODE);
+    expect(summaries[0]!.barcode).toBe(RICE_BARCODE);
 
     const forIngredient = productSummariesForIngredient(summaries, RICE_ID);
     expect(forIngredient).toHaveLength(1);

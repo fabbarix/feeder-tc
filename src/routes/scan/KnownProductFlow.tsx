@@ -35,6 +35,8 @@ export interface KnownProductPurchaseInput {
   readonly purchaseDate: IsoDate;
   readonly expiryOverride?: IsoDate;
   readonly price?: number;
+  /** Free text naming where this was bought — see `RecordPriceInput.source`'s doc comment (useScanFlow.ts). */
+  readonly source?: string;
 }
 
 export interface KnownProductFlowProps {
@@ -44,6 +46,8 @@ export interface KnownProductFlowProps {
   readonly need: ShoppingListLine | undefined;
   readonly today: IsoDate;
   readonly currencySymbol: string;
+  /** Previously-used `source` (shop) values, most-recent-first — offered as datalist suggestions. */
+  readonly previousSources: readonly string[];
   readonly onConfirm: (input: KnownProductPurchaseInput) => void;
   readonly onCancel: () => void;
 }
@@ -56,7 +60,7 @@ export interface KnownProductFlowProps {
  * reopen" case to handle: every mount already starts from this product's
  * own defaults via the `useState` initializers below.
  */
-export function KnownProductFlow({ product, ingredient, need, today, currencySymbol, onConfirm, onCancel }: KnownProductFlowProps) {
+export function KnownProductFlow({ product, ingredient, need, today, currencySymbol, previousSources, onConfirm, onCancel }: KnownProductFlowProps) {
   // Packaged products default to the list's need, falling back to the
   // product's own usual package size; bulk products default to the need
   // ONLY (there is no fixed "usual size" for a variable-weight item) and
@@ -69,6 +73,7 @@ export function KnownProductFlow({ product, ingredient, need, today, currencySym
   const [expiryOverride, setExpiryOverride] = useState<IsoDate>(() => addDays(today, product.shelfLifeDays));
   const [priceOpen, setPriceOpen] = useState(false);
   const [price, setPrice] = useState<number | null>(null);
+  const [source, setSource] = useState("");
 
   const surplus = defaultBuyQuantity !== null && amount !== null ? amount - defaultBuyQuantity.amount : 0;
 
@@ -81,6 +86,7 @@ export function KnownProductFlow({ product, ingredient, need, today, currencySym
       purchaseDate: today,
       expiryOverride,
       ...(price !== null && price > 0 ? { price } : {}),
+      ...(source.trim() !== "" ? { source: source.trim() } : {}),
     });
   }
 
@@ -123,7 +129,25 @@ export function KnownProductFlow({ product, ingredient, need, today, currencySym
           />
 
           {priceOpen ? (
-            <QuantityInput label="Price paid" unit={currencySymbol} value={price} onChange={(q) => setPrice(q?.amount ?? null)} />
+            <>
+              <QuantityInput label="Price paid" unit={currencySymbol} value={price} onChange={(q) => setPrice(q?.amount ?? null)} />
+              <div className={styles.dialogForm}>
+                <label htmlFor="known-product-price-source">Where did you buy this? (optional)</label>
+                <input
+                  id="known-product-price-source"
+                  type="text"
+                  list="known-product-price-source-options"
+                  value={source}
+                  onChange={(event) => setSource(event.target.value)}
+                  placeholder="e.g. Trader Joe's"
+                />
+                <datalist id="known-product-price-source-options">
+                  {previousSources.map((value) => (
+                    <option key={value} value={value} />
+                  ))}
+                </datalist>
+              </div>
+            </>
           ) : (
             <button type="button" className={styles.buyAdjustLink} onClick={() => setPriceOpen(true)}>
               + Record the price you paid

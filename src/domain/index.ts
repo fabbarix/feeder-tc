@@ -32,3 +32,16 @@ export {
   type PurchaseSuggestion,
 } from "./purchasing.ts";
 export { buildPriceObservation, type BuildPriceObservationInput } from "./price-observation.ts";
+export {
+  barcodesForProduct,
+  buildBarcodeIndex,
+  migrateLegacyProductBarcodes,
+  observationsForProduct,
+  planProductMerge,
+  resolveProductId,
+  suggestProductMerges,
+  type ProductBarcodeMigrationResult,
+  type ProductMergeConfidence,
+  type ProductMergePlan,
+  type ProductMergeSuggestion,
+} from "./products.ts";

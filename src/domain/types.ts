@@ -109,6 +109,36 @@ export function makeBarcode(raw: string): Barcode {
   return raw as Barcode;
 }
 
+/**
+ * WP-PRODUCTS-MODEL re-key (owner-approved, exceeding the usual
+ * additive-only exception — see src/domain/README.md): a `Product`'s
+ * identity. Previously `Product.barcode` WAS the identity, which meant the
+ * same physical product sold under a different barcode in a different shop
+ * became a different `Product` — duplicated name/brand/photo/shelf-life and
+ * price history split across rows. A `Product` now owns a *set* of barcodes
+ * (see `ProductBarcode` below, one row per barcode per invariant 6), and
+ * `ProductId` is minted client-side (`newProductId`, src/domain/ids.ts)
+ * exactly like every other non-human-entered id.
+ *
+ * A pre-existing (pre-re-key) `Products` row's first cell held a `Barcode`
+ * string, which is always a non-empty string and therefore already a valid
+ * `ProductId` under `makeProductId`'s (deliberately more permissive) rules
+ * — so a legacy row decodes with ZERO migration to the `Products` sheet
+ * itself. The migration this re-key needs is entirely in `ProductBarcodes`:
+ * see `src/domain/products.ts`'s `migrateLegacyProductBarcodes`, which backs
+ * every such legacy product with a `ProductBarcode` row `{ productId:
+ * <the legacy id>, barcode: <the same string, as a Barcode> }` — idempotent,
+ * additive-only, and non-destructive by construction (it only ever adds a
+ * row for a product that doesn't already have one).
+ */
+export type ProductId = Brand<string, "ProductId">;
+
+/** Validating constructor: wraps a raw string as a ProductId. */
+export function makeProductId(raw: string): ProductId {
+  assertNonEmpty(raw, "ProductId");
+  return raw as ProductId;
+}
+
 // ---------------------------------------------------------------------------
 // Units & quantities
 //
@@ -235,6 +265,7 @@ export type WorkbookSheetName =
   | "InventoryEvents"
   | "ShoppingItems"
   | "Products"
+  | "ProductBarcodes"
   | "Photos"
   | "PriceObservations";
 
@@ -809,7 +840,7 @@ export interface ShoppingItem {
 // ---------------------------------------------------------------------------
 
 export interface Product {
-  readonly barcode: Barcode;
+  readonly id: ProductId;
   readonly name: string;
   readonly brand?: string;
   readonly ingredientId: IngredientId;
@@ -826,6 +857,23 @@ export interface Product {
   readonly hasPhoto: boolean;
 }
 
+/**
+ * WP-PRODUCTS-MODEL re-key: one row per barcode a `Product` is sold under
+ * (invariant 6 — barcodes are NOT a delimited list in a `Products` cell). A
+ * barcode belongs to exactly one product at a time; `WorkbookStore
+ * .productBarcodes.upsert` is insert-or-replace BY `barcode`, so reassigning
+ * one to a different product (a confirmed merge) overwrites its row rather
+ * than duplicating it. Resolving "which product does this scanned barcode
+ * belong to" is a lookup over this sheet (`src/domain/products.ts`'s
+ * `resolveProductId`), never a rewrite of `PriceObservation.barcode` —
+ * observations keep recording the literal barcode a price was seen at, and
+ * roll up to a product only through this join.
+ */
+export interface ProductBarcode {
+  readonly productId: ProductId;
+  readonly barcode: Barcode;
+}
+
 // ---------------------------------------------------------------------------
 // Photos — one sheet for every photo-owning entity (WP-PHOTO —
 // DESIGN_PHOTOS.md, superseding M6-A's per-entity `ProductPhotos` sheet).
@@ -839,8 +887,17 @@ export interface Product {
 /** Which kind of entity a `Photo` row belongs to (DESIGN_PHOTOS.md §2). */
 export type PhotoOwnerKind = "recipe" | "recipe-step" | "ingredient" | "product";
 
-/** A `Photo`'s owner id — whichever branded id matches its `ownerKind`. */
-export type PhotoOwnerId = RecipeId | StepId | IngredientId | Barcode;
+/**
+ * A `Photo`'s owner id — whichever branded id matches its `ownerKind`.
+ * WP-PRODUCTS-MODEL re-key: was `Barcode` for `ownerKind: "product"`; now
+ * `ProductId`, since a product's identity moved off its (now possibly
+ * plural) barcodes. A pre-re-key `Photos` row keyed on a barcode still
+ * resolves: `migrateLegacyProductBarcodes` gives every legacy product a
+ * `ProductId` equal to its old barcode string (see `ProductId`'s doc
+ * comment above), so the photo key is unchanged in value, only in the type
+ * that now names it.
+ */
+export type PhotoOwnerId = RecipeId | StepId | IngredientId | ProductId;
 
 /**
  * Hard Google Sheets per-cell character ceiling (DESIGN_PHOTOS.md §4,

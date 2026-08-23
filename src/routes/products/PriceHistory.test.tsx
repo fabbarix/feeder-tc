@@ -12,6 +12,7 @@ import {
   makeIsoDate,
   makeIsoTimestamp,
   makePriceObservationId,
+  makeProductId,
   makeQuantity,
   type Ingredient,
   type PriceObservation,
@@ -142,7 +143,7 @@ describe("PriceHistory — two levels (DESIGN_PRODUCTS.md §1.4)", () => {
     const barcode = makeBarcode("8001120000123");
     await store.ingredients.upsert(rice);
     const product: Product = {
-      barcode,
+      id: makeProductId("riso-gallo-arborio"),
       name: "Riso Gallo Arborio",
       ingredientId: RICE_ID,
       canonicalQuantity: makeQuantity(1000, "g"),
@@ -153,6 +154,7 @@ describe("PriceHistory — two levels (DESIGN_PRODUCTS.md §1.4)", () => {
       hasPhoto: false,
     };
     await store.products.upsert(product);
+    await store.productBarcodes.upsert({ productId: product.id, barcode });
     await store.priceObservations.append({
       id: makePriceObservationId("obs-1"),
       timestamp: makeIsoTimestamp("2026-08-01T09:00:00.000Z"),

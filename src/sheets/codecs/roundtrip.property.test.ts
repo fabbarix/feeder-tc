@@ -19,6 +19,7 @@ import {
   makeLotId,
   makePlanSlotId,
   makePriceObservationId,
+  makeProductId,
   makeQuantity,
   makeRecipeId,
   makeStepId,
@@ -34,6 +35,7 @@ import {
   type PlanSlotState,
   type PriceObservation,
   type Product,
+  type ProductBarcode,
   type Recipe,
   type RecipeIngredient,
   type RecipeKind,
@@ -52,6 +54,7 @@ import {
   decodePlanSlot,
   decodePriceObservation,
   decodeProduct,
+  decodeProductBarcode,
   decodeRecipe,
   decodeRecipeIngredient,
   decodeRecipeStep,
@@ -64,6 +67,7 @@ import {
   encodePlanSlot,
   encodePriceObservation,
   encodeProduct,
+  encodeProductBarcode,
   encodeRecipe,
   encodeRecipeIngredient,
   encodeRecipeStep,
@@ -553,11 +557,16 @@ const BARCODE_ARB = fc
   .integer({ min: 100_000, max: 99_999_999_999_999 })
   .map((n) => makeBarcode(String(n)));
 
+// WP-PRODUCTS-MODEL: a `ProductId` is minted client-side (any non-empty
+// string), unlike `Barcode`'s 6-14-digit external format — see idArb below,
+// same shape every other client-minted id in this file uses.
+const PRODUCT_ID_ARB = idArb.map(makeProductId);
+
 const ENTRY_UNIT_ARB = fc.constantFrom<EntryUnit>(...ENTRY_UNITS);
 
 const productArb: fc.Arbitrary<Product> = fc
   .record({
-    barcode: BARCODE_ARB,
+    id: PRODUCT_ID_ARB,
     name: fc.string({ minLength: 1, maxLength: 40 }),
     brand: fc.option(fc.string({ minLength: 1, maxLength: 40 }), { nil: undefined }),
     ingredientId: idArb.map(makeIngredientId),
@@ -570,7 +579,7 @@ const productArb: fc.Arbitrary<Product> = fc
     hasPhoto: fc.boolean(),
   })
   .map((p) => ({
-    barcode: p.barcode,
+    id: p.id,
     name: p.name,
     ...(p.brand !== undefined ? { brand: p.brand } : {}),
     ingredientId: p.ingredientId,
@@ -590,6 +599,37 @@ describe("Product codec", () => {
       }),
     );
   });
+
+  // WP-PRODUCTS-MODEL: a pre-re-key row's column 0 held a `Barcode` string
+  // (its only identity at the time) — this proves that string still decodes
+  // as a `ProductId` with zero row-shape change, the load-bearing claim
+  // behind "legacy rows still decode".
+  it("a legacy (pre-re-key) row — column 0 holding a Barcode string — still decodes", () => {
+    fc.assert(
+      fc.property(productArb, BARCODE_ARB, (product, legacyBarcode) => {
+        const legacyRow = encodeProduct({ ...product, id: makeProductId(legacyBarcode) });
+        const decoded = decodeProduct(legacyRow);
+        expect(decoded.id).toBe(legacyBarcode);
+      }),
+    );
+  });
+});
+
+// --- ProductBarcodes -------------------------------------------------------
+
+const productBarcodeArb: fc.Arbitrary<ProductBarcode> = fc.record({
+  productId: PRODUCT_ID_ARB,
+  barcode: BARCODE_ARB,
+});
+
+describe("ProductBarcode codec", () => {
+  it("encode -> decode is identity", () => {
+    fc.assert(
+      fc.property(productBarcodeArb, (row) => {
+        expect(decodeProductBarcode(encodeProductBarcode(row))).toEqual(row);
+      }),
+    );
+  });
 });
 
 // --- Photos --------------------------------------------------------------
@@ -601,7 +641,7 @@ const ownedIdArb = fc.oneof(
   idArb.map(makeRecipeId).map((ownerId) => ({ ownerKind: "recipe" as const, ownerId })),
   idArb.map(makeStepId).map((ownerId) => ({ ownerKind: "recipe-step" as const, ownerId })),
   idArb.map(makeIngredientId).map((ownerId) => ({ ownerKind: "ingredient" as const, ownerId })),
-  BARCODE_ARB.map((ownerId) => ({ ownerKind: "product" as const, ownerId })),
+  PRODUCT_ID_ARB.map((ownerId) => ({ ownerKind: "product" as const, ownerId })),
 );
 
 // Comfortably under the 50,000-char cell ceiling (DESIGN_PHOTOS.md §4) —
@@ -630,7 +670,7 @@ describe("Photo codec", () => {
   it("refuses to encode a data URL over the 50,000-character Sheets cell limit rather than truncating it", () => {
     const oversized: Photo = {
       ownerKind: "product",
-      ownerId: makeBarcode("8001120000123"),
+      ownerId: makeProductId("8001120000123"),
       dataUrl: `data:image/webp;base64,${"A".repeat(MAX_PHOTO_DATA_URL_LENGTH)}`,
       updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
     };
@@ -643,7 +683,7 @@ describe("Photo codec", () => {
   it("accepts a data URL exactly at the 50,000-character limit", () => {
     const atLimit: Photo = {
       ownerKind: "product",
-      ownerId: makeBarcode("8001120000123"),
+      ownerId: makeProductId("8001120000123"),
       dataUrl: "A".repeat(MAX_PHOTO_DATA_URL_LENGTH),
       updatedAt: makeIsoTimestamp("2026-03-01T09:00:00Z"),
     };

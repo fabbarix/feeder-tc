@@ -182,6 +182,8 @@ export function Shopping() {
                       today={today}
                       failed={shopping.failedCheckoff?.ingredientId === ingredient.id}
                       provenanceContext={provenanceContext}
+                      currencySymbol={shopping.settings?.currency ?? "$"}
+                      previousSources={shopping.previousSources}
                       onRetryFailed={shopping.retryFlush}
                       onCheckOff={(input) => void shopping.checkOff(line, input)}
                       onUncheck={() => void shopping.uncheck(line)}

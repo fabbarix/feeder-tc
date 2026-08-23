@@ -13,7 +13,7 @@
  * a genuine regression test and not one that would have passed either way.
  */
 import { describe, expect, it } from "vitest";
-import { makeBarcode } from "../domain/types.ts";
+import { makeProductId } from "../domain/types.ts";
 import { server } from "../mocks/server.ts";
 import { DEFAULT_SETTINGS, WORKBOOK_SHEET_NAMES } from "./bootstrap.ts";
 import { createSheetsApiHandlers } from "./mocks/handlers.ts";
@@ -79,11 +79,12 @@ describe("a workbook created before the current schema (a missing tab)", () => {
     ]);
   });
 
-  it("holds for every M6-A/WP-PHOTO tab a pre-schema workbook might be missing, not just Products", async () => {
-    const store = makeStaleStore(["Products", "Photos", "PriceObservations"]);
+  it("holds for every M6-A/WP-PHOTO/WP-PRODUCTS-MODEL tab a pre-schema workbook might be missing, not just Products", async () => {
+    const store = makeStaleStore(["Products", "ProductBarcodes", "Photos", "PriceObservations"]);
 
     await expect(store.products.readAll()).resolves.toEqual({ rows: [], warnings: [] });
+    await expect(store.productBarcodes.readAll()).resolves.toEqual({ rows: [], warnings: [] });
     await expect(store.priceObservations.readAll()).resolves.toEqual({ rows: [], warnings: [] });
-    await expect(store.photos.get("product", makeBarcode("8001120000123"))).resolves.toBeUndefined();
+    await expect(store.photos.get("product", makeProductId("8001120000123"))).resolves.toBeUndefined();
   });
 });

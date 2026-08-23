@@ -11,6 +11,7 @@ import {
   makeIsoDate,
   makeIsoTimestamp,
   makePlanSlotId,
+  makeProductId,
   makeQuantity,
   makeRecipeId,
   type DateRange,
@@ -22,7 +23,7 @@ import {
   type Settings,
   type WorkbookStore,
 } from "../../domain/index.ts";
-import { useScanFlow } from "./useScanFlow.ts";
+import { useScanFlow, type NewProductInput } from "./useScanFlow.ts";
 
 const TOMATO = makeIngredientId("tomato");
 const RECIPE_ID = makeRecipeId("tomato-pasta");
@@ -89,9 +90,10 @@ function wrapperFor(store: WorkbookStore): ({ children }: { readonly children: R
   };
 }
 
-function product(overrides: Partial<Product> = {}): Product {
+const MAYO_BARCODE = makeBarcode("8001120000123");
+
+function product(overrides: Partial<NewProductInput> = {}): NewProductInput {
   return {
-    barcode: makeBarcode("8001120000123"),
     name: "Big Jar Mayo",
     ingredientId: TOMATO,
     canonicalQuantity: makeQuantity(500, "g"),
@@ -171,14 +173,16 @@ describe("useScanFlow — stale-save protection", () => {
     // This device scanned the barcode as unrecognised — nothing in its own
     // `productsByBarcode` yet. Another client saves a DIFFERENT product
     // definition for that exact barcode in the meantime.
-    const theirs = product({ name: "Small Jar Mayo", canonicalQuantity: makeQuantity(250, "g") });
+    const theirsInput = product({ name: "Small Jar Mayo", canonicalQuantity: makeQuantity(250, "g") });
+    const theirs: Product = { ...theirsInput, id: makeProductId("theirs") };
     await store.products.upsert(theirs);
+    await store.productBarcodes.upsert({ productId: theirs.id, barcode: MAYO_BARCODE });
 
     const mine = product({ name: "Big Jar Mayo (mine)" });
-    const outcome = await result.current.saveProduct(mine);
+    const outcome = await result.current.saveProduct(mine, MAYO_BARCODE);
 
     expect(outcome).toEqual({ status: "conflict", existing: theirs });
-    const saved = (await store.products.readAll()).rows.find((p) => p.barcode === theirs.barcode);
+    const saved = (await store.products.readAll()).rows.find((p) => p.id === theirs.id);
     // Still theirs — not silently overwritten by this device's definition.
     expect(saved?.name).toBe("Small Jar Mayo");
   });
@@ -191,10 +195,12 @@ describe("useScanFlow — stale-save protection", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     const mine = product();
-    const outcome = await result.current.saveProduct(mine);
+    const outcome = await result.current.saveProduct(mine, MAYO_BARCODE);
 
-    expect(outcome).toEqual({ status: "created" });
-    const saved = (await store.products.readAll()).rows.find((p) => p.barcode === mine.barcode);
+    expect(outcome.status).toBe("created");
+    const saved = (await store.products.readAll()).rows.find((p) => p.name === "Big Jar Mayo");
     expect(saved?.name).toBe("Big Jar Mayo");
+    const barcodeRow = (await store.productBarcodes.readAll()).rows.find((r) => r.barcode === MAYO_BARCODE);
+    expect(barcodeRow?.productId).toBe(saved?.id);
   });
 });

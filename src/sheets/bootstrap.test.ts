@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { createFakeSheetsTransport } from "../domain/fakes/index.ts";
 import { seedCatalog } from "../data/seed-catalog.ts";
-import { makeBarcode, makeIsoTimestamp, type Photo } from "../domain/types.ts";
+import { makeIsoTimestamp, makeProductId, type Photo } from "../domain/types.ts";
 import { bootstrapWorkbook, DEFAULT_SETTINGS, INITIAL_GENERATION, WORKBOOK_SHEET_NAMES } from "./bootstrap.ts";
 import { columnLetter, PHOTOS_HEADER, SCHEMA_VERSION, WORKBOOK_HEADERS } from "./codecs/index.ts";
 import { createSheetsWorkbookStore } from "./workbook-store.ts";
@@ -99,7 +99,7 @@ describe("bootstrapWorkbook", () => {
 
     const photo: Photo = {
       ownerKind: "product",
-      ownerId: makeBarcode("8001120000123"),
+      ownerId: makeProductId("8001120000123"),
       dataUrl: "data:image/webp;base64,bGVnYWN5LXdvcmtib29r",
       updatedAt: makeIsoTimestamp("2026-08-21T09:00:00Z"),
     };

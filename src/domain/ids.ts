@@ -22,6 +22,7 @@ import {
   makeLotId,
   makePlanSlotId,
   makePriceObservationId,
+  makeProductId,
   makeRecipeId,
   makeStepId,
   type EventId,
@@ -29,6 +30,7 @@ import {
   type LotId,
   type PlanSlotId,
   type PriceObservationId,
+  type ProductId,
   type RecipeId,
   type StepId,
 } from "./types.ts";
@@ -72,4 +74,9 @@ export function newStepId(rng: Rng): StepId {
 /** M6 — `PriceObservations` is append-only (DESIGN_PRODUCTS.md §2); every row mints its own id client-side, same as `EventId`. */
 export function newPriceObservationId(rng: Rng): PriceObservationId {
   return makePriceObservationId(randomIdString(rng));
+}
+
+/** WP-PRODUCTS-MODEL re-key — a `Product`'s own identity, independent of any one barcode it is sold under. */
+export function newProductId(rng: Rng): ProductId {
+  return makeProductId(randomIdString(rng));
 }
