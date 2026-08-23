@@ -4,8 +4,13 @@
  *
  *  - the per-row subtitle ("Mon dinner · Thu lunch" / "Monday dinner ·
  *    Thursday lunch") — every screen size, from `CheckRow`'s `secondary`.
- *  - the desktop rail's "Why 5 tomatoes?" sentence — UI_DESIGN.md §13
- *    "Desktop": "width buys information, not padding".
+ *  - each row's own "Why?" disclosure (`ShoppingRow.tsx`) — UI_DESIGN.md §13
+ *    "Desktop": "width buys information, not padding". `buildWhyExplanation`
+ *    used to feed a desktop-only RAIL that answered for exactly one
+ *    arbitrary line instead of whichever row a person was actually looking
+ *    at (fix-ua-integrity) — it now feeds the per-row disclosure directly,
+ *    so the line naming an ingredient and the text explaining it are never
+ *    two different lines.
  *
  * `ShoppingNeedSource` (shopping-types.ts, WP-14, not touched here) carries
  * which meal contributed to a shortfall but not how much of it that meal
@@ -71,9 +76,28 @@ export function sourceAmount(
   return line.quantity.amount * (target / recipe.baseServings);
 }
 
-/** "Mon dinner" / "Monday dinner" — one source, no amount (that's the rail's job, not every row's subtitle). */
+/** "Mon dinner" / "Monday dinner" — one source, no amount (that's `buildWhyExplanation`'s job, not every row's subtitle). */
 function sourceLabel(source: ShoppingNeedSource, style: "short" | "long"): string {
   return `${weekdayLabel(source.date, style)} ${source.slotType}`;
+}
+
+/**
+ * `sourceLabel` plus the recipe name in parens when it can be resolved —
+ * "Monday dinner (Chili)" rather than bare "Monday dinner". Design review
+ * (independent of, but the same root flaw as, the rail-vs-per-row mismatch
+ * this module's header comment describes): two different recipes both
+ * needing the same ingredient on the same day/slot produce two IDENTICAL,
+ * unlabelled `sourceLabel` fragments in `buildWhyExplanation` — "Monday
+ * dinner needs 500, Monday dinner needs 100" — with no way to tell which
+ * clause is which meal. Naming the recipe is what actually distinguishes
+ * them; `undefined` falls back to the bare label rather than throwing, same
+ * "don't crash a display formatter over a data-integrity edge case" stance
+ * as `sourceAmount` above.
+ */
+function sourceLabelWithRecipe(source: ShoppingNeedSource, style: "short" | "long", ctx: ProvenanceContext): string {
+  const label = sourceLabel(source, style);
+  const recipe = ctx.recipes.find((r) => r.id === source.recipeId);
+  return recipe ? `${label} (${recipe.name})` : label;
 }
 
 /** "Mon dinner · Thu lunch" (CheckRow's `secondary`, both breakpoints — the style differs, not the presence). */
@@ -85,12 +109,21 @@ export function buildProvenanceText(
 }
 
 /**
- * The desktop rail's explanation sentence (UI_DESIGN.md §13 / the mock's
- * "Why 5 tomatoes?" card): "Monday dinner needs 2, Thursday lunch needs 3,
- * and no viable lot expires on or after those dates." — one clause per
- * source, in the engine's own (date-then-slot) order, ending in the fixed
- * closing clause the mock uses verbatim (DESIGN.md's viable-stock rule:
- * "a lot counts only if its expiry is on/after the planned cook date").
+ * Each row's own "Why is this on my list?" sentence (UI_DESIGN.md §13 / the
+ * mock's "Why 5 tomatoes?" card — fix-ua-integrity moved this from a
+ * single desktop-only rail entry into `ShoppingRow.tsx`'s own per-row
+ * disclosure, so it always names the line it's actually attached to):
+ * "Monday dinner (Tomato pasta) needs 2, Thursday lunch (Tomato salad)
+ * needs 3, and no viable lot expires on or after those dates." — one clause
+ * per source, in the engine's own (date-then-slot) order, ending in the
+ * fixed closing clause the mock uses verbatim (DESIGN.md's viable-stock
+ * rule: "a lot counts only if its expiry is on/after the planned cook
+ * date"). Each clause names its recipe (`sourceLabelWithRecipe`) — a design
+ * review caught that two DIFFERENT recipes both needing the same ingredient
+ * on the same day/slot used to render as two identical, unlabelled clauses
+ * ("Monday dinner needs 500, Monday dinner needs 100"), the same underlying
+ * flaw as the rail explaining the wrong item: the text didn't identify what
+ * it was talking about.
  */
 export function buildWhyExplanation(
   line: ShoppingListLine,
@@ -98,7 +131,7 @@ export function buildWhyExplanation(
 ): string {
   const clauses = line.sources.map((source) => {
     const amount = sourceAmount(source, line.ingredientId, ctx);
-    const label = sourceLabel(source, "long");
+    const label = sourceLabelWithRecipe(source, "long", ctx);
     return amount === undefined ? label : `${label} needs ${formatAmount(amount)}`;
   });
   return `${clauses.join(", ")}, and no viable lot expires on or after those dates.`;

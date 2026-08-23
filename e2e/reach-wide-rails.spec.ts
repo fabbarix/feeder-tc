@@ -88,7 +88,7 @@ test.describe('Shopping\'s "Custom range…" chip — a deliberate tablet/deskto
   }
 });
 
-test.describe("Shopping's \"why is this on my list\" rail — ships from 768px up (tablet AND desktop), not desktop-only", () => {
+test.describe("Shopping's \"items still to buy\" stat rail — ships from 768px up (tablet AND desktop), not desktop-only", () => {
   // Worth pinning explicitly: this rail is commonly described (including in
   // this suite's own dispatch brief) as a "desktop-only" enhancement, but
   // shopping.module.css's `.rail` uses the SAME 768px query as everything
@@ -97,6 +97,13 @@ test.describe("Shopping's \"why is this on my list\" rail — ships from 768px u
   // tier including phone, so nothing is actually unreachable here; this is
   // purely about getting the tier boundary right rather than repeating a
   // slightly-wrong shorthand.
+  //
+  // fix-ua-integrity: this rail used to ALSO carry a "why is this on my
+  // list" panel naming one arbitrary line (`uncheckedLines[0]`) — a real
+  // defect (see Shopping.tsx's own doc comment), now removed. The rail is
+  // just the count; every row's own disclosure is the one and only "why"
+  // affordance, which is why this describe block's title dropped that
+  // framing rather than testing a panel that no longer exists.
   test("phone (390px): no rail, but the per-row Why? disclosure is still there", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     // Seed BEFORE the first navigation to Shopping — useShoppingList reads

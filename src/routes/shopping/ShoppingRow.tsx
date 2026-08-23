@@ -12,7 +12,13 @@ import {
   type ShoppingListLine,
   type StorageLocation,
 } from "../../domain/index.ts";
-import { buildIndivisibleSecondary, buildProvenanceText, buildRoundingExplanation, type ProvenanceContext } from "./provenance.ts";
+import {
+  buildIndivisibleSecondary,
+  buildProvenanceText,
+  buildRoundingExplanation,
+  buildWhyExplanation,
+  type ProvenanceContext,
+} from "./provenance.ts";
 import {
   buyQuantity,
   defaultLooseStep,
@@ -85,7 +91,19 @@ export function ShoppingRow({
   const checked = checkedItem?.checked ?? false;
   const adjusted = isAdjusted(line);
   const rounded = isRoundedOrAdjusted(line);
-  const why = buildRoundingExplanation(line, ingredient, provenanceContext);
+  // fix-ua-integrity: this row's own "Why?" used to carry ONLY the rounding
+  // arithmetic (`whyRounding` below) — the day/source story
+  // (`buildWhyExplanation`) lived exclusively in Shopping.tsx's rail, which
+  // answered for exactly one arbitrary line (`uncheckedLines[0]`) regardless
+  // of which row's disclosure a person actually opened. A line only ever
+  // exists here because of a real shortfall (shopping-allocate.ts never
+  // emits one otherwise), so `line.sources` is never empty and `whyDays` is
+  // always a real sentence — this disclosure can now answer "why is THIS
+  // item on my list?" completely and honestly for every row, not just the
+  // pack-rounded ones, and not just whichever row the rail happened to
+  // feature.
+  const whyDays = buildWhyExplanation(line, provenanceContext);
+  const whyRounding = buildRoundingExplanation(line, ingredient, provenanceContext);
   const suggestion = useMemo(() => suggestPurchase(line.neededQuantity, ingredient), [line.neededQuantity, ingredient]);
   const step = suggestion.mode === "whole" ? (suggestion.packSize?.amount ?? 1) : defaultLooseStep(ingredient);
 
@@ -171,10 +189,11 @@ export function ShoppingRow({
         failed={failed}
         {...(failed ? { onRetry: onRetryFailed } : {})}
       />
-      {!checked && why ? (
+      {!checked && whyDays ? (
         <details className={styles.why}>
           <summary className={styles.whySummary}>Why?</summary>
-          <p className={styles.whyText}>{why}</p>
+          <p className={styles.whyText}>{whyDays}</p>
+          {whyRounding ? <p className={styles.whyText}>{whyRounding}</p> : null}
         </details>
       ) : null}
 

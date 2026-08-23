@@ -83,7 +83,6 @@
 
 .railStatBlock {
   padding: var(--space-4);
-  border-bottom: 1px solid var(--line-soft);
 }
 
 .railStatNumber {
@@ -99,24 +98,6 @@
   font-weight: 500;
   color: var(--text-muted);
   margin-top: 5px;
-}
-
-.whyBlock {
-  padding: var(--space-4);
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.whyTitle {
-  color: var(--text-h);
-  display: block;
-  margin-bottom: 2px;
-}
-
-/* WP-PURCHASING (DESIGN_PURCHASING.md §6) — the extra rounding sentence, right under the existing per-meal provenance. */
-.whyRounding {
-  margin: 8px 0 0;
 }
 
 /* Barcode-scan FAB (mobile only — matches the mock's phone screen; the

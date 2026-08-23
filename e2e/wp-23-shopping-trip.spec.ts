@@ -136,6 +136,131 @@ test("Shopping trip: the full loop", async ({ page }) => {
   await expect(page.getByRole("checkbox", { name: /rice/i })).toHaveCount(0);
 });
 
+/**
+ * Seeds two DIFFERENT pack-rounded ingredients on two different days,
+ * through the real `WorkbookStore` contract — see `seedRicePlanForThisWeek`
+ * above for why this runs inside the page via `page.evaluate`.
+ */
+async function seedTwoRoundedNeedsOnDifferentDays(page: Page): Promise<void> {
+  await page.evaluate(
+    async ({ token, spreadsheetId }) => {
+      const sheetsPath = "/src/sheets/index.ts";
+      const domainPath = "/src/domain/index.ts";
+      const rangePath = "/src/routes/shopping/range.ts";
+      const sheets = await import(sheetsPath);
+      const domain = await import(domainPath);
+      const rangeHelpers = await import(rangePath);
+
+      const auth = { getAccessToken: () => Promise.resolve(token), invalidate: () => undefined };
+      const transport = sheets.createGoogleSheetsTransport({ spreadsheetId, auth });
+      const store = sheets.createSheetsWorkbookStore(transport);
+      const rng = domain.createSeededRng(5);
+      const monday = rangeHelpers.mondayOnOrBefore(domain.systemClock.today());
+
+      // Monday: "Tinned tomatoes" — alphabetically FIRST, so under the old
+      // code this was `uncheckedLines[0]`, the one line the rail's single
+      // "Why?" panel ever named, regardless of which row a person was
+      // actually looking at.
+      const mondayRecipeId = domain.newRecipeId(rng);
+      await store.recipes.upsert({
+        id: mondayRecipeId,
+        name: "Monday tomato bake",
+        kind: "cooked",
+        baseServings: 2,
+        prepMinutes: 5,
+        cookMinutes: 20,
+        mealTags: ["dinner"],
+        status: "in-rotation",
+      });
+      await store.recipeIngredients.replaceForRecipe(mondayRecipeId, [
+        { recipeId: mondayRecipeId, ingredientId: domain.makeIngredientId("tinned-tomatoes"), quantity: { amount: 600, unit: "g" } },
+      ]);
+      await store.planSlots.upsert({
+        id: domain.newPlanSlotId(rng),
+        date: monday,
+        slotType: "dinner",
+        // bootstrap's default Settings.slotLayout is [breakfast, lunch, dinner]
+        slotIndex: 2,
+        filling: { kind: "recipe", recipeId: mondayRecipeId },
+        state: "planned",
+        pinned: false,
+      });
+
+      // Tuesday: "Tomato passata" — alphabetically SECOND. Under the old
+      // code this line's own row never said which day it was for at all
+      // (`buildRoundingExplanation` carries no day), so a person opening
+      // THIS row's own "Why?" while the rail sat beside it explaining
+      // Monday's tomatoes had no way to learn this was actually Tuesday's.
+      const tuesdayRecipeId = domain.newRecipeId(rng);
+      await store.recipes.upsert({
+        id: tuesdayRecipeId,
+        name: "Tuesday passata soup",
+        kind: "cooked",
+        baseServings: 2,
+        prepMinutes: 5,
+        cookMinutes: 20,
+        mealTags: ["dinner"],
+        status: "in-rotation",
+      });
+      await store.recipeIngredients.replaceForRecipe(tuesdayRecipeId, [
+        { recipeId: tuesdayRecipeId, ingredientId: domain.makeIngredientId("tomato-passata"), quantity: { amount: 1400, unit: "g" } },
+      ]);
+      await store.planSlots.upsert({
+        id: domain.newPlanSlotId(rng),
+        date: domain.addDays(monday, 1),
+        slotType: "dinner",
+        slotIndex: 2,
+        filling: { kind: "recipe", recipeId: tuesdayRecipeId },
+        state: "planned",
+        pinned: false,
+      });
+    },
+    { token: E2E_FAKE_ACCESS_TOKEN, spreadsheetId: E2E_CREATED_SPREADSHEET_ID },
+  );
+}
+
+// Regression (fix-ua-integrity): a usability review reported the shopping
+// list's "why is this on my list?" explanation citing the wrong day for one
+// ingredient while a second, same-day ingredient's own explanation was
+// correct. The day/source computation itself turned out to be right
+// (`computeNeeds`/`allocateShoppingList` derive it straight from the
+// current `PlanSlot` rows, re-read fresh on every mount) — the real defect
+// was UI plumbing: `Shopping.tsx`'s desktop rail answered "why?" for
+// exactly ONE line, `uncheckedLines[0]` (alphabetically first, changing
+// identity as the list changed), regardless of which row's own "Why?" a
+// person had actually opened. Two affordances, one arbitrary about its
+// subject.
+//
+// This asserts the property that actually matters: asking "why is THIS
+// ingredient on my list?" for a SPECIFIC row gets an explanation naming
+// THAT row's own day — not a different row's, and not silence. Both
+// ingredients here are pack-rounded (so both grew a "Why?" disclosure even
+// under the old code) specifically so this discriminates the identity bug,
+// not merely "does a disclosure exist at all".
+test("Each row's own \"Why?\" names that row's own day, not another row's", async ({ page }) => {
+  await enterReadyShell(page);
+  await seedTwoRoundedNeedsOnDifferentDays(page);
+  await page.getByRole("link", { name: "Shopping", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Shopping", level: 1 })).toBeVisible();
+
+  const tomatoesRow = page.getByRole("checkbox", { name: /tinned tomatoes/i }).locator("xpath=ancestor::label[1]");
+  const passataRow = page.getByRole("checkbox", { name: /tomato passata/i }).locator("xpath=ancestor::label[1]");
+  await expect(tomatoesRow).toBeVisible();
+  await expect(passataRow).toBeVisible();
+
+  await tomatoesRow.locator("xpath=following-sibling::details[1]/summary").click();
+  const tomatoesWhy = tomatoesRow.locator("xpath=following-sibling::details[1]");
+  // Also names the recipe (design review: two clauses naming only day+slot
+  // are indistinguishable when two different recipes share a day/slot).
+  await expect(tomatoesWhy).toContainText(/monday dinner \(monday tomato bake\) needs 600/i);
+  await expect(tomatoesWhy).not.toContainText(/tuesday/i);
+
+  await passataRow.locator("xpath=following-sibling::details[1]/summary").click();
+  const passataWhy = passataRow.locator("xpath=following-sibling::details[1]");
+  await expect(passataWhy).toContainText(/tuesday dinner \(tuesday passata soup\) needs 1400/i);
+  await expect(passataWhy).not.toContainText(/monday/i);
+});
+
 // e2e/wp-15-a11y.spec.ts's ROUTES sweep only ever sees "/shopping" on a
 // fresh, empty workbook (EmptyState) — a materially different DOM from a
 // populated list (CheckRow, the check-off sheet). This screen "matters most
