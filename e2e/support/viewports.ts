@@ -36,12 +36,18 @@ export const TIERS: readonly Tier[] = [
  * the number.
  *
  * NOT the only breakpoint any more (updated, tablet UI/UX review): Plan's
- * `.week`/`.weekBands` and Ingredients' tablet-only card grid
- * (plan.module.css, AppShell.module.css's `.mainTabletWide`,
- * ListRow/ListSection's `variant="card"`/`layout="grid"`) also switch at
- * 1440px, splitting 768px+ into a genuine tablet band (768-1439px) and a
- * desktop band (>=1440px) — `design/mock-responsive.html`'s tier-strip
- * narrative is no longer purely aspirational for those two screens.
+ * `.week`/`.weekBands` (plan.module.css) also switches at 1440px, splitting
+ * 768px+ into a genuine tablet band (768-1439px) and a desktop band
+ * (>=1440px) for that one screen — `design/mock-responsive.html`'s
+ * tier-strip narrative is no longer purely aspirational there.
+ *
+ * Ingredients' card grid (ListRow/ListSection's `variant="card"`/
+ * `layout="grid"`) used to switch at 1440px too, the same as Plan — but
+ * that was itself the bug fixed 2026-08-23 (a tablet-only mechanism nobody
+ * extended upward, both in the grid's own media query and in its
+ * container's width, AppShell.tsx's now-removed `TABLET_WIDE_ROUTES`/
+ * `.mainTabletWide`). It now runs at every width from 768px up with no
+ * 1440px split at all.
  */
 export const WIDE_BREAKPOINT_PX = 768;
 

@@ -62,18 +62,27 @@ test.describe("full-width layout mode for grid/browse routes (design/mock-refere
     expect(box!.width).toBeGreaterThan(1200);
   });
 
-  // The ingredients catalog is a plain single-column list (ListRow), not a
-  // grid — going wide would only stretch each row across empty trailing
-  // space, which is padding, not information. It deliberately keeps the
-  // narrow measure even though it is a sibling "browse" tab of /recipes.
-  test("the ingredients catalog keeps the narrow reading measure (it is a list, not a grid)", async ({
+  // The ingredients catalog's container used to deliberately keep the
+  // narrow reading measure at this width instead of opting into `.mainWide`
+  // like /recipes or /pantry, on the premise that its list was a single
+  // column outside a 768-1439px tablet band, so extra width was blank
+  // margin, not information. That premise broke once `ListSection`'s
+  // reflowing card grid was fixed (2026-08-23) to stay live at every width
+  // from 768px up instead of falling back to one column above 1439.98px:
+  // with the grid live here too, the OLD narrow-measure cap reproduced the
+  // identical "column count drops at 1440px" bug one layer up (see
+  // AppShell.tsx's `WIDE_ROUTES` doc comment and
+  // e2e/fix-desktop-grid-monotonic.spec.ts), so `/recipes/ingredients`
+  // joined `WIDE_ROUTES` outright. It now gets the same wide container as
+  // every other multi-column browse route.
+  test("the ingredients catalog gets the wide layout too, so its card grid isn't re-narrowed at this width", async ({
     page,
   }) => {
     await enterReadyShell(page, "recipes/ingredients");
     const measure = page.locator("main > div").first();
     const box = await measure.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.width).toBeLessThanOrEqual(841);
+    expect(box!.width).toBeGreaterThan(1200);
   });
 
   // A prose/detail/form route keeps the 840px measure even at this width —

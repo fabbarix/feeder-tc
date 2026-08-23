@@ -258,14 +258,20 @@
 /*
  * Full-width layout mode (UI_DESIGN.md §13 "Desktop": "width buys
  * information, not padding") — for browse/grid routes only (AppShell.tsx's
- * `WIDE_ROUTES`), picked per-route instead of `.mainMeasure` above. NOT
- * unbounded: `.rgrid`'s `auto-fill`/`minmax(168px,1fr)` (recipes.module.css)
- * keeps reflowing into more columns as width grows, so a genuinely
- * unbounded container would spread into an excessive number of very narrow
- * columns on an ultrawide monitor — 1680px is comfortably past the
- * 1677px viewport the owner reported stranded at two columns (now well
- * past four), while still bounding the layout the way the measure bounds
- * prose.
+ * `WIDE_ROUTES`, which now includes `/recipes/ingredients` — see its doc
+ * comment there for why it joined 2026-08-23), picked per-route instead of
+ * `.mainMeasure` above. NOT unbounded: `.rgrid`'s `auto-fill`/
+ * `minmax(168px,1fr)` (recipes.module.css) / `ListSection`'s matching
+ * `minmax(230px,1fr)` (`ListSection.module.css`) keep reflowing into more
+ * columns as width grows, so a genuinely unbounded container would spread
+ * into an excessive number of very narrow columns on an ultrawide monitor
+ * — 1680px is comfortably past the 1677px viewport the owner reported
+ * stranded at two columns (now well past four), while still bounding the
+ * layout the way the measure bounds prose. One policy, one breakpoint, for
+ * every multi-column browse route — a second, narrower cap used to apply
+ * only to Ingredients and only above 1440px (`.mainTabletWide`, removed),
+ * which is exactly what produced a visible column-count drop right at that
+ * boundary once the grid itself was allowed to run at desktop width too.
  */
 .mainWide {
   width: 100%;
@@ -274,34 +280,6 @@
 @media (min-width: 768px) {
   .mainWide {
     max-width: 1680px;
-    margin: 0 auto;
-  }
-}
-
-/*
- * Wide only within the tablet band (AppShell.tsx's `TABLET_WIDE_ROUTES` —
- * currently just `/recipes/ingredients`, the tablet UI/UX review's finding
- * 3). At phone width this is full-bleed like `.mainMeasure`/`.mainWide`
- * both already are below 768px; from 1440px up it reverts to the EXACT
- * same 840px cap as `.mainMeasure` — desktop's existing single-column
- * ingredients list is deliberately unchanged (see `WIDE_ROUTES`'s doc
- * comment in AppShell.tsx). In between, no cap at all: the tablet tier
- * never reaches `.mainWide`'s 1680px anyway (its own upper edge is
- * 1439px), so there's nothing to bound there.
- */
-.mainTabletWide {
-  width: 100%;
-}
-
-@media (min-width: 768px) and (max-width: 1439.98px) {
-  .mainTabletWide {
-    margin: 0 auto;
-  }
-}
-
-@media (min-width: 1440px) {
-  .mainTabletWide {
-    max-width: 840px;
     margin: 0 auto;
   }
 }
