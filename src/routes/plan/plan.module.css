@@ -620,6 +620,15 @@
   color: var(--accent);
 }
 
+/* A projected leftover whose source meal is no longer on track to happen
+   (WP-leftover-planning) — same shape as `.badge`, warn colour instead of
+   accent, matching `.leftoverToneWarn`'s own token usage above. */
+.badgeWarn {
+  background: transparent;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+}
+
 /* ---- Mark-cooked confirm/tweak dialog content (ConfirmDialog's own chrome
    comes from src/ui/components/ConfirmDialog.module.css). ---- */
 .cookForm {

@@ -50,6 +50,7 @@ import type {
   InventoryEvent,
   IsoDate,
   Lot,
+  LotId,
   MealTag,
   Meta,
   Outbox,
@@ -73,7 +74,7 @@ import {
 import type { OutboxSyncController } from "../../sync/index.ts";
 import { LEFTOVER_FREEZER_SHELF_LIFE_DAYS, LEFTOVER_FRIDGE_SHELF_LIFE_DAYS } from "../../data/index.ts";
 import { pickableRecipesForTag } from "./plan-options.ts";
-import { resolveLeftoverIngredient } from "./leftover-ingredient.ts";
+import { leftoverIngredientId, resolveLeftoverIngredient } from "./leftover-ingredient.ts";
 import { formatWeekHeading, formatWeekRange, mondayOnOrBefore, weekDates } from "./plan-week.ts";
 import { addMonths, formatMonthLabel, monthGridDates, monthStartOf, quarterMonthStarts } from "./plan-month.ts";
 import {
@@ -351,7 +352,43 @@ export function usePlanWeek(): UsePlanWeekResult {
   const recipesById = useMemo(() => new Map(recipes.map((r) => [r.id, r] as const)), [recipes]);
   const ingredientsById = useMemo(() => new Map(ingredients.map((i) => [i.id, i] as const)), [ingredients]);
   const lotsById = useMemo(() => new Map(lots.map((l) => [l.id, l] as const)), [lots]);
+  // WP-leftover-planning: every currently-known PlanSlot, by id, spanning
+  // every week ever loaded — not just this week's — since a
+  // `"leftover-projected"` filling's source can be in an earlier week
+  // (cross-week chaining) or, once regenerated away, simply gone from a
+  // week never revisited. `buildSlotView`/`isProjectedLeftoverBroken`
+  // (plan-derive.ts) use this to decide whether a dependent slot's
+  // projection is still trustworthy.
+  const allSlotsById = useMemo(() => new Map(allSlots.map((s) => [s.id, s] as const)), [allSlots]);
   const ingredientIndex = useMemo(() => buildIngredientIndex(recipeIngredients), [recipeIngredients]);
+
+  /**
+   * WP-leftover-planning: real pantry leftover lots, grouped by the recipe
+   * that produced them — `generateWeek`'s `leftoverLotsByRecipeId` input.
+   * The domain layer has no `Ingredient` -> `Recipe` link of its own (the
+   * `leftover-<recipe-slug>` convention is a UI-layer concern,
+   * `leftover-ingredient.ts`), so this route does the lookup: for every
+   * recipe, compute its deterministic leftover-ingredient id and collect
+   * whichever current lots (`quantity.amount > 0` — a fully-consumed lot
+   * still exists in `lots` as an entry with nothing left) sit under it.
+   */
+  const leftoverLotsByRecipeId = useMemo(() => {
+    const map = new Map<RecipeId, Lot[]>();
+    if (recipes.length === 0 || lots.length === 0) return map;
+    const recipeIdByLeftoverIngredientId = new Map<IngredientId, RecipeId>();
+    for (const recipe of recipes) {
+      recipeIdByLeftoverIngredientId.set(leftoverIngredientId(recipe), recipe.id);
+    }
+    for (const lot of lots) {
+      if (lot.quantity.amount <= 0) continue;
+      const recipeId = recipeIdByLeftoverIngredientId.get(lot.ingredientId);
+      if (!recipeId) continue;
+      const existing = map.get(recipeId);
+      if (existing) existing.push(lot);
+      else map.set(recipeId, [lot]);
+    }
+    return map;
+  }, [recipes, lots]);
 
   const today = clock.today();
   const dates = useMemo(() => weekDates(weekStart), [weekStart]);
@@ -372,9 +409,9 @@ export function usePlanWeek(): UsePlanWeekResult {
   const leftoversAtRisk = useMemo(() => deriveLeftoversAtRisk(ingredientsById, lots, weekStart), [ingredientsById, lots, weekStart]);
 
   const days = useMemo(() => {
-    const views = weekSlots.map((slot) => buildSlotView(slot, recipesById, ingredientsById, lotsById, today));
+    const views = weekSlots.map((slot) => buildSlotView(slot, recipesById, ingredientsById, lotsById, today, allSlotsById));
     return groupSlotsByDay(dates, views);
-  }, [weekSlots, recipesById, ingredientsById, lotsById, today, dates]);
+  }, [weekSlots, recipesById, ingredientsById, lotsById, today, dates, allSlotsById]);
 
   const summary = useMemo(
     () =>
@@ -397,8 +434,11 @@ export function usePlanWeek(): UsePlanWeekResult {
   // "one component, not two" extends to the data side too.
   const monthGrid = useMemo(() => monthGridDates(monthStart), [monthStart]);
   const monthDays = useMemo(
-    () => (settings ? buildCalendarDays(monthGrid, settings, allSlots, recipesById, ingredientsById, lotsById, today) : []),
-    [settings, monthGrid, allSlots, recipesById, ingredientsById, lotsById, today],
+    () =>
+      settings
+        ? buildCalendarDays(monthGrid, settings, allSlots, recipesById, ingredientsById, lotsById, today, allSlotsById)
+        : [],
+    [settings, monthGrid, allSlots, recipesById, ingredientsById, lotsById, today, allSlotsById],
   );
   const quarterMonthStartDates = useMemo(() => quarterMonthStarts(monthStart), [monthStart]);
   const quarterMonths = useMemo(
@@ -407,10 +447,12 @@ export function usePlanWeek(): UsePlanWeekResult {
         const gridDates = monthGridDates(qMonthStart);
         return {
           monthStart: qMonthStart,
-          days: settings ? buildCalendarDays(gridDates, settings, allSlots, recipesById, ingredientsById, lotsById, today) : [],
+          days: settings
+            ? buildCalendarDays(gridDates, settings, allSlots, recipesById, ingredientsById, lotsById, today, allSlotsById)
+            : [],
         };
       }),
-    [quarterMonthStartDates, settings, allSlots, recipesById, ingredientsById, lotsById, today],
+    [quarterMonthStartDates, settings, allSlots, recipesById, ingredientsById, lotsById, today, allSlotsById],
   );
 
   // Searches this week's merged view (real rows + placeholders), not just
@@ -525,6 +567,8 @@ export function usePlanWeek(): UsePlanWeekResult {
           expiringIngredientIds,
           staplePlanState,
           existingSlots: weekSlots,
+          leftoverLotsByRecipeId,
+          leftoverShelfLifeDays: LEFTOVER_FRIDGE_SHELF_LIFE_DAYS,
           rng,
         });
         await Promise.all(result.slots.map((slot) => store.planSlots.upsert(slot)));
@@ -580,6 +624,7 @@ export function usePlanWeek(): UsePlanWeekResult {
       weekSlots,
       weekSlotRows,
       dateSet,
+      leftoverLotsByRecipeId,
       rng,
       store,
       workbookId,
@@ -793,6 +838,7 @@ export function usePlanWeek(): UsePlanWeekResult {
       await withBusy(markCookedDraft.slotId, async () => {
         try {
           const events: InventoryEvent[] = [];
+          let newLeftoverLotId: LotId | undefined;
           for (const line of input.lines) {
             if (line.skip || line.amount <= 0) continue;
             const ingredient = ingredientsById.get(line.ingredientId);
@@ -816,19 +862,19 @@ export function usePlanWeek(): UsePlanWeekResult {
               setIngredients((current) => [...current, ingredient]);
             }
             const shelfLifeDays = location === "freezer" ? LEFTOVER_FREEZER_SHELF_LIFE_DAYS : LEFTOVER_FRIDGE_SHELF_LIFE_DAYS;
-            events.push(
-              createLeftoverLot(
-                {
-                  ingredientId: ingredient.id,
-                  surplusQuantity: makeQuantity(input.leftover.amount, "portion"),
-                  location,
-                  cookDate: clock.today(),
-                  shelfLifeDays,
-                },
-                clock,
-                rng,
-              ),
+            const leftoverEvent = createLeftoverLot(
+              {
+                ingredientId: ingredient.id,
+                surplusQuantity: makeQuantity(input.leftover.amount, "portion"),
+                location,
+                cookDate: clock.today(),
+                shelfLifeDays,
+              },
+              clock,
+              rng,
             );
+            events.push(leftoverEvent);
+            newLeftoverLotId = leftoverEvent.lotId;
           }
 
           for (const event of events) {
@@ -842,6 +888,36 @@ export function usePlanWeek(): UsePlanWeekResult {
             () => ({ ...slot, state: "cooked" }),
             (latest) => ({ ...latest, state: "cooked" }),
           );
+
+          // WP-leftover-planning: bind any slot the generator planned as a
+          // PROJECTED leftover of THIS slot to the real lot, now that it
+          // exists — "when the source slot is actually cooked, its
+          // dependents should bind to the real lot" (never left pointing at
+          // a projection once the real thing is available). A slot with no
+          // real leftover this time (household ate it all, `newLeftoverLotId`
+          // undefined) is deliberately left as-is: `plan-derive.ts`'s
+          // `isProjectedLeftoverBroken` already treats a COOKED source as
+          // broken for any dependent still in the projected state, which is
+          // exactly right here — the projection didn't pan out.
+          if (newLeftoverLotId !== undefined) {
+            const dependents = allSlots.filter(
+              (s) => s.filling.kind === "leftover-projected" && s.filling.sourceSlotId === slot.id,
+            );
+            for (const dependent of dependents) {
+              const resolved: PlanSlot = { ...dependent, filling: { kind: "leftover", lotId: newLeftoverLotId } };
+              await store.planSlots.upsert(resolved);
+            }
+            if (dependents.length > 0) {
+              setAllSlots((current) => {
+                const byId = new Map(current.map((s) => [s.id, s] as const));
+                for (const dependent of dependents) {
+                  byId.set(dependent.id, { ...dependent, filling: { kind: "leftover", lotId: newLeftoverLotId } });
+                }
+                return [...byId.values()];
+              });
+            }
+          }
+
           setMarkCookedDraft(undefined);
           // No success toast (UX review round 2, "quieten the toasts"): the
           // slot's own rendering in the week grid flips to its cooked state
@@ -852,7 +928,7 @@ export function usePlanWeek(): UsePlanWeekResult {
         }
       });
     },
-    [markCookedDraft, engine, findSlot, recipesById, ingredientsById, ingredients, clock, rng, store, persistSlot, withBusy, showToast],
+    [markCookedDraft, engine, findSlot, recipesById, ingredientsById, ingredients, allSlots, clock, rng, store, persistSlot, withBusy, showToast],
   );
 
   return {

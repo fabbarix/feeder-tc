@@ -62,7 +62,7 @@ export const WEEKDAYS: readonly Weekday[] = [
   "sunday",
 ];
 export const EVENT_TYPES = ["purchase", "use", "spoil", "adjust", "move", "open"] as const;
-export const FILLING_KINDS = ["recipe", "leftover", "empty"] as const;
+export const FILLING_KINDS = ["recipe", "leftover", "leftover-projected", "empty"] as const;
 /** WP-PHOTO — `Photo.ownerKind`'s allowed values (DESIGN_PHOTOS.md §2). */
 export const PHOTO_OWNER_KINDS: readonly PhotoOwnerKind[] = ["recipe", "recipe-step", "ingredient", "product"];
 

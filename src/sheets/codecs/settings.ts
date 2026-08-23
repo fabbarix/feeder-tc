@@ -18,7 +18,8 @@
  */
 import type { CellRow } from "../../domain/contracts.ts";
 import type { DaySlotLayout, MealTag, Settings, Weekday } from "../../domain/types.ts";
-import { cellNumber, cellOptionalString, isBlankRow } from "./common.ts";
+import { DEFAULT_REUSE_GAP_SLOTS } from "../../domain/planner/leftover-projection.ts";
+import { cellNumber, cellOptionalNumber, cellOptionalString, isBlankRow } from "./common.ts";
 import { isMealTag, isWeekday } from "./enums.ts";
 
 export const SETTINGS_HEADER: CellRow = [
@@ -29,6 +30,7 @@ export const SETTINGS_HEADER: CellRow = [
   "household_size",
   "repeat_exclusion_weeks",
   "currency",
+  "reuse_gap_slots",
 ];
 
 /** Applied whenever the "general" row's `currency` cell is blank — pre-M6-A workbooks and any hand-cleared cell (DESIGN_PRODUCTS.md §4: "defaulting to `$`"). */
@@ -44,6 +46,7 @@ export function encodeSettings(settings: Settings): CellRow[] {
       settings.householdSize,
       settings.repeatExclusionWeeks,
       settings.currency ?? DEFAULT_CURRENCY,
+      settings.reuseGapSlots ?? DEFAULT_REUSE_GAP_SLOTS,
     ],
   ];
   for (const day of settings.slotLayout) {
@@ -69,6 +72,7 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
   let householdSize: number | undefined;
   let repeatExclusionWeeks: number | undefined;
   let currency: string | undefined;
+  let reuseGapSlots: number | undefined;
   const byDay = new Map<Weekday, { index: number; tag: MealTag }[]>();
 
   for (const row of rows) {
@@ -82,6 +86,10 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
       // cell at all, and that must not throw — it means "$" (see
       // DEFAULT_CURRENCY), not a corrupted workbook.
       currency = cellOptionalString(row, 6);
+      // Same story, one column later: a workbook written before
+      // WP-leftover-planning has no reuse_gap_slots cell at all — that
+      // means DEFAULT_REUSE_GAP_SLOTS, not a corrupted workbook.
+      reuseGapSlots = cellOptionalNumber(row, 7, "reuse_gap_slots");
       continue;
     }
     if (kind === "slot") {
@@ -112,5 +120,11 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
     slots: slots.sort((a, b) => a.index - b.index).map((s) => s.tag),
   }));
 
-  return { householdSize, slotLayout, repeatExclusionWeeks, currency: currency ?? DEFAULT_CURRENCY };
+  return {
+    householdSize,
+    slotLayout,
+    repeatExclusionWeeks,
+    currency: currency ?? DEFAULT_CURRENCY,
+    reuseGapSlots: reuseGapSlots ?? DEFAULT_REUSE_GAP_SLOTS,
+  };
 }

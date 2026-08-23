@@ -33,7 +33,9 @@ function removeConfirmCopy(view: PlanSlotView): { readonly title: string; readon
       ? (view.recipe?.name ?? "Unknown recipe")
       : slot.filling.kind === "leftover"
         ? (view.leftoverIngredient?.name ?? "Leftover")
-        : "";
+        : slot.filling.kind === "leftover-projected"
+          ? (view.projectedRecipe ? `Leftover: ${view.projectedRecipe.name}` : "Leftover")
+          : "";
   const weekday = formatWeekdayName(slot.date);
   const title = `Remove ${entryName} — ${weekday} ${mealTagLabel(slot.slotType).toLowerCase()}?`;
 

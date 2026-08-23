@@ -23,6 +23,7 @@ import type {
   Lot,
   LotId,
   PlanSlot,
+  PlanSlotId,
   Recipe,
   RecipeId,
   Settings,
@@ -68,7 +69,37 @@ export interface PlanSlotView {
   readonly recipe: Recipe | undefined;
   readonly leftoverIngredient: Ingredient | undefined;
   readonly leftoverLot: Lot | undefined;
+  /** For a `"leftover-projected"` filling: the recipe it's expected to come from (`filling.recipeId`), regardless of whether the source is still on track — always `undefined` for any other filling kind. */
+  readonly projectedRecipe: Recipe | undefined;
+  /** For a `"leftover-projected"` filling: true once the source it depends on can no longer be trusted to produce it — see `isProjectedLeftoverBroken`. Always `false` for any other filling kind. */
+  readonly projectedBroken: boolean;
   readonly isToday: boolean;
+}
+
+/**
+ * A `"leftover-projected"` filling stops being trustworthy the moment its
+ * source slot is no longer a still-`"planned"` recipe filling matching
+ * `filling.recipeId` — gone entirely (never persisted, or a row some other
+ * client hasn't synced yet), re-planned to something else, emptied, or
+ * skipped. A `"cooked"` source is ALSO treated as broken here: by the time
+ * that happens, `usePlanWeek.ts`'s mark-cooked flow should already have
+ * rewritten this filling to a real `"leftover"` one pointing at the actual
+ * lot, so still seeing `"leftover-projected"` at that point means the two
+ * rows are out of sync, not that the projection is still contingent. This
+ * is computed fresh from `allSlotsById` every render, never cached on the
+ * filling itself — exactly "flags rather than silently pointing at food
+ * that never existed" (the work order), since a stored flag could itself go
+ * stale.
+ */
+export function isProjectedLeftoverBroken(
+  filling: Extract<PlanSlot["filling"], { kind: "leftover-projected" }>,
+  allSlotsById: ReadonlyMap<PlanSlotId, PlanSlot>,
+): boolean {
+  const source = allSlotsById.get(filling.sourceSlotId);
+  if (!source) return true;
+  if (source.filling.kind !== "recipe") return true;
+  if (source.filling.recipeId !== filling.recipeId) return true;
+  return source.state !== "planned";
 }
 
 export function buildSlotView(
@@ -77,11 +108,23 @@ export function buildSlotView(
   ingredientsById: ReadonlyMap<IngredientId, Ingredient>,
   lotsById: ReadonlyMap<LotId, Lot>,
   today: IsoDate,
+  allSlotsById: ReadonlyMap<PlanSlotId, PlanSlot> = new Map(),
 ): PlanSlotView {
   const recipe = slot.filling.kind === "recipe" ? recipesById.get(slot.filling.recipeId) : undefined;
   const leftoverLot = slot.filling.kind === "leftover" ? lotsById.get(slot.filling.lotId) : undefined;
   const leftoverIngredient = leftoverLot ? ingredientsById.get(leftoverLot.ingredientId) : undefined;
-  return { slot, recipe, leftoverIngredient, leftoverLot, isToday: slot.date === today };
+  const projectedRecipe =
+    slot.filling.kind === "leftover-projected" ? recipesById.get(slot.filling.recipeId) : undefined;
+  const projectedBroken = slot.filling.kind === "leftover-projected" ? isProjectedLeftoverBroken(slot.filling, allSlotsById) : false;
+  return {
+    slot,
+    recipe,
+    leftoverIngredient,
+    leftoverLot,
+    projectedRecipe,
+    projectedBroken,
+    isToday: slot.date === today,
+  };
 }
 
 export interface PlanDay {
@@ -181,7 +224,11 @@ export type DensityDot = "filled" | "leftover" | "empty";
 /** `PlanDay.slots` (already `slotIndex`-ordered by `groupSlotsByDay`) -> one dot per slot. A slot's `state` (planned/cooked/skipped) doesn't change its dot — cooked-vs-not is a week-view concern, density is just "is something here". */
 export function densityDots(day: PlanDay): readonly DensityDot[] {
   return day.slots.map((view) => {
-    if (view.slot.filling.kind === "leftover") return "leftover";
+    // A projected leftover renders as the same muted "leftover" dot as a
+    // real one — this overview is deliberately coarse (filled/leftover/
+    // empty only), not the place to also distinguish "contingent" (that
+    // lives on the slot card itself, PlanSlotRow.tsx).
+    if (view.slot.filling.kind === "leftover" || view.slot.filling.kind === "leftover-projected") return "leftover";
     if (view.slot.filling.kind === "empty") return "empty";
     return "filled";
   });
@@ -205,6 +252,7 @@ export function buildCalendarDays(
   ingredientsById: ReadonlyMap<IngredientId, Ingredient>,
   lotsById: ReadonlyMap<LotId, Lot>,
   today: IsoDate,
+  allSlotsById: ReadonlyMap<PlanSlotId, PlanSlot> = new Map(),
 ): readonly PlanDay[] {
   const specs: WeekSlotSpec[] = [];
   for (let offset = 0; offset < dates.length; offset += 7) {
@@ -215,7 +263,7 @@ export function buildCalendarDays(
   const dateSet = new Set(dates);
   const existing = allSlots.filter((s) => dateSet.has(s.date));
   const merged = mergeWeekSlots(specs, existing);
-  const views = merged.map((slot) => buildSlotView(slot, recipesById, ingredientsById, lotsById, today));
+  const views = merged.map((slot) => buildSlotView(slot, recipesById, ingredientsById, lotsById, today, allSlotsById));
   return groupSlotsByDay(dates, views);
 }
 

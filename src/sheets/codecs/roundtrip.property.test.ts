@@ -281,9 +281,18 @@ const leftoverFillingArb: fc.Arbitrary<PlanSlotFilling> = idArb
   .map(makeLotId)
   .map((lotId) => ({ kind: "leftover" as const, lotId }));
 
+const leftoverProjectedFillingArb: fc.Arbitrary<PlanSlotFilling> = fc
+  .record({ sourceSlotId: idArb.map(makePlanSlotId), recipeId: idArb.map(makeRecipeId) })
+  .map(({ sourceSlotId, recipeId }) => ({ kind: "leftover-projected" as const, sourceSlotId, recipeId }));
+
 const emptyFillingArb: fc.Arbitrary<PlanSlotFilling> = fc.constant({ kind: "empty" as const });
 
-const fillingArb: fc.Arbitrary<PlanSlotFilling> = fc.oneof(recipeFillingArb, leftoverFillingArb, emptyFillingArb);
+const fillingArb: fc.Arbitrary<PlanSlotFilling> = fc.oneof(
+  recipeFillingArb,
+  leftoverFillingArb,
+  leftoverProjectedFillingArb,
+  emptyFillingArb,
+);
 
 const planSlotArb: fc.Arbitrary<PlanSlot> = fc.record({
   id: idArb.map(makePlanSlotId),
@@ -521,6 +530,11 @@ const settingsArb: fc.Arbitrary<Settings> = fc.record({
   // "blank cell defaults to $" behaviour is covered separately in
   // settings.test.ts / bootstrap.test.ts, not as a round-trip property here.
   currency: fc.string({ minLength: 1, maxLength: 3 }),
+  // Same reasoning as currency above (WP-leftover-planning): decodeSettings
+  // always returns a concrete reuseGapSlots (defaulting blank to
+  // DEFAULT_REUSE_GAP_SLOTS), so round-trip identity only holds when the
+  // input already has one.
+  reuseGapSlots: fc.integer({ min: 0, max: 10 }),
 });
 
 describe("Settings codec", () => {
