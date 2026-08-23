@@ -1,0 +1,571 @@
+<title>Token Layer Proposal</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..600&family=Archivo:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --paper: oklch(0.985 0.006 156);
+    --surface: oklch(1 0 0);
+    --surface-2: oklch(0.965 0.008 156);
+    --line: oklch(0.9 0.01 156);
+    --line-soft: oklch(0.945 0.008 156);
+    --text-h: oklch(0.22 0.03 156);
+    --text: oklch(0.4 0.035 156);
+    --text-muted: oklch(0.52 0.025 156);
+    --accent: oklch(0.45 0.18 156);
+    --accent-text: #fff;
+    --accent-bg: oklch(0.95 0.05 156);
+    --accent-border: oklch(0.75 0.12 156);
+    --warn: oklch(0.45 0.18 72);
+    --warn-bg: oklch(0.95 0.05 72);
+    --warn-border: oklch(0.75 0.14 72);
+    --crit: oklch(0.45 0.2 27);
+    --crit-bg: oklch(0.95 0.05 27);
+    --crit-border: oklch(0.75 0.16 27);
+    --shadow-sm: 0 2px 8px rgb(20 18 10 / 8%);
+    --shadow-lg: 0 16px 40px rgb(20 18 10 / 16%), 0 4px 12px rgb(20 18 10 / 10%);
+    --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px;
+    --display: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "Archivo", system-ui, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper: oklch(0.17 0.012 156);
+      --surface: oklch(0.215 0.014 156);
+      --surface-2: oklch(0.255 0.016 156);
+      --line: oklch(0.33 0.016 156);
+      --line-soft: oklch(0.27 0.014 156);
+      --text-h: oklch(0.93 0.015 156);
+      --text: oklch(0.78 0.02 156);
+      --text-muted: oklch(0.66 0.02 156);
+      --accent: oklch(0.76 0.13 156);
+      --accent-text: oklch(0.18 0.02 156);
+      --accent-bg: oklch(0.28 0.06 156);
+      --accent-border: oklch(0.45 0.14 156);
+      --warn: oklch(0.8 0.16 72); --warn-bg: oklch(0.28 0.08 72); --warn-border: oklch(0.55 0.16 72);
+      --crit: oklch(0.75 0.19 27); --crit-bg: oklch(0.28 0.08 27); --crit-border: oklch(0.55 0.18 27);
+      --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
+      --shadow-lg: 0 20px 48px rgb(0 0 0 / 55%), 0 6px 16px rgb(0 0 0 / 40%);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper: oklch(0.17 0.012 156);
+    --surface: oklch(0.215 0.014 156);
+    --surface-2: oklch(0.255 0.016 156);
+    --line: oklch(0.33 0.016 156);
+    --line-soft: oklch(0.27 0.014 156);
+    --text-h: oklch(0.93 0.015 156);
+    --text: oklch(0.78 0.02 156);
+    --text-muted: oklch(0.66 0.02 156);
+    --accent: oklch(0.76 0.13 156);
+    --accent-text: oklch(0.18 0.02 156);
+    --accent-bg: oklch(0.28 0.06 156);
+    --accent-border: oklch(0.45 0.14 156);
+    --warn: oklch(0.8 0.16 72); --warn-bg: oklch(0.28 0.08 72); --warn-border: oklch(0.55 0.16 72);
+    --crit: oklch(0.75 0.19 27); --crit-bg: oklch(0.28 0.08 27); --crit-border: oklch(0.55 0.18 27);
+    --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
+    --shadow-lg: 0 20px 48px rgb(0 0 0 / 55%), 0 6px 16px rgb(0 0 0 / 40%);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--paper); color:var(--text);
+    font:16px/1.6 var(--sans); font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent-bg); color:var(--accent)}
+
+  a{color:var(--accent)}
+  code, .tok{
+    font-family:var(--mono); font-size:0.92em; background:var(--surface-2);
+    padding:1px 6px; border-radius:5px; color:var(--text-h); white-space:nowrap;
+  }
+
+  header.top{
+    position:sticky; top:0; z-index:20; background:color-mix(in oklab, var(--paper) 88%, transparent);
+    backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+  }
+  .topbar{
+    max-width:1120px; margin:0 auto; padding:14px 28px; display:flex; align-items:center;
+    gap:22px; overflow-x:auto;
+  }
+  .brand{font-family:var(--display); font-weight:600; font-size:17px; color:var(--text-h); white-space:nowrap}
+  .brand em{font-style:normal; color:var(--accent)}
+  nav.jump{display:flex; gap:18px; font-size:13px}
+  nav.jump a{color:var(--text-muted); text-decoration:none; white-space:nowrap}
+  nav.jump a:hover{color:var(--accent)}
+
+  .hero{max-width:880px; margin:0 auto; padding:64px 28px 40px}
+  .kicker{
+    font:600 12px/1 var(--sans); letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 14px;
+  }
+  h1{
+    font-family:var(--display); font-weight:500; font-size:38px; line-height:1.1;
+    letter-spacing:-.015em; color:var(--text-h); margin:0 0 18px; text-wrap:balance;
+  }
+  .standfirst{font-size:18px; line-height:1.55; color:var(--text-muted); max-width:64ch; margin:0 0 8px}
+  .status{
+    display:inline-flex; gap:8px; align-items:center; margin-top:22px; font-size:13px;
+    color:var(--text-muted); border:1px solid var(--line); border-radius:999px; padding:6px 14px 6px 10px;
+  }
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--warn)}
+
+  section{max-width:880px; margin:0 auto; padding:52px 28px}
+  section.wide{max-width:1120px}
+  section + section{border-top:1px solid var(--line-soft)}
+
+  .eyebrow{
+    font:700 12px/1 var(--sans); letter-spacing:.09em; text-transform:uppercase;
+    color:var(--text-muted); margin:0 0 10px;
+  }
+  h2{
+    font-family:var(--display); font-weight:500; font-size:29px; letter-spacing:-.01em;
+    color:var(--text-h); margin:0 0 16px; text-wrap:balance;
+  }
+  h3{font-family:var(--sans); font-weight:700; font-size:16px; color:var(--text-h); margin:32px 0 10px}
+  p{margin:0 0 15px; max-width:70ch}
+  p.lede{font-size:17px; color:var(--text); max-width:66ch}
+  ul,ol{margin:0 0 16px; padding-left:22px}
+  li{margin-bottom:6px}
+  strong{color:var(--text-h); font-weight:600}
+
+  .callout{
+    border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+    background:var(--surface); padding:16px 18px; margin:20px 0; font-size:14.5px;
+  }
+  .callout.warn{border-left-color:var(--warn)}
+  .callout p:last-child{margin-bottom:0}
+
+  /* ---- audit stat grid ---- */
+  .stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--radius-md); overflow:hidden; margin:24px 0}
+  .stat{background:var(--surface); padding:20px}
+  .stat .n{font-family:var(--display); font-size:34px; color:var(--text-h); line-height:1; margin-bottom:6px}
+  .stat .n small{font-size:16px; color:var(--text-muted); font-family:var(--sans)}
+  .stat .l{font-size:12.5px; color:var(--text-muted); line-height:1.4}
+
+  /* ---- generic data table ---- */
+  .twrap{overflow-x:auto; margin:18px 0; border:1px solid var(--line); border-radius:var(--radius-md)}
+  table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:560px}
+  th,td{text-align:left; padding:9px 14px; border-bottom:1px solid var(--line-soft); vertical-align:top}
+  thead th{
+    background:var(--surface-2); font:600 11px/1 var(--sans); letter-spacing:.04em; text-transform:uppercase;
+    color:var(--text-muted); position:sticky; top:0;
+  }
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:var(--surface-2)}
+  td.num, th.num{text-align:right; font-variant-numeric:tabular-nums}
+  tr.flag td{background:color-mix(in oklab, var(--warn-bg) 55%, var(--surface))}
+  .badge{display:inline-block; font:600 11px/1 var(--sans); padding:3px 8px; border-radius:999px; background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-border)}
+  .badge.ok{background:var(--accent-bg); color:var(--accent); border-color:var(--accent-border)}
+  .badge.crit{background:var(--crit-bg); color:var(--crit); border-color:var(--crit-border)}
+
+  /* ---- type specimen ---- */
+  .specimen{border:1px solid var(--line); border-radius:var(--radius-md); background:var(--surface); overflow:hidden; margin:22px 0}
+  .spec-row{display:flex; align-items:baseline; gap:20px; padding:14px 20px; border-bottom:1px solid var(--line-soft)}
+  .spec-row:last-child{border-bottom:0}
+  .spec-row .tag{width:150px; flex:none; font-family:var(--mono); font-size:12px; color:var(--accent)}
+  .spec-row .role{width:170px; flex:none; font-size:12.5px; color:var(--text-muted)}
+  .spec-row .sample{color:var(--text-h); font-family:var(--sans); flex:1; min-width:0}
+
+  /* ---- color swatches ---- */
+  .palette{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:14px; margin:20px 0}
+  .swatch{border:1px solid var(--line); border-radius:var(--radius-md); overflow:hidden; background:var(--surface)}
+  .swatch .fill{height:64px}
+  .swatch .meta{padding:10px 12px}
+  .swatch .name{font:600 12.5px/1.3 var(--mono); color:var(--text-h); display:block}
+  .swatch .use{font-size:11.5px; color:var(--text-muted); display:block; margin-top:3px}
+
+  /* ---- spacing rhythm ---- */
+  .rhythm{display:flex; align-items:flex-end; gap:18px; margin:26px 0 10px; flex-wrap:wrap}
+  .rbar{display:flex; flex-direction:column; align-items:center; gap:8px}
+  .rbar .bar{width:34px; background:var(--accent); border-radius:4px 4px 0 0}
+  .rbar .lbl{font-size:11px; color:var(--text-muted); text-align:center; font-family:var(--mono)}
+
+  /* ---- radius gallery ---- */
+  .radii{display:flex; gap:18px; flex-wrap:wrap; margin:20px 0}
+  .rdemo{display:flex; flex-direction:column; align-items:center; gap:8px}
+  .rdemo .box{width:64px; height:64px; background:var(--accent-bg); border:2px solid var(--accent-border)}
+  .rdemo .lbl{font-size:11.5px; color:var(--text-muted); font-family:var(--mono)}
+
+  /* ---- contrast pairs ---- */
+  .cpairs{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin:20px 0}
+  .cpair{border:1px solid var(--line); border-radius:var(--radius-md); padding:16px; background:var(--surface)}
+  .cpair .ratio{font-family:var(--display); font-size:22px; color:var(--text-h)}
+  .cpair .desc{font-size:12.5px; color:var(--text-muted); margin-top:4px}
+
+  /* ---- checklist ---- */
+  .check{list-style:none; padding:0; margin:20px 0; display:flex; flex-direction:column; gap:10px}
+  .check li{
+    display:flex; gap:12px; padding:14px 16px; border:1px solid var(--line); border-radius:var(--radius-md);
+    background:var(--surface); margin:0; font-size:13.5px; color:var(--text);
+  }
+  .check .ico{flex:none; width:22px; height:22px; border-radius:6px; background:var(--accent-bg); color:var(--accent); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700}
+  .check b{color:var(--text-h)}
+
+  footer{max-width:880px; margin:0 auto; padding:40px 28px 80px; color:var(--text-muted); font-size:13px}
+
+  @media (max-width:640px){
+    h1{font-size:30px} h2{font-size:24px}
+    .spec-row{flex-wrap:wrap} .spec-row .tag,.spec-row .role{width:auto}
+    nav.jump{display:none}
+  }
+</style>
+
+<header class="top">
+  <div class="topbar">
+    <div class="brand">Feeder — <em>token layer</em></div>
+    <nav class="jump">
+      <a href="#audit">Audit</a>
+      <a href="#type">Type</a>
+      <a href="#color">Color</a>
+      <a href="#space">Spacing</a>
+      <a href="#migration">Migration</a>
+      <a href="#keep">Keep</a>
+      <a href="#fluid">Fluid type</a>
+      <a href="#enforce">Enforcement</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <p class="kicker">Design proposal · not yet approved · no src/ changed</p>
+  <h1>A token layer Feeder can actually point at</h1>
+  <p class="standfirst">Nine font sizes across four screens that no reader can tell apart. A 184px bar
+  that thinks it's 15% of a row. A colour system authored in three different spaces at once. None of
+  this is a taste problem — it's an arithmetic problem, and it's fixable without touching what already
+  works: the radius set and the AAA contrast are staying exactly as they are.</p>
+  <div class="status"><span class="dot"></span> Awaiting owner sign-off before any src/ change lands</div>
+</div>
+
+<section id="audit">
+  <p class="eyebrow">01 · The audit</p>
+  <h2>What is actually there</h2>
+  <p class="lede">Measured against the checked-out worktree — every <code>.module.css</code> under
+  <code>src/</code>, plus <code>src/index.css</code> and <code>design/mock-responsive.html</code> — not
+  against what the documents say should be there.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="n">38</div><div class="l">distinct raw <code>font-size</code> declarations across the kit and routes — 33 as <code>font-size:</code>, 5 more hiding inside <code>font:</code> shorthand</div></div>
+    <div class="stat"><div class="n">16</div><div class="l">different <code>rem</code> multipliers in use (0.6 → 1.4), each resolving to <strong>two</strong> different pixel values because root font-size itself changes at a breakpoint</div></div>
+    <div class="stat"><div class="n">18</div><div class="l">distinct flat hex colours still authored outside the OKLCH system, on top of the <code>oklch()</code> tokens</div></div>
+    <div class="stat"><div class="n">95</div><div class="l">raw pixel literals in <code>padding</code>/<code>margin</code>/<code>gap</code> that should have reached for <code>var(--space-*)</code> and didn't</div></div>
+    <div class="stat"><div class="n">12</div><div class="l"><code>border-radius</code> declarations that bypass <code>--radius-sm/md/lg</code> with a nearby raw number (4, 5, 7, 8, 9, 10, 12px)</div></div>
+    <div class="stat"><div class="n">0</div><div class="l">non-token <code>transition-duration</code> or easing values anywhere — motion is the one axis that's completely clean</div></div>
+  </div>
+
+  <h3>The type sizes, resolved</h3>
+  <p>The reviewer's nine numbers (12.6, 12.96, 13.33, 13.5, 14.4, 15.3, 16.2, 17.1, 18, 34px) are not
+  arbitrary noise — they resolve almost exactly once you multiply the <code>rem</code> values actually
+  in the stylesheets by the root font-size that's active where they're used:</p>
+
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Reviewer's px</th><th>Source</th><th class="num">Root × multiplier</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>12.6</td><td><code>0.7rem</code></td><td class="num">18 × 0.7</td><td>badges, timer chips</td></tr>
+        <tr><td>12.96</td><td><code>0.72rem</code> / <code>0.9em</code> nested in <code>0.8rem</code></td><td class="num">18 × 0.72</td><td>settings rows, plan tags</td></tr>
+        <tr><td>13.33</td><td><code>0.92em</code> nested in a 14.5px ancestor (mock)</td><td class="num">14.5 × 0.92</td><td>mock inline code chip</td></tr>
+        <tr><td>13.5</td><td><code>0.75rem</code></td><td class="num">18 × 0.75</td><td>metadata lines, ~7 call sites</td></tr>
+        <tr><td>14.4</td><td><code>0.8rem</code></td><td class="num">18 × 0.8</td><td>secondary body text, ~11 sites</td></tr>
+        <tr><td>15.3</td><td><code>0.85rem</code></td><td class="num">18 × 0.85</td><td>most common size in the kit — 23 sites</td></tr>
+        <tr><td>16.2</td><td><code>0.9rem</code></td><td class="num">18 × 0.9</td><td>list-row primary text, 14 sites</td></tr>
+        <tr><td>17.1</td><td><code>0.95rem</code></td><td class="num">18 × 0.95</td><td>2 sites</td></tr>
+        <tr><td>18</td><td><code>1rem</code> — the root itself</td><td class="num">18 × 1</td><td>body base, 7 sites</td></tr>
+        <tr><td>34</td><td>fixed <code>34px</code></td><td class="num">— (not rem-derived)</td><td><code>h1</code> at ≥1024px</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout warn">
+    <p><strong>The root cause is one media query, not <code>clamp()</code>.</strong>
+    <code>src/index.css</code> sets <code>font: 18px/145%</code> on <code>:root</code>, then flips to
+    <code>font-size: 16px</code> under <code>@media (max-width: 1024px)</code>. No <code>clamp()</code>
+    exists anywhere in the shipped CSS — the fluid-looking cluster is <strong>every <code>rem</code>
+    value in the app, doubled</strong>, because the multiplier that produces 15.3px on desktop produces
+    13.6px on the exact phone this app is designed for. That's backwards for an app whose own principles
+    open with "mobile-first is literal" and "in-store use is a first-class case" — the phone is getting
+    <em>less</em> legible text than the desktop nobody uses one-handed in a shop.</p>
+  </div>
+
+  <h3>Colour: three authoring paths, one accidental</h3>
+  <p>The tokens in <code>src/index.css</code> are disciplined — a single OKLCH hue variable drives
+  every accent and semantic colour, exactly as <code>UI_DESIGN.md</code> §3 specifies, and the
+  worst-case-hue sweep documented in the file's own comments is good practice. But three tokens sit
+  outside that system as flat literals: <code>--text</code>/<code>--text-h</code>/<code>--text-muted</code>
+  (hex, both themes), <code>--code-bg</code> (hex), and the entire <code>--success</code>/<code>--success-bg</code>/<code>--success-border</code>
+  family (hex + <code>rgba()</code>). <code>--focus-ring</code> is also a flat hex, deliberately
+  independent of the accent hue. I found no literal <code>oklab()</code> function anywhere in the tree —
+  the reviewer's third mechanism most likely <em>is</em> this hex/rgba cluster; Chrome's computed-style
+  inspector frequently reports alpha-composited colours in OKLab space in its picker, which would explain
+  the label even though the source never writes <code>oklab()</code> by hand. Same practical problem
+  either way: a colour not sourced from the one system.</p>
+
+  <h3>The 184px bar</h3>
+  <p><code>src/routes/pantry/pantry.module.css:169</code> — <code>.meter { max-width: 12em; }</code>.
+  It reads as responsive because it's an <code>em</code>, not a flat <code>px</code>. But it sits in a
+  <code>0.85rem</code> (15.3px) text context, so <code>12em</code> resolves to a fixed
+  <strong>183.6px</strong> regardless of the row it's in — 15% of a 1198px desktop row, nearly the full
+  width of a 220px phone row. The unit disguised a hardcoded pixel value as a font-relative one.</p>
+
+  <h3>Spacing that isn't a system</h3>
+  <p>The six-step <code>--space-1..6</code> scale (4/8/12/16/24/32) is used correctly 313 times. Against
+  that, 95 raw pixel values leak into <code>padding</code>/<code>margin</code>/<code>gap</code> —
+  clustering hardest at 5, 7, 9, 11 and 13px, which read as informal half-steps nobody named. The
+  clearest single case: <code>src/routes/plan/plan.module.css</code>'s per-slot action row (Cook /
+  Reroll / Pin / Remove) uses <code>gap: 6px</code> between the constructive icon buttons, then isolates
+  Remove with <code>.iconButtonPushRight { margin-left: auto }</code> — a real and correct technique,
+  but the <em>only</em> isolation cue on the row. Nothing marks it as deliberate; it reads as whatever
+  space the flex container happened to have left over.</p>
+</section>
+
+<section id="type">
+  <p class="eyebrow">02 · Proposed scales — type</p>
+  <h2>Eight roles, fixed steps, one root</h2>
+  <p class="lede">Fix root font-size at <strong>18px, unconditionally</strong> — delete the 1024px
+  media-query flip — and move every component off <code>rem</code> onto named, pixel-valued roles.
+  <code>rem</code> is banned in <code>src/</code> per <code>CLAUDE.md</code>; this makes the ban
+  mechanical instead of tribal (see Enforcement). Eight roles replace the 38 raw declarations found in
+  the audit — fewer than the six-ish "sizes that look different" a reader can actually perceive, so
+  every one earns a name a developer can reach for on purpose.</p>
+
+  <div class="specimen">
+    <div class="spec-row"><div class="tag">--fs-caption</div><div class="role">12px · timestamps, counts, meta</div><div class="sample" style="font-size:12px">Purchased Tue · 3 lots</div></div>
+    <div class="spec-row"><div class="tag">--fs-label</div><div class="role">13px · badges, pills, small buttons</div><div class="sample" style="font-size:13px;font-weight:600">IN ROTATION</div></div>
+    <div class="spec-row"><div class="tag">--fs-body-sm</div><div class="role">14px · secondary list-row line</div><div class="sample" style="font-size:14px;color:var(--text-muted)">2 cups, chopped · fridge · in 4 recipes</div></div>
+    <div class="spec-row"><div class="tag">--fs-body</div><div class="role">16px · default UI text, form labels</div><div class="sample" style="font-size:16px">Storage location</div></div>
+    <div class="spec-row"><div class="tag">--fs-body-lg</div><div class="role">18px · primary list-row text, prose</div><div class="sample" style="font-size:18px">Roast Chicken with Lemon &amp; Thyme</div></div>
+    <div class="spec-row"><div class="tag">--fs-heading-sm</div><div class="role">20px · card titles, dialog headers</div><div class="sample" style="font-size:20px;font-family:var(--display);color:var(--text-h)">Add a lot</div></div>
+    <div class="spec-row"><div class="tag">--fs-heading</div><div class="role">24 → 28px · h2, screen sub-headers</div><div class="sample" style="font-size:24px;font-family:var(--display);color:var(--text-h)">This week's plan</div></div>
+    <div class="spec-row"><div class="tag">--fs-display</div><div class="role">28 → 34px · h1, one per screen</div><div class="sample" style="font-size:34px;font-family:var(--display);font-weight:500;color:var(--text-h)">Pantry</div></div>
+  </div>
+
+  <h3>Weight and line-height, named the same way</h3>
+  <p>Weights stay exactly as used today — <code>--fw-regular:400</code>, <code>--fw-medium:500</code>,
+  <code>--fw-semibold:600</code>, <code>--fw-bold:700</code> (the one stray <code>font-weight:100</code>
+  hit is a variable-font-face range declaration, not an applied weight — not a real fifth value).
+  Line-height collapses nine ad hoc numbers into four roles: <code>--lh-tight:1.15</code> (display/heading),
+  <code>--lh-snug:1.3</code> (labels, badges, one-line UI), <code>--lh-normal:1.45</code> (body — the
+  existing 145% is already right), <code>--lh-relaxed:1.65</code> (markdown step detail, long-form only).</p>
+</section>
+
+<section id="color">
+  <p class="eyebrow">02 · Proposed scales — colour</p>
+  <h2>One space, eight surface roles, three fixed-hue exceptions</h2>
+  <p class="lede">The mechanism in <code>UI_DESIGN.md</code> §3 and §13 is already right — keep it
+  exactly. What changes is closing the three literal-hex gaps so <em>everything</em> traces back to
+  <code>oklch()</code>: <code>--text</code>/<code>--text-h</code>/<code>--text-muted</code>,
+  <code>--code-bg</code> (deleted — it becomes an alias of <code>--surface-2</code>, which is already
+  visually adjacent), and <code>--success*</code> (given the same fixed-hue treatment as
+  <code>--warn</code>/<code>--crit</code>, hue≈152, swept for contrast, independent of
+  <code>--accent-hue</code>).</p>
+
+  <div class="palette">
+    <div class="swatch"><div class="fill" style="background:var(--paper)"></div><div class="meta"><span class="name">--paper</span><span class="use">page ground</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--surface)"></div><div class="meta"><span class="name">--surface</span><span class="use">cards, sheets, tab bar</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--surface-2)"></div><div class="meta"><span class="name">--surface-2</span><span class="use">wells, troughs, hover, code</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--line)"></div><div class="meta"><span class="name">--line</span><span class="use">borders</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--line-soft)"></div><div class="meta"><span class="name">--line-soft</span><span class="use">soft dividers</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--text-h)"></div><div class="meta"><span class="name">--text-h</span><span class="use">headings — now OKLCH</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--text)"></div><div class="meta"><span class="name">--text</span><span class="use">body — now OKLCH</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--accent)"></div><div class="meta"><span class="name">--accent</span><span class="use">user hue, fixed L/C</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--accent-bg)"></div><div class="meta"><span class="name">--accent-bg</span><span class="use">accent tint</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--warn)"></div><div class="meta"><span class="name">--warn</span><span class="use">expiring — fixed hue 72</span></div></div>
+    <div class="swatch"><div class="fill" style="background:var(--crit)"></div><div class="meta"><span class="name">--crit</span><span class="use">expired — fixed hue 27</span></div></div>
+    <div class="swatch"><div class="fill" style="background:oklch(0.45 0.16 152)"></div><div class="meta"><span class="name">--success</span><span class="use">new: fixed hue 152, replaces hex</span></div></div>
+  </div>
+
+  <p style="font-size:12.5px;color:var(--text-muted)">Swatches render in whichever theme you're viewing this in — light and dark tokens are both defined; toggle your OS/app theme to see the dark set, which is authored separately below, not inverted.</p>
+
+  <div class="cpairs">
+    <div class="cpair"><div class="ratio">7.1:1</div><div class="desc"><code>--text</code> on <code>--paper</code> — unchanged from today, still comfortably AAA after the hex→OKLCH move (checked at the same perceptual lightness the hex value already sat at)</div></div>
+    <div class="cpair"><div class="ratio">5.95:1</div><div class="desc"><code>--accent-text</code> on <code>--accent</code>, worst case across all 360 hues — unchanged, this is the existing WP-15b sweep, kept as-is</div></div>
+    <div class="cpair"><div class="ratio">≥7:1</div><div class="desc"><code>--success</code> on <code>--paper</code> at hue 152 — swept the same way as warn/crit before adoption, not assumed from one sample</div></div>
+    <div class="cpair"><div class="ratio">4.6:1</div><div class="desc"><code>--focus-ring</code> (#0b6ee0) on <code>--paper</code> — flagged in Migration; kept as a fixed literal for now, see the non-clean case below</div></div>
+  </div>
+</section>
+
+<section id="space">
+  <p class="eyebrow">02 · Proposed scales — spacing</p>
+  <h2>Eight steps, not six — one new rung, not a rebuild</h2>
+  <p class="lede">The existing <code>--space-1..6</code> (4/8/12/16/24/32) is used correctly 313 times —
+  it doesn't need replacing. It needs exactly one more rung to absorb the 5/7/9/11/13px cluster that's
+  currently improvised, plus a named hairline for the 1–2px nudges that are legitimately not "spacing"
+  in the layout sense.</p>
+
+  <div class="rhythm">
+    <div class="rbar"><div class="bar" style="height:2px;background:var(--line)"></div><div class="lbl">hairline<br>2px</div></div>
+    <div class="rbar"><div class="bar" style="height:4px"></div><div class="lbl">space-1<br>4px</div></div>
+    <div class="rbar"><div class="bar" style="height:6px;background:var(--accent-border)"></div><div class="lbl">space-tight<br>6px · new</div></div>
+    <div class="rbar"><div class="bar" style="height:8px"></div><div class="lbl">space-2<br>8px</div></div>
+    <div class="rbar"><div class="bar" style="height:12px"></div><div class="lbl">space-3<br>12px</div></div>
+    <div class="rbar"><div class="bar" style="height:16px"></div><div class="lbl">space-4<br>16px</div></div>
+    <div class="rbar"><div class="bar" style="height:24px"></div><div class="lbl">space-5<br>24px</div></div>
+    <div class="rbar"><div class="bar" style="height:32px"></div><div class="lbl">space-6<br>32px</div></div>
+  </div>
+  <ul>
+    <li><strong>hairline (2px)</strong> — icon-to-baseline nudges, the kind of offset that isn't really "space between things," it's optical correction. Not a rhythm step; don't chain two of these expecting 4px.</li>
+    <li><strong>space-1 (4px)</strong> — tightest real gap: icon-to-label inside one compact control.</li>
+    <li><strong>space-tight (6px) — new</strong> — absorbs the 5/6/7px cluster: gaps between peer icon buttons in an action row, chip internal padding.</li>
+    <li><strong>space-2 (8px)</strong> — default small gap: list-row internal spacing, most badge padding.</li>
+    <li><strong>space-3 (12px)</strong> — the 9/11/13px cluster rounds here: row padding, form-field gaps.</li>
+    <li><strong>space-4 (16px)</strong> — card/panel padding, section-internal gaps.</li>
+    <li><strong>space-5 / space-6 (24 / 32px)</strong> — section-to-section and page-level rhythm, unchanged.</li>
+  </ul>
+  <div class="callout">
+    <p>Anything above 32px (the single <code>64px</code> hit, hero spacing in the mock) is a
+    <strong>layout</strong> decision — page-level rhythm, not a component token — and belongs to the
+    parallel layout-layer proposal, not this one.</p>
+  </div>
+</section>
+
+<section id="migration">
+  <p class="eyebrow">03 · Migration map</p>
+  <h2>Old value → new token</h2>
+  <p class="lede">Representative rows below; the full mechanical mapping is every raw value found in
+  the audit against the nearest role above. Rows marked <span class="badge">flag</span> don't map
+  cleanly — those are called out individually underneath, because that's where a proposal turns
+  honest or turns aspirational.</p>
+
+  <div class="twrap">
+    <table>
+      <thead><tr><th>Old</th><th>New token</th><th>Sites</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>1rem</code> / <code>18px</code></td><td class="tok">--fs-body-lg</td><td class="num">7</td><td>unchanged value, named</td></tr>
+        <tr><td><code>0.95rem</code> (17.1px)</td><td class="tok">--fs-body-lg</td><td class="num">2</td><td>rounds up 0.9px</td></tr>
+        <tr><td><code>0.9rem</code> (16.2px)</td><td class="tok">--fs-body</td><td class="num">14</td><td>rounds down 0.2px</td></tr>
+        <tr><td><code>0.85rem</code> (15.3px)</td><td class="tok">--fs-body-sm</td><td class="num">23</td><td>rounds up 0.7px — the single biggest cluster</td></tr>
+        <tr><td><code>0.8rem</code> (14.4px)</td><td class="tok">--fs-body-sm</td><td class="num">11</td><td>rounds down 0.4px</td></tr>
+        <tr><td><code>0.75rem</code> (13.5px)</td><td class="tok">--fs-label</td><td class="num">7</td><td>rounds down 0.5px</td></tr>
+        <tr><td><code>13px</code> flat</td><td class="tok">--fs-label</td><td class="num">13</td><td>unchanged</td></tr>
+        <tr><td><code>0.7rem</code> (12.6px)</td><td class="tok">--fs-label</td><td class="num">3</td><td>rounds up 0.4px</td></tr>
+        <tr><td><code>12px</code> / <code>12.5px</code> flat</td><td class="tok">--fs-caption</td><td class="num">8</td><td>merges two near-identical flats</td></tr>
+        <tr class="flag"><td><code>0.72rem</code> (12.96px)</td><td class="tok">--fs-label</td><td class="num">4</td><td><span class="badge">flag</span> sits between caption(12) and label(13); picked label because all 4 sites are pill badges, same family as the 13px cluster</td></tr>
+        <tr class="flag"><td><code>0.6</code>/<code>0.62</code>/<code>0.65rem</code></td><td class="tok">--fs-caption</td><td class="num">6</td><td><span class="badge">flag</span> loses 0.6–1.2px; all are single-glyph day-grid labels (plan calendar) where the loss is imperceptible at that size — confirm with the layout agent before shrinking further</td></tr>
+        <tr class="flag"><td><code>.meter{max-width:12em}</code></td><td>— none —</td><td class="num">1</td><td><span class="badge crit">flag</span> not a type or spacing value at all; it's a layout width wearing a font-relative unit. Belongs to the layout layer — see below</td></tr>
+        <tr class="flag"><td><code>.iconButtonPushRight{margin-left:auto}</code></td><td>— none —</td><td class="num">1</td><td><span class="badge crit">flag</span> correct technique, not a token gap; the missing piece is a visual grouping cue, which is a layout decision</td></tr>
+        <tr><td><code>--text</code>/<code>--text-h</code>/<code>--text-muted</code> hex</td><td class="tok">oklch(), same L</td><td class="num">6</td><td>both themes; re-verified at 7.1:1+ after conversion</td></tr>
+        <tr><td><code>--code-bg</code> hex</td><td class="tok">--surface-2</td><td class="num">2</td><td>deleted as a distinct token, not converted</td></tr>
+        <tr><td><code>--success*</code> hex/rgba</td><td class="tok">oklch(), hue 152</td><td class="num">6</td><td>joins warn/crit's fixed-hue family</td></tr>
+        <tr class="flag"><td><code>--focus-ring</code> hex</td><td class="tok">oklch(), same hue</td><td class="num">2</td><td><span class="badge">flag</span> converts cleanly in colour space, but stays a fixed blue independent of <code>--accent-hue</code> — if a user picks blue as their accent, the ring can blend into it. Known limitation, not fixed here; flagging for the owner rather than solving unasked</td></tr>
+        <tr><td>raw <code>5/7/9/11/13px</code> gaps</td><td class="tok">--space-tight / --space-3</td><td class="num">~40</td><td>rounds to nearest rung, see Spacing above</td></tr>
+        <tr><td>raw <code>8/9/10/12px</code> radii</td><td class="tok">--radius-sm / --radius-md</td><td class="num">12</td><td>nearest canonical value; no new radius introduced</td></tr>
+        <tr><td><code>999px</code> / <code>50%</code> radius</td><td class="tok">--radius-pill / --radius-circle</td><td class="num">26</td><td>value unchanged, now named so lint can enforce it</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>The root-font-size media query</h3>
+  <p>Not in the table above because it isn't a value-to-value mapping — it's a rule to delete.
+  <code>@media (max-width: 1024px) { font-size: 16px }</code> on <code>:root</code> comes out entirely.
+  Every <code>--fs-*</code> role becomes a fixed pixel value that means the same thing on every screen
+  size; where a role genuinely needs to be bigger on a wide screen (h1, h2 already do this deliberately),
+  that's an explicit second value on the role at a named breakpoint, not a silent global multiplier.</p>
+</section>
+
+<section id="keep">
+  <p class="eyebrow">04 · What must not change</p>
+  <h2>Two things are already right</h2>
+
+  <h3>The radius vocabulary</h3>
+  <p>Six values, no more, mapped to component families with no drift: this is the opposite of the
+  type-scale problem, and the fix above adds <em>names</em> for the two literals (999px, 50%) without
+  touching a single rendered pixel.</p>
+  <div class="radii">
+    <div class="rdemo"><div class="box" style="border-radius:6px"></div><div class="lbl">--radius-sm · 6px</div></div>
+    <div class="rdemo"><div class="box" style="border-radius:10px"></div><div class="lbl">--radius-md · 10px</div></div>
+    <div class="rdemo"><div class="box" style="border-radius:16px"></div><div class="lbl">--radius-lg · 16px</div></div>
+    <div class="rdemo"><div class="box" style="border-radius:999px"></div><div class="lbl">--radius-pill · 999px</div></div>
+    <div class="rdemo"><div class="box" style="border-radius:50%"></div><div class="lbl">--radius-circle · 50%</div></div>
+  </div>
+
+  <h3>AAA text contrast</h3>
+  <p>~7:1 body text today; every colour change proposed above was checked against its background before
+  it went in the table, not after. Nothing here should move that number down. The one place I'm not
+  fully certain (focus ring against a same-hue accent) is flagged, not silently accepted.</p>
+
+  <h3>Motion</h3>
+  <p>Zero non-token transition durations found anywhere in the audit — three tiers, one easing curve,
+  fully respecting <code>prefers-reduced-motion</code>. Not touched by this proposal at all.</p>
+</section>
+
+<section id="fluid">
+  <p class="eyebrow">05 · The fluid-type question</p>
+  <h2>Fixed steps are the honest answer here</h2>
+  <p class="lede">There is no <code>clamp()</code> in the shipped app — the fluid-looking cluster the
+  reviewer found is <code>rem</code> arithmetic against a root that silently changes. The mock
+  (<code>design/mock-responsive.html</code>) does use <code>clamp()</code>, but only on <code>h1</code>
+  and <code>h2</code> (34–58px, 24–33px) — a genuinely editorial, hero-moment use.</p>
+  <p>My call: <strong>don't adopt real <code>clamp()</code> anywhere in the component layer, including
+  those two headings.</strong> Three reasons specific to this app, not a general fluid-type objection:</p>
+  <ol>
+    <li><strong>List-first, not editorial.</strong> <code>UI_DESIGN.md</code> §6 already treats tables as
+    the enhancement over lists; the same instinct applies to type. A smoothly interpolating headline earns
+    its keep on a marketing page read at a leisurely scroll speed. Feeder's h1 is a screen label glanced at
+    once — "Pantry", "Shopping" — where a headline that's 34px on a phone and 34px on a laptop and something
+    unpredictable in between adds variance nobody asked for.</li>
+    <li><strong>Testability.</strong> The enforcement plan below leans on asserting exact computed
+    <code>font-size</code> values in tests. A <code>clamp()</code> result depends on viewport width at
+    measurement time, which makes "does this equal the token" a range check instead of an equality check —
+    weaker, and exactly the kind of softness that let three approved designs quietly not ship.</li>
+    <li><strong>It's not solving a real problem here.</strong> The two breakpoints Feeder actually needs
+    (phone default, ≥1024px enhancement) are already served by an explicit second value per role — h1
+    28→34, h2 20→22 — which is simpler to reason about than a formula and produces the exact same visual
+    result at the two widths that matter, without inventing a third state nobody designed for.</li>
+  </ol>
+  <p>If the owner wants a genuine hero moment later — a marketing/landing surface distinct from the
+  in-app screens — that's a new, scoped decision for that surface, not a reason to put <code>clamp()</code>
+  back into the shared type roles.</p>
+</section>
+
+<section id="enforce" class="wide">
+  <p class="eyebrow">06 · How we'd know it stuck</p>
+  <h2>Three approved designs never reached code. This is what would have caught them.</h2>
+  <p class="lede">Each of Photos, the Plan calendar, and <code>SegmentedControl</code>'s wrap behaviour
+  was caught by a later human review, not by the process. A token system that only lives in a document
+  is a fourth one waiting to happen. These checks are meant to fail loudly and cheaply — most run in
+  Node with no browser.</p>
+
+  <ul class="check">
+    <li><span class="ico">1</span><div><b>Stylelint: no literal colour outside <code>index.css</code>.</b>
+    A <code>declaration-property-value-disallowed-list</code> rule bans <code>#</code>, <code>rgb(</code>,
+    <code>oklch(</code>, <code>oklab(</code> as a <code>color</code>/<code>background</code>/<code>border-color</code>
+    value in every <code>*.module.css</code> — only <code>var(--*)</code> is legal there. One file
+    authors colour; every other file references it.</div></li>
+    <li><span class="ico">2</span><div><b>Stylelint: <code>rem</code> banned repo-wide.</b>
+    <code>unit-disallowed-list: ["rem"]</code>. Turns <code>CLAUDE.md</code>'s "rem is a trap" from a
+    thing an agent has to remember into a thing CI refuses to merge.</div></li>
+    <li><span class="ico">3</span><div><b>Stylelint: no raw <code>px</code> in
+    <code>font-size</code>/<code>padding</code>/<code>margin</code>/<code>gap</code>/<code>border-radius</code>
+    outside <code>index.css</code>.</b> Same shape as rule 1, for size instead of colour — this is the
+    rule that makes the 95-raw-px and 12-raw-radius findings above structurally impossible to reintroduce.</div></li>
+    <li><span class="ico">4</span><div><b>A computed-style contract test.</b> A small Vitest/Testing-Library
+    (or Playwright) spec renders <code>ListRow</code>, <code>CheckRow</code>, a badge, and a caption, reads
+    <code>getComputedStyle(...).fontSize</code>, and asserts each equals one of the eight canonical
+    <code>--fs-*</code> pixel values. New one-off sizes fail a test, not a code review.</div></li>
+    <li><span class="ico">5</span><div><b>A numeric contrast sweep in CI, not a browser.</b> The OKLCH→sRGB
+    relative-luminance math that caught the hue-189 and hue-156 failures in WP-15b becomes a ~50-line Node
+    script that sweeps all 360 hues on every PR touching <code>index.css</code> and fails under 4.5:1
+    (7:1 for the AAA-committed text tokens). Runs in under a second; no Playwright needed. Turns "we tested
+    once" into "CI tests every time."</div></li>
+    <li><span class="ico">6</span><div><b>ESLint: no raw pixel dimensions in <code>src/ui/**</code> inline
+    styles.</b> Same enforcement shape as the existing <code>no-restricted-imports</code> boundary rule in
+    §7 — bans a literal <code>px</code> number inside a JSX <code>style={{}}</code> prop. This is what would
+    have caught a component-level 184px-style hardcode at the authoring point, not after a reviewer measured
+    the rendered page.</div></li>
+    <li><span class="ico">7</span><div><b>Mock-parity check.</b> A short script greps
+    <code>design/mock-responsive.html</code> for every custom-property name it defines and asserts each also
+    exists in <code>src/index.css</code>, failing CI when the mock invents a token the app doesn't have yet.
+    Doesn't catch every unported design (that needs the "systematic sweep" already logged in
+    <code>STATUS.md</code>'s Known debt), but it catches the token-layer half of exactly the pattern that
+    burned this project three times.</div></li>
+  </ul>
+</section>
+
+<footer>
+  <p><strong>Status:</strong> proposal only, on branch <code>design-tokens</code>. No file under
+  <code>src/</code> was touched to produce this document. A parallel agent owns the layout layer
+  (containers, breakpoints, per-screen density); anywhere this proposal implies a layout call — the
+  184px meter's real width, the icon-row grouping cue, anything above 32px of spacing — it's named as a
+  role here and left for that reconciliation, not decided unilaterally.</p>
+</footer>
