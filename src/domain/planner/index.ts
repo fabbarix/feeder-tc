@@ -39,6 +39,7 @@ export {
   projectedLeftoverExpiry,
   buildSlotSequence,
   reuseGapSatisfied,
+  conservativeSourcePosition,
   type SlotPosition,
   type SlotSequence,
 } from "./leftover-projection.ts";

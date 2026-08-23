@@ -535,15 +535,16 @@ describe("generateWeek — leftovers are used first", () => {
     const singleSlotSettings: Settings = {
       householdSize: 2,
       repeatExclusionWeeks: 0,
+      reuseGapSlots: 0, // this test is about leftover-vs-fresh-cook priority, not the gap — see the dedicated gap-boundary describe block below
       slotLayout: [{ day: "monday", slots: ["dinner"] }],
     };
     const chiliLot = {
       id: makeLotId("lot-1"),
       ingredientId: makeIngredientId("leftover-chili"),
       quantity: makeQuantity(2, "portion" as const),
-      purchaseDate: makeIsoDate("2026-08-16"),
+      purchaseDate: makeIsoDate("2026-08-10"), // the Monday before WEEK_START — this layout's only configured day
       location: "fridge" as const,
-      expiry: makeIsoDate("2026-08-20"),
+      expiry: makeIsoDate("2026-09-01"),
       expiryOverridden: true,
     };
 
@@ -640,6 +641,80 @@ describe("generateWeek — the reuse gap is honoured exactly at its boundary", (
     // in-rotation dinner candidate); the point of this test is only that it
     // is NOT the projected leftover.
     expect(wednesday!.filling.kind).toBe("recipe");
+  });
+
+  it("applies the same gap, approximately, to a REAL leftover lot — a Lot carries no PlanSlotId, only its purchaseDate", () => {
+    // Same layout as above: Monday dinner(0 slots between it and itself),
+    // Tuesday breakfast(0 between)/dinner(1 between), Wednesday dinner
+    // (exactly 2 between) — `conservativeSourcePosition` anchors the lot on
+    // Monday's LAST (and only) configured slot, same position a projected
+    // source on that exact slot would use.
+    const chiliLot = {
+      id: makeLotId("real-lot-1"),
+      ingredientId: makeIngredientId("leftover-chili"),
+      quantity: makeQuantity(2, "portion" as const),
+      purchaseDate: makeIsoDate("2026-08-17"), // Monday
+      location: "fridge" as const,
+      expiry: makeIsoDate("2026-09-01"),
+      expiryOverridden: true,
+    };
+
+    const result = generateWeek({
+      settings: gapSettings,
+      weekStart: WEEK_START,
+      recipes: [chili, otherBreakfast, otherDinner],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      leftoverLotsByRecipeId: new Map([[chili.id, [chiliLot]]]),
+      rng: createFakeRng(33),
+    });
+
+    function find(date: string, slotType: MealTag): PlanSlot {
+      const slot = result.slots.find((s) => s.date === makeIsoDate(date) && s.slotType === slotType);
+      if (!slot) throw new Error(`no slot found for ${date} ${slotType}`);
+      return slot;
+    }
+    expect(find("2026-08-18", "breakfast").filling.kind).not.toBe("leftover");
+    expect(find("2026-08-18", "dinner").filling.kind).not.toBe("leftover");
+    expect(find("2026-08-19", "dinner").filling).toEqual({ kind: "leftover", lotId: chiliLot.id });
+  });
+
+  it("never applies the gap to a genuine shop purchase (not the leftover 'portion' unit convention)", () => {
+    // Same settings as the real-leftover-lot case above, but this lot is an
+    // ordinary ground-beef purchase (unit "g") purchased the very same day
+    // as the week's FIRST slot (Monday dinner) — purchaseDate there means
+    // "bought this day", not "cooked this day", so it is immediately
+    // eligible for that very first slot, with no gap to wait out at all. A
+    // "portion" lot bought/cooked that same Monday would fail the gap check
+    // for Monday's own slot (0 slots between a source and itself), so
+    // seeing it picked here proves the gap truly isn't applied.
+    const groundBeefLot = {
+      id: makeLotId("purchase-lot-1"),
+      ingredientId: makeIngredientId("ground-beef"),
+      quantity: makeQuantity(500, "g" as const),
+      purchaseDate: makeIsoDate("2026-08-17"), // Monday — same date as the week's first slot
+      location: "fridge" as const,
+      expiry: makeIsoDate("2026-09-01"),
+      expiryOverridden: false,
+    };
+
+    const result = generateWeek({
+      settings: gapSettings,
+      weekStart: WEEK_START,
+      recipes: [chili, otherBreakfast, otherDinner],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      // Not a real caller shape (leftoverLotsByRecipeId is meant for
+      // leftover-convention lots only) — used here purely to exercise
+      // `pickRealLeftover`'s unit gate directly.
+      leftoverLotsByRecipeId: new Map([[chili.id, [groundBeefLot]]]),
+      rng: createFakeRng(34),
+    });
+
+    const mondayDinner = result.slots.find((s) => s.date === makeIsoDate("2026-08-17") && s.slotType === "dinner");
+    expect(mondayDinner!.filling).toEqual({ kind: "leftover", lotId: groundBeefLot.id });
   });
 });
 

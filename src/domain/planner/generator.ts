@@ -7,7 +7,12 @@
  *
  *   1. An available REAL leftover lot (`GenerateWeekInput.leftoverLotsByRecipeId`
  *      — actual pantry stock from a meal already cooked), soonest-expiring
- *      first, never past its expiry for the candidate slot's date.
+ *      first, never past its expiry for the candidate slot's date, and
+ *      honouring `Settings.reuseGapSlots` APPROXIMATELY: a `Lot` has no
+ *      back-reference to the `PlanSlot` that produced it, only the day
+ *      (`purchaseDate` — see `conservativeSourcePosition`,
+ *      leftover-projection.ts), so the gap is counted from the LAST
+ *      configured slot of that day, conservatively never under-counting.
  *   2. A PROJECTED leftover — a meal already planned (this week, so far in
  *      this same generation, or in a prior week) that hasn't been cooked yet
  *      but is expected to yield surplus servings, honouring the same expiry
@@ -74,6 +79,7 @@ import type {
 import { candidatesForSlot, recentlyCookedRecipeIds } from "./candidates.ts";
 import {
   buildSlotSequence,
+  conservativeSourcePosition,
   effectiveReuseGapSlots,
   expectedSurplusServings,
   projectedLeftoverExpiry,
@@ -184,16 +190,38 @@ function flattenRealLots(
   return all;
 }
 
-/** Picks the best still-available real leftover lot for `date`: soonest-expiring first, tie-broken by lot id for determinism. `undefined` if none qualify. */
+/**
+ * Picks the best still-available real leftover lot for `targetPosition`:
+ * soonest-expiring first, tie-broken by lot id for determinism. `undefined`
+ * if none qualify.
+ *
+ * The reuse gap (`gapSlots`) is enforced here too, approximately, for any
+ * lot in the leftover convention (`quantity.unit === "portion"` — the same
+ * gate `leftover-ingredient.ts`'s naming convention and `deriveLeftoversAtRisk`
+ * both already key on): `conservativeSourcePosition` turns the lot's
+ * `purchaseDate` (== its cook date) into a source position, and a lot whose
+ * layout-day has no configured slots at all today can't be positioned, so it
+ * conservatively fails the gap check rather than being offered unchecked. A
+ * non-`"portion"` lot (an ordinary purchase, no meal semantics) skips the
+ * gap check entirely — `purchaseDate` there just means "bought this day."
+ */
 function pickRealLeftover(
   lots: readonly Lot[],
   claimed: ReadonlySet<string>,
-  date: IsoDate,
+  targetPosition: SlotPosition,
+  settings: Settings,
+  seq: SlotSequence,
+  gapSlots: number,
 ): Lot | undefined {
   let best: Lot | undefined;
   for (const lot of lots) {
     if (claimed.has(`lot:${lot.id}`)) continue;
-    if (!isOnOrAfter(lot.expiry, date)) continue; // would already be past its use-by on this date
+    if (!isOnOrAfter(lot.expiry, targetPosition.date)) continue; // would already be past its use-by on this date
+    if (lot.quantity.unit === "portion") {
+      const sourcePosition = conservativeSourcePosition(settings, lot.purchaseDate);
+      if (!sourcePosition) continue; // can't establish where it came from — don't offer it
+      if (!reuseGapSatisfied(seq, sourcePosition, targetPosition, gapSlots)) continue;
+    }
     if (
       !best ||
       lot.expiry < best.expiry ||
@@ -466,6 +494,20 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
     if (existing !== undefined) addPastOrPreservedSource(existing);
   }
 
+  // A real leftover lot's `purchaseDate` can predate `weekStart` too (the
+  // household cooked it before this generation ever ran) — the sequence has
+  // to reach back that far as well, or `pickRealLeftover`'s
+  // `conservativeSourcePosition` lookup would fall outside `seq`'s range and
+  // fail the gap check by construction rather than by an honest count. Only
+  // extended for lots that could still matter this week (leftover
+  // convention, not already expired before it starts) — an ordinary
+  // purchase or an already-dead lot has no reason to widen the range.
+  for (const lot of realLots) {
+    if (lot.quantity.unit !== "portion") continue;
+    if (!isOnOrAfter(lot.expiry, input.weekStart)) continue;
+    if (lot.purchaseDate < seqFrom) seqFrom = lot.purchaseDate;
+  }
+
   const seq = buildSlotSequence(input.settings, seqFrom, weekEnd);
 
   // Recipes' most recent cook date, seeded from history and advanced as this
@@ -545,7 +587,7 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
 
     const targetPosition: SlotPosition = { date: spec.date, slotIndex: spec.slotIndex };
 
-    const realLot = pickRealLeftover(realLots, claimed, spec.date);
+    const realLot = pickRealLeftover(realLots, claimed, targetPosition, input.settings, seq, reuseGapSlots);
     if (realLot) {
       pendingFillings[i] = { kind: "leftover", lotId: realLot.id };
       claimed.add(`lot:${realLot.id}`);

@@ -20,6 +20,12 @@
  *     `createLeftoverLot` (src/domain/inventory/leftovers.ts) uses to build
  *     a REAL lot's `expiryOverride`, so a projection can never promise a
  *     longer shelf life than cooking the same meal actually would.
+ *  4. `conservativeSourcePosition` — an approximate reuse-gap position for a
+ *     REAL leftover lot. A `Lot` carries no back-reference to the `PlanSlot`
+ *     that produced it, but `CreateLeftoverLotInput.cookDate` (leftovers.ts)
+ *     becomes the lot's `purchaseDate` — so the DAY is known even though the
+ *     exact slot within it isn't. See its own doc comment for how that gap
+ *     is closed conservatively rather than left unenforced.
  */
 import { addDays, isOnOrAfter } from "../dates.ts";
 import { isIndivisible, scaleIndivisible } from "../purchasing.ts";
@@ -130,4 +136,28 @@ export function reuseGapSatisfied(
   if (si < 0 || ti < 0) return false;
   if (ti <= si) return false;
   return ti - si - 1 >= gapSlots;
+}
+
+/**
+ * Approximate reuse-gap source position for a REAL leftover lot, keyed on
+ * `purchaseDate` (== the cook date it was created with — module header).
+ * Which SLOT that day produced it is genuinely unknown, so this picks the
+ * LAST configured slot of that day rather than the first: that is the
+ * conservative direction — treating the source as later in the day than it
+ * really was only ever UNDER-counts how much gap remains before it, never
+ * over-counts, so a real leftover can never be offered earlier than the
+ * setting intends. (Over-estimating the gap by picking an earlier slot would
+ * risk offering the lot too soon — exactly the bug this exists to close.)
+ *
+ * Returns `undefined` when the current slot layout has NO configured slots
+ * at all on that weekday (e.g. the household removed every slot for that
+ * day after cooking) — there is then no position to anchor on, so the
+ * caller must treat the lot as failing the gap check entirely rather than
+ * guessing, the same "can't establish it, so don't offer it" conservatism.
+ */
+export function conservativeSourcePosition(settings: Settings, purchaseDate: IsoDate): SlotPosition | undefined {
+  const weekday = isoDateWeekday(purchaseDate);
+  const daySlots = settings.slotLayout.filter((l) => l.day === weekday).flatMap((l) => l.slots);
+  if (daySlots.length === 0) return undefined;
+  return { date: purchaseDate, slotIndex: daySlots.length - 1 };
 }

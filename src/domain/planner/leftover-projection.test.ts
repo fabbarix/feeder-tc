@@ -3,6 +3,7 @@ import { makeIsoDate, makeRecipeId, type Recipe, type Settings } from "../types.
 import {
   DEFAULT_REUSE_GAP_SLOTS,
   buildSlotSequence,
+  conservativeSourcePosition,
   effectiveReuseGapSlots,
   expectedSurplusServings,
   projectedLeftoverExpiry,
@@ -130,5 +131,21 @@ describe("buildSlotSequence / reuseGapSatisfied — gap arithmetic", () => {
     const source = { date: makeIsoDate("2026-08-17"), slotIndex: 0 };
     const nextSlot = { date: makeIsoDate("2026-08-17"), slotIndex: 1 };
     expect(reuseGapSatisfied(seq, source, nextSlot, 0)).toBe(true);
+  });
+});
+
+describe("conservativeSourcePosition — approximate gap anchor for a REAL leftover lot", () => {
+  it("anchors on the LAST configured slot of the purchase day, not the first", () => {
+    const position = conservativeSourcePosition(threeMealSettings, makeIsoDate("2026-08-17")); // Monday: breakfast, lunch, dinner
+    expect(position).toEqual({ date: makeIsoDate("2026-08-17"), slotIndex: 2 }); // dinner, index 2 — the conservative (never-under-count) choice
+  });
+
+  it("returns undefined when the current layout has no configured slots at all for that weekday", () => {
+    const noSaturdaySettings: Settings = {
+      householdSize: 2,
+      repeatExclusionWeeks: 0,
+      slotLayout: [{ day: "monday", slots: ["dinner"] }], // no saturday entry
+    };
+    expect(conservativeSourcePosition(noSaturdaySettings, makeIsoDate("2026-08-22"))).toBeUndefined(); // a Saturday
   });
 });
