@@ -3,6 +3,7 @@ import { createFakeRng } from "../fakes/rng.ts";
 import {
   makeIngredientId,
   makeIsoDate,
+  makeLotId,
   makePlanSlotId,
   makeQuantity,
   makeRecipeId,
@@ -474,6 +475,237 @@ describe("rerollSlot", () => {
     // and excludeCurrentRecipe defaults to true with no other candidate, so
     // rerolling falls back to keeping it.
     expect(rerolled.filling).toEqual({ kind: "recipe", recipeId: makeRecipeId("rot-0") });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WP-leftover-planning
+// ---------------------------------------------------------------------------
+
+describe("generateWeek — one recipe fills every night", () => {
+  it("with a single in-rotation dinner recipe, it is placed on all 7 nights", () => {
+    const only = recipe("only", ["dinner"], "in-rotation");
+    const result = generateWeek({
+      settings: { ...dinnerOnlySettings, repeatExclusionWeeks: 0 },
+      weekStart: WEEK_START,
+      recipes: [only],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      rng: createFakeRng(11),
+    });
+    expect(recipeFillingIds(result.slots)).toEqual(Array(7).fill("only"));
+  });
+});
+
+describe("generateWeek — three recipes spread evenly once repeats are forced", () => {
+  it("A B C A B C A — never A A once every recipe has had one turn", () => {
+    const a = recipe("a", ["dinner"], "in-rotation");
+    const b = recipe("b", ["dinner"], "in-rotation");
+    const c = recipe("c", ["dinner"], "in-rotation");
+    const result = generateWeek({
+      settings: { ...dinnerOnlySettings, repeatExclusionWeeks: 0 },
+      weekStart: WEEK_START,
+      recipes: [a, b, c],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      rng: createFakeRng(21),
+    });
+    const ids = recipeFillingIds(result.slots) as string[];
+    expect(ids).toHaveLength(7);
+    expect(new Set(ids.slice(0, 3))).toEqual(new Set(["a", "b", "c"])); // first three days: one of each, order depends on the weighted pick
+    // Day 4 onward exactly repeats days 1-3 in the same order forever after
+    // (the fallback always reaches for whichever recipe was used longest ago).
+    expect(ids[3]).toBe(ids[0]);
+    expect(ids[4]).toBe(ids[1]);
+    expect(ids[5]).toBe(ids[2]);
+    expect(ids[6]).toBe(ids[0]);
+    // Never two days in a row with the same recipe.
+    for (let i = 1; i < ids.length; i += 1) {
+      expect(ids[i]).not.toBe(ids[i - 1]);
+    }
+  });
+});
+
+describe("generateWeek — leftovers are used first", () => {
+  it("prefers an available real leftover lot over cooking a fresh in-rotation recipe", () => {
+    const chili = recipe("chili", ["dinner"], "in-rotation");
+    const other = recipe("other", ["dinner"], "in-rotation");
+    const singleSlotSettings: Settings = {
+      householdSize: 2,
+      repeatExclusionWeeks: 0,
+      slotLayout: [{ day: "monday", slots: ["dinner"] }],
+    };
+    const chiliLot = {
+      id: makeLotId("lot-1"),
+      ingredientId: makeIngredientId("leftover-chili"),
+      quantity: makeQuantity(2, "portion" as const),
+      purchaseDate: makeIsoDate("2026-08-16"),
+      location: "fridge" as const,
+      expiry: makeIsoDate("2026-08-20"),
+      expiryOverridden: true,
+    };
+
+    for (let seed = 0; seed < 20; seed += 1) {
+      const result = generateWeek({
+        settings: singleSlotSettings,
+        weekStart: WEEK_START,
+        recipes: [chili, other],
+        recipeIngredients: [],
+        pastPlanSlots: [],
+        expiringIngredientIds: new Set(),
+        leftoverLotsByRecipeId: new Map([[chili.id, [chiliLot]]]),
+        rng: createFakeRng(seed),
+      });
+      expect(result.slots).toHaveLength(1);
+      expect(result.slots[0]!.filling).toEqual({ kind: "leftover", lotId: chiliLot.id });
+    }
+  });
+});
+
+describe("generateWeek — the reuse gap is honoured exactly at its boundary", () => {
+  const chili = recipe("chili", ["breakfast", "dinner"], "in-rotation");
+  const otherBreakfast = recipe("other-breakfast", ["breakfast"], "in-rotation");
+  const otherDinner = recipe("other-dinner", ["dinner"], "in-rotation");
+
+  const gapSettings: Settings = {
+    householdSize: 2,
+    repeatExclusionWeeks: 0,
+    reuseGapSlots: 2,
+    slotLayout: [
+      { day: "monday", slots: ["dinner"] },
+      { day: "tuesday", slots: ["breakfast", "dinner"] },
+      { day: "wednesday", slots: ["dinner"] },
+    ],
+  };
+
+  function pinnedMondaySource(): PlanSlot {
+    return {
+      id: makePlanSlotId("mon-dinner"),
+      date: makeIsoDate("2026-08-17"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id, scaleServings: 4 }, // household 2 -> surplus 2
+      state: "planned",
+      pinned: true,
+    };
+  }
+
+  it("Tuesday's slots (0 and 1 slots away) do not qualify; Wednesday dinner (exactly 2 away) does", () => {
+    const source = pinnedMondaySource();
+    const result = generateWeek({
+      settings: gapSettings,
+      weekStart: WEEK_START,
+      recipes: [chili, otherBreakfast, otherDinner],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      existingSlots: [source],
+      leftoverShelfLifeDays: 10, // plenty of runway — expiry isn't the limiting factor in this test
+      rng: createFakeRng(31),
+    });
+
+    function find(date: string, slotType: MealTag): PlanSlot {
+      const slot = result.slots.find((s) => s.date === makeIsoDate(date) && s.slotType === slotType);
+      if (!slot) throw new Error(`no slot found for ${date} ${slotType}`);
+      return slot;
+    }
+    expect(find("2026-08-17", "dinner")).toEqual(source); // pinned, untouched
+    expect(find("2026-08-18", "breakfast").filling.kind).not.toBe("leftover-projected");
+    expect(find("2026-08-18", "dinner").filling.kind).not.toBe("leftover-projected");
+    expect(find("2026-08-19", "dinner").filling).toEqual({
+      kind: "leftover-projected",
+      sourceSlotId: source.id,
+      recipeId: chili.id,
+    });
+  });
+
+  it("excludes a projected leftover that would already have expired by the qualifying slot's date", () => {
+    const source = pinnedMondaySource();
+    const result = generateWeek({
+      settings: gapSettings,
+      weekStart: WEEK_START,
+      recipes: [chili, otherBreakfast, otherDinner],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      existingSlots: [source],
+      leftoverShelfLifeDays: 1, // expires 2026-08-18, before Wednesday 2026-08-19
+      rng: createFakeRng(32),
+    });
+    const wednesday = result.slots.find((s) => s.date === makeIsoDate("2026-08-19") && s.slotType === "dinner");
+    // Expired before Wednesday, so it falls through to an ordinary fresh
+    // pick from the dinner pool (chili or other-dinner — either is a valid
+    // in-rotation dinner candidate); the point of this test is only that it
+    // is NOT the projected leftover.
+    expect(wednesday!.filling.kind).toBe("recipe");
+  });
+});
+
+describe("generateWeek — a chain crossing the week boundary", () => {
+  it("a not-yet-cooked prior-week slot's expected surplus can feed a slot early in the following week", () => {
+    const chili = recipe("chili", ["dinner"], "in-rotation");
+    const other = recipe("other", ["dinner"], "in-rotation");
+
+    const priorWeekSource: PlanSlot = {
+      id: makePlanSlotId("prior-sunday-dinner"),
+      date: makeIsoDate("2026-08-16"), // the Sunday before WEEK_START (2026-08-17, a Monday)
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id, scaleServings: 4 }, // household 2 -> surplus 2
+      state: "planned", // not yet cooked
+      pinned: false,
+    };
+
+    const result = generateWeek({
+      settings: { ...dinnerOnlySettings, householdSize: 2 }, // reuseGapSlots defaults to 2
+      weekStart: WEEK_START,
+      recipes: [chili, other],
+      recipeIngredients: [],
+      pastPlanSlots: [priorWeekSource],
+      expiringIngredientIds: new Set(),
+      leftoverShelfLifeDays: 10,
+      rng: createFakeRng(41),
+    });
+
+    // Sunday(source) -> Monday(0 between) -> Tuesday(1 between) -> Wednesday(2 between, qualifies).
+    const wednesday = result.slots.find((s) => s.date === makeIsoDate("2026-08-19"));
+    expect(wednesday!.filling).toEqual({
+      kind: "leftover-projected",
+      sourceSlotId: priorWeekSource.id,
+      recipeId: chili.id,
+    });
+    const monday = result.slots.find((s) => s.date === makeIsoDate("2026-08-17"));
+    const tuesday = result.slots.find((s) => s.date === makeIsoDate("2026-08-18"));
+    expect(monday!.filling.kind).not.toBe("leftover-projected");
+    expect(tuesday!.filling.kind).not.toBe("leftover-projected");
+  });
+
+  it("never treats a SKIPPED prior-week slot as a leftover source", () => {
+    const chili = recipe("chili", ["dinner"], "in-rotation");
+    const other = recipe("other", ["dinner"], "in-rotation");
+    const skippedSource: PlanSlot = {
+      id: makePlanSlotId("prior-sunday-dinner"),
+      date: makeIsoDate("2026-08-16"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id, scaleServings: 4 },
+      state: "skipped", // the meal never happened
+      pinned: false,
+    };
+
+    const result = generateWeek({
+      settings: dinnerOnlySettings,
+      weekStart: WEEK_START,
+      recipes: [chili, other],
+      recipeIngredients: [],
+      pastPlanSlots: [skippedSource],
+      expiringIngredientIds: new Set(),
+      leftoverShelfLifeDays: 10,
+      rng: createFakeRng(42),
+    });
+    expect(result.slots.some((s) => s.filling.kind === "leftover-projected")).toBe(false);
   });
 });
 

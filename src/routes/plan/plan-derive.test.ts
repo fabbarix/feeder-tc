@@ -8,6 +8,7 @@ import {
   densityDots,
   deriveLeftoversAtRisk,
   groupSlotsByDay,
+  isProjectedLeftoverBroken,
   mergeWeekSlots,
 } from "./plan-derive.ts";
 import {
@@ -465,5 +466,122 @@ describe("buildCalendarDays", () => {
     expect(days[0]!.slots).toHaveLength(1);
     expect(days[0]!.slots[0]!.slot).toEqual(existing);
     expect(days[0]!.slots[0]!.recipe).toBe(chili);
+  });
+});
+
+// --- WP-leftover-planning: isProjectedLeftoverBroken / buildSlotView's projected fields ---
+
+describe("isProjectedLeftoverBroken", () => {
+  const chili = recipe("chili");
+
+  function projectedFilling(sourceSlotId: string, recipeId = chili.id) {
+    return { kind: "leftover-projected" as const, sourceSlotId: makePlanSlotId(sourceSlotId), recipeId };
+  }
+
+  it("is false while the source is still a planned recipe filling matching recipeId", () => {
+    const source: PlanSlot = {
+      id: makePlanSlotId("mon-dinner"),
+      date: makeIsoDate("2026-08-17"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id },
+      state: "planned",
+      pinned: false,
+    };
+    const allSlotsById = new Map([[source.id, source]]);
+    expect(isProjectedLeftoverBroken(projectedFilling("mon-dinner"), allSlotsById)).toBe(false);
+  });
+
+  it("is true when the source slot no longer exists", () => {
+    expect(isProjectedLeftoverBroken(projectedFilling("gone"), new Map())).toBe(true);
+  });
+
+  it("is true when the source was skipped", () => {
+    const source: PlanSlot = {
+      id: makePlanSlotId("mon-dinner"),
+      date: makeIsoDate("2026-08-17"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id },
+      state: "skipped",
+      pinned: false,
+    };
+    const allSlotsById = new Map([[source.id, source]]);
+    expect(isProjectedLeftoverBroken(projectedFilling("mon-dinner"), allSlotsById)).toBe(true);
+  });
+
+  it("is true when the source was re-planned to a different recipe", () => {
+    const other = recipe("fish-pie");
+    const source: PlanSlot = {
+      id: makePlanSlotId("mon-dinner"),
+      date: makeIsoDate("2026-08-17"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: other.id },
+      state: "planned",
+      pinned: false,
+    };
+    const allSlotsById = new Map([[source.id, source]]);
+    expect(isProjectedLeftoverBroken(projectedFilling("mon-dinner"), allSlotsById)).toBe(true);
+  });
+
+  it("is true when the source was cleared to empty", () => {
+    const source: PlanSlot = {
+      id: makePlanSlotId("mon-dinner"),
+      date: makeIsoDate("2026-08-17"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "empty" },
+      state: "planned",
+      pinned: false,
+    };
+    const allSlotsById = new Map([[source.id, source]]);
+    expect(isProjectedLeftoverBroken(projectedFilling("mon-dinner"), allSlotsById)).toBe(true);
+  });
+
+  it("is true once the source has been cooked (should already have been resolved to a real leftover by then)", () => {
+    const source: PlanSlot = {
+      id: makePlanSlotId("mon-dinner"),
+      date: makeIsoDate("2026-08-17"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id },
+      state: "cooked",
+      pinned: false,
+    };
+    const allSlotsById = new Map([[source.id, source]]);
+    expect(isProjectedLeftoverBroken(projectedFilling("mon-dinner"), allSlotsById)).toBe(true);
+  });
+});
+
+describe("buildSlotView — leftover-projected filling", () => {
+  it("resolves projectedRecipe and projectedBroken from allSlotsById", () => {
+    const chili = recipe("chili");
+    const source: PlanSlot = {
+      id: makePlanSlotId("mon-dinner"),
+      date: makeIsoDate("2026-08-17"),
+      slotType: "dinner",
+      slotIndex: 0,
+      filling: { kind: "recipe", recipeId: chili.id },
+      state: "planned",
+      pinned: false,
+    };
+    const dependent: PlanSlot = {
+      id: makePlanSlotId("wed-lunch"),
+      date: makeIsoDate("2026-08-19"),
+      slotType: "lunch",
+      slotIndex: 0,
+      filling: { kind: "leftover-projected", sourceSlotId: source.id, recipeId: chili.id },
+      state: "planned",
+      pinned: false,
+    };
+    const recipesById = new Map([[chili.id, chili]]);
+    const allSlotsById = new Map([
+      [source.id, source],
+      [dependent.id, dependent],
+    ]);
+    const view = buildSlotView(dependent, recipesById, new Map(), new Map(), makeIsoDate("2026-08-17"), allSlotsById);
+    expect(view.projectedRecipe).toBe(chili);
+    expect(view.projectedBroken).toBe(false);
   });
 });

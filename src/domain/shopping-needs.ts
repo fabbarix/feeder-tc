@@ -44,10 +44,15 @@ function scaleFactor(recipe: Recipe, scaleServings: number | undefined, settings
  * Expands every in-range `PlanSlot` into one `ShoppingNeed` per ingredient
  * line of its recipe, scaled to the slot's target servings.
  *
- * - `filling.kind === "leftover"` and `"empty"` slots contribute nothing —
- *   the three-way union forces this `switch` to handle both explicitly
+ * - `filling.kind === "leftover"`, `"leftover-projected"`, and `"empty"`
+ *   slots all contribute nothing — the (now four-way, WP-leftover-planning)
+ *   union forces this `switch` to handle every one of them explicitly
  *   rather than falling through a null check (BDD: "Leftover slots generate
- *   no needs").
+ *   no needs"). A projected leftover in particular must never generate a
+ *   shopping need: it isn't a recipe to buy for, it's a bet that some OTHER
+ *   already-planned meal will produce enough surplus — exactly the "no
+ *   shopping need" plain-language promise the slot picker mock makes for
+ *   real leftovers, extended to projected ones.
  * - A `"skipped"` slot (the meal isn't happening) likewise contributes
  *   nothing; `"planned"` and `"cooked"` slots in range both do — a cooked
  *   slot still represents a meal that was eaten within the range and whose
@@ -85,6 +90,7 @@ export function computeNeeds(
 
     switch (slot.filling.kind) {
       case "leftover":
+      case "leftover-projected":
       case "empty":
         continue;
       case "recipe": {

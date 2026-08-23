@@ -130,6 +130,32 @@ export function PlanSlotRow({
     );
   }
 
+  // WP-leftover-planning: a leftover the planner expects but hasn't cooked
+  // yet. Reads as contingent (a plain "not made yet" instead of the ordinary
+  // leftover badge) rather than a real, ready-to-eat portion count — and, if
+  // whatever it depended on changed, says so plainly instead of quietly
+  // pointing at food that was never made (no "projected"/"provisional"
+  // jargon on screen, per the work order).
+  if (slot.filling.kind === "leftover-projected") {
+    const name = view.projectedRecipe ? `Leftover: ${view.projectedRecipe.name}` : "Leftover";
+    return (
+      <div className={`${styles.slot} ${styles.slotLeftover}`}>
+        <span className={styles.slotTag}>{tagLabel} · leftover</span>
+        <div className={styles.slotBody}>
+          <div className={styles.slotRow1}>
+            <span>{name}</span>
+            <span className={`${styles.badge}${view.projectedBroken ? ` ${styles.badgeWarn}` : ""}`}>
+              {view.projectedBroken ? "May not happen now" : "Not made yet"}
+            </span>
+          </div>
+          <div className={styles.slotRow2}>
+            <RemoveButton onPress={() => onRemove(slot.id)} disabled={isBusy} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // filling.kind === "recipe"
   const targetServings = resolveTargetServings(settings, slot.filling) ?? settings.householdSize;
   const isOverridden = slot.filling.scaleServings !== undefined;

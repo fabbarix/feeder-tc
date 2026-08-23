@@ -164,6 +164,10 @@ const SETTINGS: Settings = {
   // round-trip assertion fail not because anything is broken, but because
   // read() legitimately fills in a default the fixture didn't ask for.
   currency: "£",
+  // WP-leftover-planning: same reasoning as currency above — decodeSettings
+  // always returns a concrete reuseGapSlots, defaulting a blank cell to
+  // DEFAULT_REUSE_GAP_SLOTS.
+  reuseGapSlots: 5,
 };
 
 export function describeWorkbookStoreContract(makeSubject: () => WorkbookStore): void {

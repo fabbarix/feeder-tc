@@ -3,20 +3,29 @@ import { enterReadyShell } from "./support/shell.ts";
 import { dismissToasts } from "./support/toast.ts";
 
 // UA review finding #3a: "Generate week" used to fill whatever it could and
-// say NOTHING — a small recipe library (or none tagged for a meal at all)
-// silently left most of the week empty with no clue why. This asserts what
-// the person actually sees: a notification naming how many slots got filled
-// and why the rest didn't, not an internal counter. Fails on `origin/main`
-// (a367ab3) because that build fires no toast for "Generate week" at all —
-// see `usePlanWeek.ts`'s old "no success toast" comment, which covered the
-// EMPTY-result case too, not just the full-success one this finding leaves
-// alone.
+// say NOTHING — no recipe tagged for a meal at all silently left the whole
+// week empty with no clue why. This asserts what the person actually sees:
+// a notification naming how many slots got filled and why the rest didn't,
+// not an internal counter. Fails on `origin/main` (a367ab3) because that
+// build fires no toast for "Generate week" at all — see `usePlanWeek.ts`'s
+// old "no success toast" comment, which covered the EMPTY-result case too,
+// not just the full-success one this finding leaves alone.
+//
+// WP-leftover-planning note: this used to exercise a SMALL library (one
+// dinner recipe) rather than a recipe-less one, and asserted 6 of 7 slots
+// stayed empty. That stopped being true once the generator's own
+// no-repeat-rule fallback shipped (generator.ts step 5, owner decision: "the
+// no-repeat rule gives way rather than leaving a week unfilled") — one
+// dinner recipe now fills all seven nights by repeating it, which is the
+// correct, intended behaviour, not a regression. The only way left to
+// genuinely starve a meal tag is zero recipes tagged for it at all, which is
+// what this test exercises now.
 
 function goTo(page: Page, label: string) {
   return page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: label }).click();
 }
 
-test("generating a week with too few dinner recipes says how many slots filled and why the rest stayed empty", async ({
+test("generating a week with zero dinner recipes says how many slots filled and why the rest stayed empty", async ({
   page,
 }) => {
   await enterReadyShell(page, "settings");
@@ -31,14 +40,14 @@ test("generating a week with too few dinner recipes says how many slots filled a
     }
   }
 
-  // Exactly one dinner-tagged, in-rotation recipe: after it fills the first
-  // slot, `weekPlacedRecipeIds` excludes it from every other slot this same
-  // week (generator.ts step 2), so the other 6 slots have zero eligible
-  // candidates — a small-library "starved" case, not a bug.
+  // No recipe tagged Dinner at all (tagged Breakfast instead, which this
+  // household no longer has any slots for) — zero eligible candidates for
+  // every one of the week's 7 dinner slots, a genuine starved-tag case, not
+  // the small-library one the repeat fallback would now quietly fill.
   await goTo(page, "Recipes");
   await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
-  await page.getByRole("textbox", { name: "Name" }).fill("Only Dinner");
-  await page.getByRole("group", { name: "Meal tags" }).getByRole("button", { name: "Dinner" }).click();
+  await page.getByRole("textbox", { name: "Name" }).fill("Only Breakfast");
+  await page.getByRole("group", { name: "Meal tags" }).getByRole("button", { name: "Breakfast" }).click();
   // An ingredient line — irrelevant to this test, but keeps the save a
   // single click on both this branch and `main` (a completely empty recipe
   // gets a "save anyway?" nudge on this branch — item 4 — that `main`
@@ -57,7 +66,7 @@ test("generating a week with too few dinner recipes says how many slots filled a
   await page.getByRole("button", { name: "Generate week" }).click();
 
   const notifications = page.getByRole("region", { name: "Notifications" });
-  await expect(notifications.getByText(/6 slots still empty/i)).toBeVisible();
-  await expect(notifications.getByText(/Filled 1 of 7 empty slot/i)).toBeVisible();
+  await expect(notifications.getByText(/7 slots still empty/i)).toBeVisible();
+  await expect(notifications.getByText(/Filled 0 of 7 empty slot/i)).toBeVisible();
   await expect(notifications.getByText(/Dinner/)).toBeVisible();
 });

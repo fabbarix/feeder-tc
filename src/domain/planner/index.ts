@@ -32,3 +32,13 @@ export {
   type StaplePlanState,
   type RerollSlotInput,
 } from "./generator.ts";
+export {
+  DEFAULT_REUSE_GAP_SLOTS,
+  effectiveReuseGapSlots,
+  expectedSurplusServings,
+  projectedLeftoverExpiry,
+  buildSlotSequence,
+  reuseGapSatisfied,
+  type SlotPosition,
+  type SlotSequence,
+} from "./leftover-projection.ts";

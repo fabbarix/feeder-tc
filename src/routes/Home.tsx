@@ -172,6 +172,14 @@ export function Home() {
         badge: "Leftover",
       };
     }
+    if (slot.filling.kind === "leftover-projected") {
+      const recipe = recipesById.get(slot.filling.recipeId);
+      return {
+        name: recipe ? `Leftover: ${recipe.name}` : "Leftover",
+        secondary: `${weekdayLabel(slot.date)} ${slot.slotType} · not made yet`,
+        badge: "Leftover",
+      };
+    }
     return undefined;
   }
 
@@ -193,6 +201,7 @@ export function Home() {
       const lot = pantry.lots.find((l) => l.id === lotId);
       return lot ? `Dinner · ${formatQuantity(lot.quantity)}` : "Dinner";
     }
+    if (slot.filling.kind === "leftover-projected") return "Dinner · not made yet";
     return "Dinner";
   }
 
@@ -203,6 +212,10 @@ export function Home() {
       const lot = pantry.lots.find((l) => l.id === lotId);
       const ingredient = lot ? pantry.ingredientsById.get(lot.ingredientId) : undefined;
       return ingredient?.name ?? "Leftovers";
+    }
+    if (slot.filling.kind === "leftover-projected") {
+      const recipe = recipesById.get(slot.filling.recipeId);
+      return recipe ? `Leftover: ${recipe.name}` : "Leftovers";
     }
     return "";
   }
@@ -232,6 +245,11 @@ export function Home() {
         hasPhoto: ingredient?.hasPhoto,
         fetchPhoto: () => getPhotoDataUrl(store, "ingredient", ingredientId),
       };
+    }
+    if (slot.filling.kind === "leftover-projected") {
+      const recipeId = slot.filling.recipeId;
+      const recipe = recipesById.get(recipeId);
+      return { kind: "recipe", hasPhoto: recipe?.hasPhoto, fetchPhoto: () => getPhotoDataUrl(store, "recipe", recipeId) };
     }
     return undefined;
   }

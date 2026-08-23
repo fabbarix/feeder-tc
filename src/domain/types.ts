@@ -487,6 +487,35 @@ export interface RecipeStep {
 export type PlanSlotFilling =
   | { readonly kind: "recipe"; readonly recipeId: RecipeId; readonly scaleServings?: number }
   | { readonly kind: "leftover"; readonly lotId: LotId }
+  /**
+   * WP-leftover-planning, coordinator-approved additive contract change. A
+   * leftover the planner expects to exist once some OTHER slot is actually
+   * cooked, but that hasn't happened yet — so there is no `LotId` to point
+   * at (a `Lot` is only ever created by a `purchase` `InventoryEvent`, and
+   * that only happens at "mark cooked" time, `createLeftoverLot`). Adding a
+   * nullable `lotId` here would recreate exactly the "null means... unless"
+   * bug class this union exists to rule out (see the file header comment
+   * above `PlanSlotFilling`), so this is its own discriminated variant
+   * instead.
+   *
+   * `sourceSlotId` names the `PlanSlot` expected to produce this leftover —
+   * looked up live (never cached) so a dependent slot can tell whether its
+   * source is still on track: still `planned` with the same `recipeId`
+   * (contingent — the UI shows this plainly, no jargon), already `cooked`
+   * (the planner should have bound this slot to the real `lotId` by now —
+   * see `usePlanWeek.ts`'s mark-cooked flow), or gone (skipped/removed/
+   * re-planned to a different recipe) — the last case is exactly "flags
+   * rather than silently pointing at food that never existed" from the
+   * work order, and is computed at render time, not stored, so it can never
+   * go stale independently of the source row.
+   *
+   * `recipeId` is carried alongside `sourceSlotId` (rather than requiring a
+   * lookup through the source slot for every render) purely so a dependent
+   * slot can still say what it *expected* ("Leftover: Chili") even in the
+   * broken case above, once the source's own filling has already changed to
+   * something else or vanished.
+   */
+  | { readonly kind: "leftover-projected"; readonly sourceSlotId: PlanSlotId; readonly recipeId: RecipeId }
   | { readonly kind: "empty" };
 
 export type PlanSlotState = "planned" | "cooked" | "skipped";
@@ -703,6 +732,29 @@ export interface Settings {
    * default explicitly rather than leaving callers to do it ad hoc.
    */
   readonly currency?: string;
+  /**
+   * WP-leftover-planning, coordinator-approved additive contract change,
+   * same `?` pattern as `currency` above so every `Settings` literal written
+   * before today (fixtures, other work packages' tests) still type-checks.
+   * The reuse gap: the minimum number of OTHER planned meal slots — of any
+   * type, a breakfast counts the same as a dinner — that must fall between
+   * a meal and any slot the generator fills from its leftovers (real or
+   * projected). Counted in slots, not days or meals-of-the-same-type,
+   * because the owner's decision was explicit that a household eating
+   * breakfast/lunch/dinner shouldn't see the same leftover twice within a
+   * handful of meals regardless of which meal types those are.
+   *
+   * Absent means 2 (`DEFAULT_REUSE_GAP_SLOTS`, `src/domain/planner/
+   * leftover-projection.ts`) — enough that a leftover never lands in the
+   * very next slot (which would read as "we just ate this"), while staying
+   * short enough that a short shelf life (leftovers, `LEFTOVER_FRIDGE_
+   * SHELF_LIFE_DAYS` = 4 days) doesn't expire before the gap is satisfied
+   * for a household with 2-3 slots/day. See `DEFAULT_SETTINGS`
+   * (src/sheets/bootstrap.ts) and `decodeSettings`
+   * (src/sheets/codecs/settings.ts), which both apply that default
+   * explicitly, exactly like `currency`/`DEFAULT_CURRENCY`.
+   */
+  readonly reuseGapSlots?: number;
 }
 
 export interface Meta {

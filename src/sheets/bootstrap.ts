@@ -10,6 +10,7 @@
  */
 import type { CellRow, SheetsTransport, WorkbookStore } from "../domain/contracts.ts";
 import type { Settings, WorkbookSheetName } from "../domain/types.ts";
+import { DEFAULT_REUSE_GAP_SLOTS } from "../domain/planner/leftover-projection.ts";
 import {
   columnLetter,
   decodeIngredient,
@@ -66,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ],
   repeatExclusionWeeks: 3,
   currency: DEFAULT_CURRENCY,
+  reuseGapSlots: DEFAULT_REUSE_GAP_SLOTS,
 };
 
 /**

@@ -22,6 +22,7 @@ import type { MealTag, Weekday } from "../domain/index.ts";
 // coupling to the sheets layer's entire surface (auth, transport, picker,
 // registry, migrate) and keeps this chunk boundary exactly what it was.
 import { DEFAULT_SETTINGS } from "../sheets/bootstrap.ts";
+import { DEFAULT_REUSE_GAP_SLOTS } from "../domain/planner/leftover-projection.ts";
 import styles from "./settings/settings.module.css";
 import forms from "./forms.module.css";
 
@@ -68,6 +69,17 @@ export function Settings() {
   function updateRepeatExclusionWeeks(weeks: number): void {
     if (!settings) return;
     void save((current) => ({ ...(current ?? settings), repeatExclusionWeeks: Math.max(0, weeks) }));
+  }
+
+  /**
+   * WP-leftover-planning: how many other meals must come between a meal and
+   * any slot the generator fills from its leftovers (`Settings.reuseGapSlots`
+   * — types.ts's own doc comment has the full reasoning). Same
+   * refresh-before-edit save pattern as every other field on this screen.
+   */
+  function updateReuseGapSlots(gap: number): void {
+    if (!settings) return;
+    void save((current) => ({ ...(current ?? settings), reuseGapSlots: Math.max(0, gap) }));
   }
 
   function addSlot(day: Weekday, tag: MealTag): void {
@@ -165,6 +177,14 @@ export function Settings() {
                   min={0}
                   value={settings.repeatExclusionWeeks}
                   onChange={updateRepeatExclusionWeeks}
+                />
+                <Stepper
+                  label="Wait before reusing leftovers"
+                  unit="meals"
+                  unitOne="meal"
+                  min={0}
+                  value={settings.reuseGapSlots ?? DEFAULT_REUSE_GAP_SLOTS}
+                  onChange={updateReuseGapSlots}
                 />
                 {saving ? <p className={styles.fieldLabel}>Saving…</p> : null}
               </div>
