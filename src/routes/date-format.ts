@@ -57,3 +57,17 @@ export function formatMonthYear(date: IsoDate): string {
   const year = date.split("-")[0];
   return `${month.slice(0, 3)} ${year}`;
 }
+
+/**
+ * "Aug 26" — abbreviated month + 2-digit year, from a `"YYYY-MM"` bucket key
+ * (`price-chart-views.ts`'s `monthKey`), for `ProductPriceChart`'s x-axis.
+ * Routed through here rather than `new Date(...).toLocaleDateString(...)`
+ * (this file's own header comment explains why that's banned for display:
+ * locale/timezone-sensitive). Parses the `YYYY-MM` components directly, same
+ * discipline as `dayAndMonth` above, rather than constructing a `Date` at all.
+ */
+export function formatMonthKeyShort(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number) as [number, number];
+  const name = MONTH_NAMES[month - 1] ?? "";
+  return `${name.slice(0, 3)} ${String(year).slice(2)}`;
+}

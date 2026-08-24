@@ -1,19 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { useToast } from "../ui/components/Toast/useToast.ts";
 import { EmptyState, ErrorState, RouteTabs, SearchField, Skeleton } from "../ui/components";
 import { PhotoMedia } from "../ui/photo/index.ts";
 import { BookOpen, Clock, CookingPot, MagnifyingGlass, Plus, Users } from "../ui/icons";
 import type { MealTag, Recipe } from "../domain/index.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
 import { SECTION_TABS } from "./section-tabs.ts";
+import { useRecipesData } from "./useRecipesData.ts";
 import styles from "./recipes.module.css";
 import forms from "./forms.module.css";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 interface FilterDef {
   readonly key: string;
@@ -55,43 +51,9 @@ function tagPills(recipe: Recipe): readonly string[] {
  */
 export function Recipes() {
   const { store } = useWorkbookContext();
-  const { showToast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [recipes, setRecipes] = useState<readonly Recipe[]>([]);
+  const { loading, error, recipes, retry } = useRecipesData();
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-
-  useEffect(() => {
-    // `loading`/`error` are only ever set from the promise's own
-    // resolution below, never synchronously here (react-hooks'
-    // set-state-in-effect rule) — their initial `useState` values already
-    // cover the first mount.
-    let cancelled = false;
-    store.recipes
-      .readAll()
-      .then((result) => {
-        if (cancelled) return;
-        setRecipes([...result.rows].sort((a, b) => a.name.localeCompare(b.name)));
-        const firstReason = result.warnings[0]?.reason;
-        if (result.warnings.length > 0) {
-          showToast({
-            variant: "warning",
-            title: `${result.warnings.length} ${result.warnings.length === 1 ? "recipe" : "recipes"} skipped`,
-            ...(firstReason !== undefined ? { description: firstReason } : {}),
-          });
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(messageOf(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [store, showToast]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -150,7 +112,7 @@ export function Recipes() {
           <ErrorState
             title="Couldn't load your recipes"
             description={error}
-            onRetry={() => window.location.reload()}
+            onRetry={retry}
           />
         ) : null}
         {!loading && !error && recipes.length === 0 ? (

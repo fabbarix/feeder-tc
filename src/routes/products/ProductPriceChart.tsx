@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { ChartBucket } from "./price-chart-views.ts";
+import { formatMonthKeyShort } from "../date-format.ts";
 import styles from "./products.module.css";
 
 export interface ChartSeriesInput {
@@ -25,12 +26,6 @@ export interface ProductPriceChartProps {
 const WIDTH = 600;
 const PADDING_X = 28;
 const PADDING_Y = 16;
-
-function monthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split("-");
-  const date = new Date(Number(year), Number(month) - 1, 1);
-  return date.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
-}
 
 /**
  * Hand-rolled inline SVG (no charting library — CSP forbids external
@@ -105,7 +100,7 @@ export function ProductPriceChart({
         <line x1={PADDING_X} y1={height - PADDING_Y} x2={WIDTH - PADDING_X} y2={height - PADDING_Y} className={styles.chartAxis} />
         {ticks.map((month) => (
           <text key={month} x={xFor(month)} y={height - 2} className={styles.chartTick} textAnchor="middle">
-            {monthLabel(month)}
+            {formatMonthKeyShort(month)}
           </text>
         ))}
         {visible.map((s) => {

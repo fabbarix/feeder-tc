@@ -208,6 +208,15 @@ export function PantryItem() {
 
   return (
     <section>
+      {/* One exit affordance per screen (pattern audit #3): a breadcrumb
+          link above the heading, same place/weight as every other detail
+          screen (ProductDetail.tsx, RecipeDetail.tsx) — this screen had none
+          at all beyond the shell nav before this fix. */}
+      <p>
+        <Link to="/pantry" className={forms.backLink}>
+          &larr; Pantry
+        </Link>
+      </p>
       {pantry.loading ? (
         <>
           <h1>Pantry item</h1>

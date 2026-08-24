@@ -197,7 +197,7 @@ export function ProductEditorPanel({
         />
 
         <div className={forms.field}>
-          <span>Photo (optional)</span>
+          <span className={forms.fieldLabel}>Photo (optional)</span>
           <label className={styles.photoPicker}>
             {photoDataUrl ? (
               <img src={photoDataUrl} alt="" className={styles.photoPreview} />
@@ -217,7 +217,7 @@ export function ProductEditorPanel({
 
         {ingredient && entryUnitOptions.length > 1 ? (
           <div className={forms.field}>
-            <span>Unit</span>
+            <span className={forms.fieldLabel}>Unit</span>
             <SegmentedControl<EntryUnit> aria-label="Package unit" options={entryUnitOptions} value={entryUnit} onChange={setEntryUnit} />
           </div>
         ) : null}
@@ -232,7 +232,7 @@ export function ProductEditorPanel({
         />
 
         <div className={forms.field}>
-          <span>Product type</span>
+          <span className={forms.fieldLabel}>Product type</span>
           <SegmentedControl<"packaged" | "bulk"> aria-label="Product type" options={BULK_OPTIONS} value={purchaseMode} onChange={setPurchaseMode} />
           <p className={forms.hint}>
             {purchaseMode === "bulk"
@@ -242,7 +242,7 @@ export function ProductEditorPanel({
         </div>
 
         <div className={forms.field}>
-          <span>Default expiry</span>
+          <span className={forms.fieldLabel}>Default expiry</span>
           <SegmentedControl<string>
             aria-label="Default expiry preset"
             options={SHELF_LIFE_PRESET_DAYS}

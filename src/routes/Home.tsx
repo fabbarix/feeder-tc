@@ -1,29 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { useToast } from "../ui/components/Toast/useToast.ts";
 import { EmptyState, ErrorState, FreshnessMeter, Skeleton } from "../ui/components";
 import { PhotoMedia, type PhotoMediaProps } from "../ui/photo/index.ts";
 import { CalendarBlank, CookingPot, Package } from "../ui/icons";
-import {
-  addDays,
-  computeShoppingList,
-  daysBetween,
-  formatQuantity,
-  type PlanSlot,
-  type Recipe,
-  type RecipeIngredient,
-  type Settings,
-} from "../domain/index.ts";
+import { addDays, computeShoppingList, daysBetween, formatQuantity, type PlanSlot } from "../domain/index.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
 import { usePantryInventory } from "./pantry/usePantryInventory.ts";
 import { EXPIRING_SOON_DAYS } from "./pantry/pantry-options.ts";
 import { formatLongDate, weekdayLabel } from "./date-format.ts";
+import { useHomeData } from "./useHomeData.ts";
 import styles from "./home.module.css";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 /** "Good morning" / "Good afternoon" / "Good evening" from the injected Clock's current timestamp — local wall-clock hour (design/mock-screens.html's `.greet`: "Good evening, Fabio"). */
 function greetingWord(nowIso: string): string {
@@ -65,24 +52,16 @@ interface WeekRowContent {
  */
 export function Home() {
   const { store, clock, user } = useWorkbookContext();
-  const { showToast } = useToast();
   const pantry = usePantryInventory();
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [recipes, setRecipes] = useState<readonly Recipe[]>([]);
-  const [recipeIngredients, setRecipeIngredients] = useState<readonly RecipeIngredient[]>([]);
-  const [planSlots, setPlanSlots] = useState<readonly PlanSlot[]>([]);
-  const [settings, setSettings] = useState<Settings | undefined>(undefined);
-  const [markingSlotId, setMarkingSlotId] = useState<string | undefined>(undefined);
-  // "Synced 2m ago" (mock's `.p-meta`/`.dt-sub`) — set once, from this
-  // route's own load promise resolving (below), and re-rendered every 30s
-  // via `nowTick` so the relative text stays roughly fresh for a session
-  // left open. This is a per-visit "how stale is what's on screen right
+  const { loading, error, recipes, recipeIngredients, planSlots, settings, syncedAt, retry, markingSlotId, markSlotCooked } =
+    useHomeData();
+  // "Synced 2m ago" (mock's `.p-meta`/`.dt-sub`) — re-rendered every 30s via
+  // `nowTick` so the relative text stays roughly fresh for a session left
+  // open, against `syncedAt` (set once, by `useHomeData`'s own load promise
+  // resolving). This is a per-visit "how stale is what's on screen right
   // now" indicator, not a tracked cross-route last-sync timestamp — no such
   // thing exists elsewhere in the app to read from, and `usePantryInventory`
   // exposes no timestamp of its own either.
-  const [syncedAt, setSyncedAt] = useState<string | undefined>(undefined);
   const [nowTick, setNowTick] = useState(() => clock.now());
 
   const today = clock.today();
@@ -91,30 +70,6 @@ export function Home() {
     const id = window.setInterval(() => setNowTick(clock.now()), 30_000);
     return () => window.clearInterval(id);
   }, [clock]);
-
-  useEffect(() => {
-    // `loading`/`error` only ever set from the promise's own resolution
-    // below — same react-hooks discipline as every other route container.
-    let cancelled = false;
-    Promise.all([store.recipes.readAll(), store.recipeIngredients.readAll(), store.planSlots.readAll(), store.settings.read()])
-      .then(([recipesResult, linesResult, slotsResult, settingsResult]) => {
-        if (cancelled) return;
-        setRecipes(recipesResult.rows);
-        setRecipeIngredients(linesResult.rows);
-        setPlanSlots(slotsResult.rows);
-        setSettings(settingsResult);
-        setSyncedAt(clock.now());
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(messageOf(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [store, clock]);
 
   const recipesById = useMemo(() => new Map(recipes.map((r) => [r.id, r] as const)), [recipes]);
 
@@ -254,52 +209,20 @@ export function Home() {
     return undefined;
   }
 
-  /**
-   * WP-stale-save: this used to spread the LOCAL `tonightSlot` (loaded once
-   * at mount) into the write — a full-row blind write that could revert
-   * whatever ELSE another household member had since changed on this exact
-   * slot (a pin, a scale override, a recipe swap). Re-reads and applies
-   * `state: "cooked"` to the freshest row instead — the "protect other
-   * fields, not the toggle itself" merge (`usePlanWeek.ts`'s `persistSlot`
-   * doc comment is the fuller version of this same reasoning; this route
-   * doesn't share that hook, so it's inlined here). If the slot is gone, or
-   * its filling is now empty, by the time of the fresh read (cleared
-   * elsewhere — `PlanSlot` rows are never deleted, only emptied), this does
-   * NOT resurrect a "cooked" recipe slot out of it — that would be
-   * recreating state someone else deliberately removed — it toasts instead
-   * and leaves the dashboard to catch up on its next load.
-   */
+  // Stale-save handling (re-read the freshest row, never resurrect a
+  // cleared slot) lives in `useHomeData.ts`'s `markSlotCooked` now — see
+  // that hook's own doc comment for the full reasoning.
   async function handleMarkTonightCooked(): Promise<void> {
     if (!tonightSlot) return;
-    const slotId = tonightSlot.id;
-    setMarkingSlotId(slotId);
-    try {
-      const latestRows = (await store.planSlots.readAll()).rows;
-      const latest = latestRows.find((s) => s.id === slotId);
-      if (!latest || latest.filling.kind === "empty") {
-        showToast({
-          variant: "warning",
-          title: "This meal changed elsewhere",
-          description: "Reload to see tonight's current plan.",
-        });
-        return;
-      }
-      const updated: PlanSlot = { ...latest, state: "cooked" };
-      await store.planSlots.upsert(updated);
-      setPlanSlots((current) => current.map((s) => (s.id === updated.id ? updated : s)));
-      // No success toast (UX review round 2, "quieten the toasts"): once
-      // `state` above flips to "cooked", Tonight's card swaps straight from
-      // the "Mark cooked" button to its cooked rendering — that IS the
-      // confirmation.
-    } catch (err) {
-      showToast({ variant: "error", title: "Couldn't mark this cooked", description: messageOf(err) });
-    } finally {
-      setMarkingSlotId(undefined);
-    }
+    await markSlotCooked(tonightSlot.id);
   }
 
   const combinedLoading = loading || pantry.loading;
   const combinedError = error ?? pantry.error;
+  const combinedRetry = (): void => {
+    retry();
+    pantry.retry();
+  };
 
   const firstName = user?.name.trim().split(/\s+/)[0] ?? "there";
   const greeting = `${greetingWord(clock.now())}, ${firstName}`;
@@ -334,7 +257,7 @@ export function Home() {
         <ErrorState
           title="Couldn't load your dashboard"
           description={combinedError}
-          onRetry={() => window.location.reload()}
+          onRetry={combinedRetry}
         />
       ) : null}
 

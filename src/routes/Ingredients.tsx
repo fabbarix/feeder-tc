@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { useToast } from "../ui/components/Toast/useToast.ts";
 import {
   EmptyState,
   ErrorState,
@@ -16,11 +15,8 @@ import { Carrot, Plus } from "../ui/icons";
 import type { Ingredient } from "../domain/index.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
 import { SECTION_TABS } from "./section-tabs.ts";
+import { useIngredientsData } from "./useIngredientsData.ts";
 import styles from "./forms.module.css";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 const LOCATION_LABEL: Record<Ingredient["defaultLocation"], string> = {
   pantry: "Pantry",
@@ -39,42 +35,8 @@ const LOCATION_LABEL: Record<Ingredient["defaultLocation"], string> = {
  */
 export function Ingredients() {
   const { store } = useWorkbookContext();
-  const { showToast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | undefined>(undefined);
-  const [ingredients, setIngredients] = useState<readonly Ingredient[]>([]);
+  const { loading, error, ingredients, retry } = useIngredientsData();
   const [query, setQuery] = useState("");
-
-  useEffect(() => {
-    // `loading`/`error` are only ever set from the promise's own
-    // resolution below, never synchronously here (react-hooks'
-    // set-state-in-effect rule) — their initial `useState` values already
-    // cover the first mount.
-    let cancelled = false;
-    store.ingredients
-      .readAll()
-      .then((result) => {
-        if (cancelled) return;
-        setIngredients([...result.rows].sort((a, b) => a.name.localeCompare(b.name)));
-        const firstReason = result.warnings[0]?.reason;
-        if (result.warnings.length > 0) {
-          showToast({
-            variant: "warning",
-            title: `${result.warnings.length} ${result.warnings.length === 1 ? "ingredient" : "ingredients"} skipped`,
-            ...(firstReason !== undefined ? { description: firstReason } : {}),
-          });
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(messageOf(err));
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [store, showToast]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -133,7 +95,7 @@ export function Ingredients() {
           <ErrorState
             title="Couldn't load the ingredient catalog"
             description={error}
-            onRetry={() => window.location.reload()}
+            onRetry={retry}
           />
         ) : null}
         {!loading && !error && ingredients.length === 0 ? (
