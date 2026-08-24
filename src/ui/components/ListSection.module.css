@@ -4,7 +4,7 @@
 
 .heading {
   margin: 0 0 var(--space-2);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -39,7 +39,7 @@
   .rowsGrid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-    gap: 11px;
+    gap: var(--space-3);
   }
 
   /* Undoes the plain-list rule above: every card needs its own full border

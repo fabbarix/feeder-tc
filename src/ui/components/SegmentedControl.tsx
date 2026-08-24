@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, type CSSProperties } from "react";
 import { useRadio, useRadioGroup, type AriaRadioGroupProps, type AriaRadioProps } from "react-aria";
 import { useRadioGroupState, type RadioGroupState } from "react-stately";
 import { createContext, useContext } from "react";
@@ -69,7 +69,20 @@ export function SegmentedControl<V extends string>({
   const { radioGroupProps } = useRadioGroup(groupProps, state);
 
   return (
-    <div {...radioGroupProps} className={`${styles.group}${wraps ? ` ${styles.wrap}` : ""}`}>
+    <div
+      {...radioGroupProps}
+      className={`${styles.group}${wraps ? ` ${styles.wrap}` : ""}`}
+      // WP-tokens regression fix — see `.group`'s `min-width` comment
+      // (SegmentedControl.module.css): the `auto-fit`/`minmax(72px, 1fr)`
+      // grid has no reliable intrinsic (shrink-to-fit) size of its own, so
+      // a consumer that doesn't hand it a definite width (Plan.tsx's
+      // "Plan view" switcher, a bare flex sibling) can get sized down to a
+      // single 72px column and silently wrap while keeping the 999px pill
+      // radius. `--segment-count` lets the CSS compute the real minimum
+      // width this control needs for one row, without this component
+      // needing to know or care WHY a given consumer might be narrow.
+      style={{ "--segment-count": options.length } as CSSProperties}
+    >
       <RadioGroupStateContext.Provider value={state}>
         {options.map((option) => (
           <Segment key={option.value} option={option} />

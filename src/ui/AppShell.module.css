@@ -83,7 +83,7 @@
 
 .brandName {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-body-lg);
   letter-spacing: -0.01em;
   color: var(--text-h);
 }
@@ -102,10 +102,10 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-3);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface-2);
   color: var(--text-h);
-  font-size: 0.8rem;
+  font-size: var(--fs-body-sm);
   white-space: nowrap;
 }
 
@@ -134,7 +134,7 @@
   border: none;
   background: none;
   padding: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   cursor: pointer;
 }
 
@@ -144,7 +144,7 @@
 }
 
 .avatar {
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   object-fit: cover;
   flex: none;
 }
@@ -155,10 +155,10 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--accent-bg);
   color: var(--accent);
-  font-size: 0.7rem;
+  font-size: var(--fs-label);
   font-weight: 700;
   flex: none;
 }
@@ -188,7 +188,7 @@
   margin-bottom: var(--space-1);
   border-bottom: 1px solid var(--line);
   color: var(--text-muted);
-  font-size: 0.8rem;
+  font-size: var(--fs-body-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -224,7 +224,7 @@
   padding: var(--space-2) var(--space-4);
   background: var(--surface-raised);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
   border-bottom: 1px solid var(--border);
 }
 
@@ -317,6 +317,9 @@
   z-index: var(--z-nav);
   border-top: 1px solid var(--border);
   background: var(--surface);
+  /* 0px here is env()'s fallback for browsers with no safe-area inset — "no
+     extra padding," not a spacing-scale choice. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -349,12 +352,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--space-hairline);
   min-height: var(--touch-target);
   padding: var(--space-1);
   color: var(--text-muted);
   text-decoration: none;
-  font-size: 0.7rem;
+  font-size: var(--fs-label);
   /* Reserve the underline's space at all times (a 2px transparent border) so
      only its COLOUR transitions in on activation — UI_DESIGN.md §13 motion
      rule: colour/opacity only, never layout or position. */
@@ -377,7 +380,7 @@
   .navItem {
     flex: none;
     flex-direction: row;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     min-height: auto;
     padding: var(--space-2) 0;
     gap: var(--space-2);
@@ -433,7 +436,7 @@
   padding: 0 var(--space-5);
   border-radius: var(--radius-md);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--fs-body-lg);
   cursor: pointer;
 }
 

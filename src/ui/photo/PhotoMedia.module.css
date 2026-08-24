@@ -39,7 +39,7 @@
 .list {
   width: 52px;
   height: 52px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 /* Home's Tonight row only — the single most prominent thing on the
@@ -49,7 +49,7 @@
 .listLg {
   width: 64px;
   height: 64px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
 }
 
 /* Recipe detail inset (`.rphoto`) — a CONTAINED inset, never a hero: capped

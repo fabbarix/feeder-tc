@@ -12,7 +12,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgb(0 0 0 / 0.5);
+  background: var(--overlay);
 }
 
 .sheet {
@@ -56,7 +56,7 @@
   border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--text-h);
-  font: 500 0.95rem/1.2 var(--sans);
+  font: 500 var(--fs-body-lg)/1.2 var(--sans);
   cursor: pointer;
   text-align: left;
 }
@@ -67,11 +67,11 @@
 }
 
 .pill {
-  font: 600 0.65rem/1 var(--sans);
+  font: 600 var(--fs-caption)/1 var(--sans);
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 4px 7px;
-  border-radius: 999px;
+  padding: var(--space-1) var(--space-tight);
+  border-radius: var(--radius-pill);
   background: var(--accent-bg);
   color: var(--accent);
 }
@@ -83,7 +83,7 @@
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-muted);
-  font: 500 0.9rem/1 var(--sans);
+  font: 500 var(--fs-body)/1 var(--sans);
   cursor: pointer;
 }
 

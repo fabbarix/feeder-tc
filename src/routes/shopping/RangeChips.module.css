@@ -20,10 +20,10 @@
   min-height: calc(var(--touch-target) - 12px);
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   cursor: pointer;
   transition:
     background var(--motion-fast) ease-in-out,
@@ -86,7 +86,7 @@
 }
 
 .popoverLabel {
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
   font-weight: 600;
   color: var(--text-h);
 }

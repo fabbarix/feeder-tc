@@ -1,0 +1,46 @@
+{
+  "rules": {
+    "no-invalid-position-at-import-rule": null
+  },
+  "overrides": [
+    {
+      "files": ["src/**/*.css"],
+      "rules": {
+        "unit-disallowed-list": [
+          ["rem"],
+          {
+            "message": "rem is banned in src/ (CLAUDE.md, token-layer proposal): a rem value means a different pixel size depending on where it's read. Use a var(--fs-*)/var(--space-*) token, or a literal px value in src/index.css."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/**/*.module.css"],
+      "rules": {
+        "declaration-property-value-disallowed-list": [
+          {
+            "/^(color|background|background-color|border|border-top|border-right|border-bottom|border-left|border-color|border-top-color|border-right-color|border-bottom-color|border-left-color|outline|outline-color|fill|stroke)$/": [
+              "/#[0-9a-fA-F]{3,8}\\b/",
+              "/rgba?\\(/",
+              "/oklch\\(/",
+              "/oklab\\(/",
+              "/hsla?\\(/"
+            ],
+            "/^(font-size|padding|padding-top|padding-bottom|padding-left|padding-right|margin|margin-top|margin-bottom|margin-left|margin-right|gap|row-gap|column-gap|border-radius)$/": [
+              "/(?<![-.\\w])\\d+(\\.\\d+)?px\\b/"
+            ]
+          },
+          {
+            "message": "One file authors design values (src/index.css) — every *.module.css must reference a var(--*) token instead of a literal colour, px font-size, px spacing, or px radius. See the token-layer proposal (design-tokens branch) §enforce. If this is a genuine pixel-perfect exception (a visually-hidden technique, an env() safe-area fallback), disable this rule for the one line with a comment explaining why, not repo-wide."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/index.css"],
+      "rules": {
+        "declaration-property-value-disallowed-list": null
+      }
+    }
+  ]
+}

@@ -5,8 +5,8 @@
 
 .mobileMeta {
   color: var(--text-muted);
-  font-size: 0.9rem;
-  margin: 2px 0 var(--space-4);
+  font-size: var(--fs-body);
+  margin: var(--space-hairline) 0 var(--space-4);
 }
 
 .desktopSummary {
@@ -21,8 +21,8 @@
   .desktopSummary {
     display: block;
     color: var(--text-muted);
-    font-size: 0.85rem;
-    margin: 2px 0 var(--space-4);
+    font-size: var(--fs-body-sm);
+    margin: var(--space-hairline) 0 var(--space-4);
   }
 }
 
@@ -86,7 +86,7 @@
 }
 
 .railStatNumber {
-  font-size: 26px;
+  font-size: var(--fs-heading);
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -94,10 +94,10 @@
 }
 
 .railStatLabel {
-  font-size: 0.75rem;
+  font-size: var(--fs-label);
   font-weight: 500;
   color: var(--text-muted);
-  margin-top: 5px;
+  margin-top: var(--space-tight);
 }
 
 /* Barcode-scan FAB (mobile only — matches the mock's phone screen; the
@@ -115,7 +115,7 @@
   width: var(--touch-target);
   height: var(--touch-target);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background: var(--accent);
   color: var(--accent-text);
   box-shadow: var(--shadow);

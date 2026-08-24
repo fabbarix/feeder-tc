@@ -114,6 +114,30 @@ export default tseslint.config(
     },
   },
   {
+    // WP-tokens enforcement #6 (token-layer proposal `#enforce`): no raw
+    // pixel dimensions in a src/ui/** inline `style={{...}}` prop. Same
+    // enforcement shape as the `no-restricted-imports` boundary rules above
+    // — this is what would have caught a component-level hardcode (the
+    // audit's 184px `.meter` width) at the authoring point, in the kit,
+    // instead of after a reviewer measured the rendered page. Scoped to
+    // src/ui/** only (the kit), matching the proposal's own scope — feature
+    // routes under src/routes/** style almost entirely through
+    // *.module.css, and this isn't a general ban on inline styles (dynamic
+    // values like a computed `width: pct + "%"` or a `height` passed through
+    // as a prop are unaffected; only a literal number token is banned).
+    files: ["src/ui/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXAttribute[name.name='style'] ObjectExpression Property > Literal[raw=/^-?\\d/]",
+          message:
+            "No raw pixel dimension in an inline style — add/use a design token (var(--space-*), var(--radius-*), var(--fs-*)) or a CSS module class instead (token-layer proposal, enforcement #6).",
+        },
+      ],
+    },
+  },
+  {
     // src/domain/units.ts is the single sanctioned entry-time unit-conversion
     // module (M6-A — DESIGN_PRODUCTS.md §3, and HANDOVER.md §4 invariant 3's
     // amendment). Everything except the module's own test is forbidden from

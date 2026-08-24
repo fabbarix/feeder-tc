@@ -1,6 +1,6 @@
 .track {
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--line-soft);
   overflow: hidden;
 }

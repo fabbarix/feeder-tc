@@ -112,7 +112,12 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
   }
 
   if (householdSize === undefined || repeatExclusionWeeks === undefined) {
-    throw new Error('Settings sheet has no valid "general" row — the workbook was not bootstrapped correctly.');
+    // Plain language on purpose (jargon sweep, WP-tokens follow-up):
+    // Settings.tsx string-matches this EXACT text (its own
+    // `NO_SETTINGS_ROW_ERROR`) to swap in a "Set up defaults" recovery
+    // action instead of a dead-end error — keep the two in sync if this
+    // ever changes again.
+    throw new Error("This meal planner doesn't have any settings saved yet.");
   }
 
   const slotLayout: DaySlotLayout[] = Array.from(byDay.entries()).map(([day, slots]) => ({

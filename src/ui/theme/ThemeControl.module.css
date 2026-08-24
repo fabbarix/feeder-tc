@@ -11,7 +11,7 @@
 }
 
 .label {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-h);
 }
@@ -25,7 +25,7 @@
 
 .swatch {
   aspect-ratio: 1;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   border: 2px solid transparent;
   cursor: pointer;
   min-width: 36px;

@@ -26,7 +26,7 @@
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-h);
-  font: 600 15px/1 var(--sans);
+  font: 600 var(--fs-body-sm)/1 var(--sans);
   cursor: pointer;
 }
 

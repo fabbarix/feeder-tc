@@ -13,7 +13,7 @@
 
 .title {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--fs-body-lg);
 }
 
 .navButton {
@@ -39,7 +39,7 @@
 }
 
 .grid th {
-  font-size: 0.75rem;
+  font-size: var(--fs-label);
   font-weight: 500;
   color: var(--text-muted);
   padding: var(--space-1);
@@ -51,7 +51,7 @@
   justify-content: center;
   width: 36px;
   height: 36px;
-  margin: 2px;
+  margin: var(--space-hairline);
   border-radius: var(--radius-sm);
   cursor: pointer;
   outline: none;

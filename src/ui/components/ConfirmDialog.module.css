@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  background: rgb(0 0 0 / 0.5);
+  background: var(--overlay);
 }
 
 .dialog {
@@ -40,7 +40,7 @@
   min-height: var(--touch-target);
   min-width: var(--touch-target);
   padding: var(--space-2) var(--space-4);
-  font-size: 1rem;
+  font-size: var(--fs-body-lg);
   font-weight: 600;
   border-radius: var(--radius-md);
   cursor: pointer;
@@ -61,5 +61,12 @@
 .confirmDestructive {
   border-color: var(--danger);
   background: var(--danger);
-  color: #fff;
+  /* WP-tokens: was a literal #fff, which happened to match --accent-text in
+     light mode (7.82:1 on --danger) but not in dark mode — --danger's dark
+     value is a LIGHT fill (oklch(0.75 0.19 27)), so white-on-white-ish was a
+     latent 2.62:1 fail, well under WCAG AA. --accent-text already flips
+     dark-on-light per theme for exactly this shape of fill; reusing it here
+     raises dark mode to 7.15:1 instead of introducing a --danger-text
+     token that would just duplicate its logic. */
+  color: var(--accent-text);
 }
