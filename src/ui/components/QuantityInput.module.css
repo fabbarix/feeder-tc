@@ -61,7 +61,6 @@
   justify-content: center;
   width: var(--touch-target);
   height: var(--touch-target);
-  margin: 0 calc(var(--space-3) * -1);
   border: none;
   background: var(--surface-raised);
   color: var(--text-h);
@@ -69,12 +68,21 @@
   cursor: pointer;
 }
 
-.stepper:first-child {
-  margin-right: var(--space-1);
+/* Flush against `.control`'s own edge (cancels its horizontal padding),
+   with a small breathing gap on the side facing the field/suffix. Keyed on
+   an explicit `data-edge` attribute, NOT `:first-child`/`:last-child` —
+   `Tooltip` wraps each button in its own `<span class="wrap">` alongside a
+   hidden bubble span, so every stepper button is its own parent's first
+   child and none is ever the last; those structural pseudo-classes matched
+   only the "start" rule for BOTH buttons, pulling the increase button
+   16px too far left and clipping it into the unit suffix ("servings"/"min"
+   clipping bug). */
+.stepper[data-edge="start"] {
+  margin: 0 var(--space-1) 0 calc(var(--space-3) * -1);
 }
 
-.stepper:last-child {
-  margin-left: var(--space-1);
+.stepper[data-edge="end"] {
+  margin: 0 calc(var(--space-3) * -1) 0 var(--space-1);
 }
 
 .stepper:disabled {

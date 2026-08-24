@@ -167,6 +167,7 @@ export function QuantityInput<U extends string = Unit>({
             label={`Decrease ${label}`}
             disabled={disabled}
             onPress={() => step_(-1)}
+            edge="start"
           />
         ) : null}
         {PrefixIcon ? (
@@ -197,6 +198,7 @@ export function QuantityInput<U extends string = Unit>({
             label={`Increase ${label}`}
             disabled={disabled}
             onPress={() => step_(1)}
+            edge="end"
           />
         ) : null}
       </div>
@@ -209,23 +211,40 @@ export function QuantityInput<U extends string = Unit>({
   );
 }
 
-/** Real touch-target (--touch-target) stepper button, built on `useButton` (react-aria) — never a 16px native spinner. */
+/**
+ * Real touch-target (--touch-target) stepper button, built on `useButton`
+ * (react-aria) — never a 16px native spinner.
+ *
+ * `edge` picks which side of `.control` this button is flush against
+ * ("start" = decrease, on the left; "end" = increase, on the right) and is
+ * rendered as `data-edge` for `QuantityInput.module.css` to key its
+ * flush-margin rules on. This is deliberately NOT `:first-child`/
+ * `:last-child`: `Tooltip` wraps each button in its own `<span class="wrap">
+ * {button}<span class="bubble"/></span>`, so every stepper button is the
+ * first child of ITS OWN parent and none is ever the last child — those
+ * pseudo-classes silently matched only the "first-child" rule for BOTH
+ * buttons, which pulled the increase button 16px further left than
+ * intended and clipped it into the unit suffix (the "servings"/"min"
+ * clipping bug). An explicit attribute survives any future wrapper.
+ */
 function Stepper({
   icon: Icon,
   label,
   disabled,
   onPress,
+  edge,
 }: {
   readonly icon: IconComponent;
   readonly label: string;
   readonly disabled: boolean;
   readonly onPress: () => void;
+  readonly edge: "start" | "end";
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const { buttonProps } = useButton({ "aria-label": label, isDisabled: disabled, onPress }, ref);
   return (
     <Tooltip label={label}>
-      <button {...buttonProps} ref={ref} type="button" className={styles.stepper}>
+      <button {...buttonProps} ref={ref} type="button" className={styles.stepper} data-edge={edge}>
         <Icon size={16} aria-hidden="true" />
       </button>
     </Tooltip>
