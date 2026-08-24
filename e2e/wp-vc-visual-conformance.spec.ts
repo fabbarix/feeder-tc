@@ -566,15 +566,23 @@ test.describe("WP-VC4 structural conformance", () => {
     await enterReadyShell(page, "recipes");
     await expect(page.getByRole("tablist", { name: "Recipes section" })).toBeVisible();
     const tabs = page.getByRole("tab");
-    await expect(tabs).toHaveCount(2);
+    // Recipes | Ingredients | Products (WP-VC5 — "Products" joined this
+    // strip as its third tab, folding a previously undiscoverable
+    // standalone `/products` area in).
+    await expect(tabs).toHaveCount(3);
     // One h1 for the whole area (owner-reported: "the repetition of
     // 'Recipes' at the top and 'Ingredients' is a waste of space") — the
     // tab strip is the section header now, so the h1 doesn't re-name the
-    // active tab.
+    // active tab. It stays in the accessibility tree (visually hidden, not
+    // removed) so a screen reader still gets the area's name.
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
 
     await page.getByRole("tab", { name: "Ingredients" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Recipes");
+
+    await page.getByRole("tab", { name: "Products" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
   });
 });

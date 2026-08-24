@@ -15,10 +15,6 @@
   margin-bottom: var(--space-4);
 }
 
-.search {
-  margin-bottom: var(--space-4);
-}
-
 .headRow {
   display: flex;
   align-items: flex-start;

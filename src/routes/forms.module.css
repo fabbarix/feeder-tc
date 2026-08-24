@@ -27,6 +27,23 @@
   color: var(--accent);
 }
 
+/* Section header row (WP-VC5 defect sweep): the primary create action for a
+   browse list sits here, above the RouteTabs strip, on every one of its
+   sibling tabs — not inside one tab's own panel (the old Ingredients.tsx
+   placement) and not worded differently per tab (the old Recipes.tsx
+   "New recipe"/"Add recipe" split). One placement, one label pattern
+   ("Add {noun}", `.addButton` above), reused by Recipes.tsx / Ingredients.tsx
+   / ProductsList.tsx so the action never moves or gets renamed as the user
+   switches tabs. */
+.sectionHeaderRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
 /*
  * Each `ListRow`'s primary text IS the link to that item's own editor
  * (Ingredients.tsx) — a real `<Link>`, but it must read as plain list text

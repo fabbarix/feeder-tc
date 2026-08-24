@@ -149,7 +149,9 @@ export function Plan() {
   return (
     <section>
       <div className={styles.header}>
-        <h1>Plan</h1>
+        {/* WP-VC5 defect sweep: same treatment as Pantry.tsx/Shopping.tsx/
+            Settings.tsx — the nav item already names this page. */}
+        <h1 className="visually-hidden">Plan</h1>
         <div className={styles.headerActions}>
           <SegmentedControl
             aria-label="Plan view"

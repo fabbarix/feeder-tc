@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { EmptyState, ErrorState, RouteTabs, Skeleton } from "../ui/components";
+import { EmptyState, ErrorState, RouteTabs, SearchField, Skeleton } from "../ui/components";
 import { PhotoMedia } from "../ui/photo/index.ts";
-import { BookOpen, MagnifyingGlass, Plus } from "../ui/icons";
+import { BookOpen, Clock, CookingPot, MagnifyingGlass, Plus, Users } from "../ui/icons";
 import type { MealTag, Recipe } from "../domain/index.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
-import { RECIPE_SECTION_TABS } from "./recipe-tabs.ts";
+import { SECTION_TABS } from "./section-tabs.ts";
 import styles from "./recipes.module.css";
+import forms from "./forms.module.css";
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -107,21 +108,29 @@ export function Recipes() {
 
   return (
     <>
-      <div className={styles.headerRow}>
-        {/* One h1 for the whole "Recipes" area (WP-VC4) — the tab strip
-            below is the section header now; a second "Recipes" label
-            immediately under an "Recipes" h1 was exactly the redundancy
-            the owner flagged ("the repetition of 'Recipes' at the top and
-            'Ingredients' is a waste of space"). */}
-        <h1>Recipes</h1>
-        {!loading && !error && recipes.length > 0 ? (
-          <Link to="/recipes/new" className={styles.newButton}>
-            <Plus size={16} aria-hidden="true" />
-            New recipe
+      {/* One h1 for the whole "Recipes" area (WP-VC4/WP-VC5) — the tab strip
+          below is the section header now, so this is visually hidden rather
+          than deleted: it still names the area for a screen reader, it just
+          no longer repeats "Recipes" on screen right above a tab that says
+          the same thing (owner-reported: "the repetition of 'Recipes' at
+          the top and 'Ingredients' is a waste of space"). */}
+      <h1 className="visually-hidden">Recipes</h1>
+      {/* Primary create action (WP-VC5 defect sweep): "Add {noun}", in a
+          header row ABOVE the tab strip so it stays in the same place and
+          keeps the same label on every sibling tab — see
+          Ingredients.tsx / ProductsList.tsx's identical header row. Was
+          "New recipe" here and "Add recipe" in this same file's own
+          EmptyState action (an owner-reported inconsistency inside one
+          file); both are "Add recipe" now. */}
+      {!loading && !error && recipes.length > 0 ? (
+        <div className={forms.sectionHeaderRow}>
+          <Link to="/recipes/new" className={forms.addButton}>
+            <Plus size={18} aria-hidden="true" />
+            Add recipe
           </Link>
-        ) : null}
-      </div>
-      <RouteTabs aria-label="Recipes section" items={RECIPE_SECTION_TABS} />
+        </div>
+      ) : null}
+      <RouteTabs aria-label="Recipes section" items={SECTION_TABS} />
       <section role="tabpanel" id="recipes-panel" aria-labelledby="recipes-panel-tab" tabIndex={-1}>
         {!loading && !error && recipes.length > 0 ? (
           <p className={styles.subtitle}>
@@ -150,7 +159,8 @@ export function Recipes() {
             title="No recipes yet"
             description="Add your first recipe — cooked or store-bought — to start building a rotation."
             action={
-              <Link to="/recipes/new" className={styles.newButton}>
+              <Link to="/recipes/new" className={forms.addButton}>
+                <Plus size={18} aria-hidden="true" />
                 Add recipe
               </Link>
             }
@@ -158,17 +168,12 @@ export function Recipes() {
         ) : null}
         {!loading && !error && recipes.length > 0 ? (
           <>
-            <div className={styles.search}>
-              <MagnifyingGlass size={16} aria-hidden="true" />
-              <input
-                type="text"
-                className={styles.searchInput}
-                placeholder="Search recipes"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label="Search recipes"
-              />
-            </div>
+            <SearchField
+              value={query}
+              onChange={setQuery}
+              placeholder="Search recipes"
+              aria-label="Search recipes"
+            />
             <div className={styles.filters}>
               <button
                 type="button"
@@ -216,10 +221,31 @@ export function Recipes() {
                     />
                     <div className={styles.cardBody}>
                       <p className={styles.cardTitle}>{recipe.name}</p>
+                      {/* Icons, not spelled-out "prep"/"cook"/"serves" labels
+                          (WP-VC5 defect sweep) — a clock/pot/people glyph
+                          beside a value is a well-understood convention that
+                          repeats on every card, so it's learnable the way a
+                          lone icon button is not (this project's
+                          icon-only-is-a-regression rule is about interactive
+                          controls, not repeated metadata — see icons.ts's
+                          comment). Each `<span>` carries its own `aria-label`
+                          with the full word and unit so a screen reader
+                          hears "Prep 20 minutes", not a bare "20"; the
+                          visible glyph+abbreviation pair is `aria-hidden`
+                          so it isn't announced a second time. */}
                       <div className={styles.cardMeta}>
-                        <span>{recipe.prepMinutes} prep</span>
-                        <span>{recipe.cookMinutes} cook</span>
-                        <span>serves {recipe.baseServings}</span>
+                        <span aria-label={`Prep ${recipe.prepMinutes} minutes`}>
+                          <Clock size={14} aria-hidden="true" />
+                          <span aria-hidden="true">{recipe.prepMinutes}m</span>
+                        </span>
+                        <span aria-label={`Cook ${recipe.cookMinutes} minutes`}>
+                          <CookingPot size={14} aria-hidden="true" />
+                          <span aria-hidden="true">{recipe.cookMinutes}m</span>
+                        </span>
+                        <span aria-label={`Serves ${recipe.baseServings}`}>
+                          <Users size={14} aria-hidden="true" />
+                          <span aria-hidden="true">{recipe.baseServings}</span>
+                        </span>
                       </div>
                       <div className={styles.tagRow}>
                         {tagPills(recipe).map((tag) => (

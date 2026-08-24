@@ -1,0 +1,38 @@
+/* One search-field look for every browse list (Recipes/Ingredients/Products
+   — WP-VC5 defect sweep: these three used to be three different shapes, a
+   compact icon pill on Recipes and a labelled form-field on Ingredients and
+   Products, "two that happen to resemble each other" rather than one
+   component. This is now the only search input the app renders — see
+   Recipes.tsx / Ingredients.tsx / ProductsList.tsx. */
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 320px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-3) var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.search svg {
+  color: var(--text-muted);
+  flex: none;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-label);
+  color: var(--text-h);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}

@@ -62,8 +62,13 @@ describe("PriceHistory — zero observations (day-one case)", () => {
 
     expect(await screen.findByText("No prices recorded yet")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Scan a barcode" })).toBeInTheDocument();
-    // No level toggle when there's nothing to group at all.
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    // The "Catalog"/"Price history" toggle (WP-VC5 — folds price history
+    // inside the shared "Products" tab) still renders even with zero
+    // observations, so there's always a way back to the product catalog —
+    // but the "By ingredient"/"By product" level toggle only makes sense
+    // once there's something to group, so that one stays hidden.
+    expect(screen.getByRole("radiogroup", { name: "Products view" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Group by" })).not.toBeInTheDocument();
   });
 });
 

@@ -21,17 +21,21 @@ export async function openIngredientPriceHistory(page: Page, ingredientName: str
 
 /**
  * From a per-ingredient drill-down, the "← Price history" back link reaches
- * the top-level list. WP-products-screen (2026-08-23): that list now lives
- * under a shared "Products" area (`<h1>Products</h1>` + a `Products`/`Price
- * history` `RouteTabs` pair, mirroring `Recipes.tsx`/`Ingredients.tsx`'s own
- * "one h1, tabs are the section header" convention) rather than carrying its
- * own literal "Price history" `<h1>` — the tab's `aria-selected` is the
- * reliable signal that landed on the right sibling route.
+ * the top-level list. WP-VC5 (2026-08-24): "Products" is now the third tab
+ * of the shared Recipes/Ingredients/Products strip (discoverability fix —
+ * the old standalone `/products` area had no link into it from anywhere a
+ * user would think to look), and "Price history" is a `SegmentedControl`
+ * ("Catalog"/"Price history") folded INSIDE that same "Products" tab rather
+ * than a fourth top-level tab — see `ProductsList.tsx`'s doc comment. The
+ * area's `<h1>` is visually hidden now (WP-VC5's heading-duplication fix),
+ * so the reliable signal that landed on the right view is the "Products"
+ * tab being selected and the "Price history" radio being checked, not a
+ * visible heading.
  */
 export async function goToPriceHistoryList(page: Page): Promise<void> {
   await page.getByRole("link", { name: /Price history/ }).click();
-  await expect(page.getByRole("heading", { name: "Products", level: 1 })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Price history" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("radio", { name: "Price history" })).toBeChecked();
 }
 
 /**

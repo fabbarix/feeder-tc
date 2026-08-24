@@ -60,3 +60,6 @@ export type { RouteTabItem, RouteTabsProps } from "./RouteTabs.tsx";
 
 export { Markdown } from "./Markdown.tsx";
 export type { MarkdownProps } from "./Markdown.tsx";
+
+export { SearchField } from "./SearchField.tsx";
+export type { SearchFieldProps } from "./SearchField.tsx";

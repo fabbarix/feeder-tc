@@ -307,8 +307,8 @@ test("A household's first week", async ({ page }) => {
   await expect(page.getByText(/\$\d/).first()).toBeVisible();
 
   await page.getByRole("link", { name: /price history/i }).click();
-  await expect(page.getByRole("heading", { name: "Products", level: 1 })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Price history" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("radio", { name: "Price history" })).toBeChecked();
   await page.getByRole("radio", { name: "By product" }).click();
   await page.getByRole("link", { name: /Riso Gallo Arborio/ }).click();
   await expect(page.getByRole("heading", { name: "Riso Gallo Arborio 1 kg" })).toBeVisible();
