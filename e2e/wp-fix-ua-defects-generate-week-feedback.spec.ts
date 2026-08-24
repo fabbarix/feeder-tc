@@ -56,7 +56,7 @@ test("generating a week with zero dinner recipes says how many slots filled and 
   await page.getByRole("button", { name: /^Ingredient/i }).click();
   await page.getByRole("option", { name: "Ground beef", exact: true }).click();
   await page.getByRole("textbox", { name: /amount/i }).fill("250");
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("20");
   await page.getByRole("button", { name: "Save recipe" }).click();
   await expect(page.getByRole("heading", { name: "Recipes", level: 1 })).toBeVisible();
   await dismissToasts(page);

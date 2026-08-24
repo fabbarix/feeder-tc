@@ -40,7 +40,7 @@ export async function addRecipe(page: Page, name: string, cookMinutes: number): 
   await page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Recipes", exact: true }).click();
   await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
   await page.getByRole("textbox", { name: "Name" }).fill(name);
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill(String(cookMinutes));
+  await page.getByRole("textbox", { name: "Cook time" }).fill(String(cookMinutes));
   await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 }
@@ -113,7 +113,7 @@ export async function addRichCookedRecipe(page: Page, name: string, options: Ric
     await page.getByRole("textbox", { name: /amount/i }).fill(ingredient.amount);
   }
 
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill(String(options.cookMinutes ?? 20));
+  await page.getByRole("textbox", { name: "Cook time" }).fill(String(options.cookMinutes ?? 20));
 
   const steps = options.steps ?? [];
   for (let i = 0; i < steps.length; i += 1) {
@@ -124,7 +124,7 @@ export async function addRichCookedRecipe(page: Page, name: string, options: Ric
     const instructionFields = page.getByRole("textbox", { name: "Instruction" });
     await instructionFields.nth(i).fill(step.instruction);
     if (step.durationMinutes !== undefined) {
-      await page.getByRole("textbox", { name: "Duration (min)" }).nth(i).fill(String(step.durationMinutes));
+      await page.getByRole("textbox", { name: "Duration" }).nth(i).fill(String(step.durationMinutes));
     }
     if (step.detail) {
       await page.getByRole("textbox", { name: `Step ${i + 1} detail (markdown, optional)` }).fill(step.detail);

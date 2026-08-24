@@ -105,7 +105,7 @@ export function PriceHistoryIngredient() {
           <div className={styles.headRow}>
             <div>
               <h1>{ingredient.name}</h1>
-              <p className={styles.dtSub}>Price history · every observation for this ingredient</p>
+              <p className={styles.dtSub}>Price history · every entry for this ingredient</p>
             </div>
             {trend.kind !== "none" ? (
               <div className={styles.headLatest}>
@@ -137,10 +137,10 @@ export function PriceHistoryIngredient() {
                 ) : null}
 
                 <div className={forms.sectionCard}>
-                  <div className={forms.sectionCardHead}>Observations</div>
+                  <div className={forms.sectionCardHead}>Entries</div>
                   <div className={forms.sectionCardBody}>
                     <EntityTable
-                      caption={`Price observations for ${ingredient.name}`}
+                      caption={`Price entries for ${ingredient.name}`}
                       hideCaption
                       rows={historyRows}
                       getRowKey={(point) => point.observation.id}
@@ -207,7 +207,7 @@ export function PriceHistoryIngredient() {
                   <div className={forms.sectionCardBody}>
                     {productSummaries.length === 0 ? (
                       <p className={forms.hint}>
-                        Every observation so far was entered directly against this ingredient, none tied
+                        Every entry so far was recorded directly against this ingredient, none tied
                         to a specific scanned product yet.
                       </p>
                     ) : (

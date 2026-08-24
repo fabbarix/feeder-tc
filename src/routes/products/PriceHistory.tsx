@@ -41,7 +41,7 @@ function latestLine(summary: IngredientPriceSummary | ProductPriceSummary, curre
   if (trend.kind === "none") return "No prices recorded yet";
   const price = `${formatMoney(trend.latest.amount, currencySymbol)} ${basisLabel(trend.latest.basis)}`;
   const count = summary.points.length;
-  return `${price} · ${count} observation${count === 1 ? "" : "s"}`;
+  return `${price} · ${count} ${count === 1 ? "entry" : "entries"}`;
 }
 
 /**
@@ -163,7 +163,7 @@ export function PriceHistory() {
                         <div className={styles.sparklineWrap}>
                           <PriceSparkline
                             values={sparklineValues(summary.points)}
-                            label={`Price shape for ${summary.ingredient.name} over ${summary.points.length} observations`}
+                            label={`Price shape for ${summary.ingredient.name} over ${summary.points.length} entries`}
                           />
                         </div>
                         <span className={styles.badge}>{trendBadge(summary.trend)}</span>
@@ -215,7 +215,7 @@ export function PriceHistory() {
                         <div className={styles.sparklineWrap}>
                           <PriceSparkline
                             values={sparklineValues(summary.points)}
-                            label={`Price shape for ${summary.product.name} over ${summary.points.length} observations`}
+                            label={`Price shape for ${summary.product.name} over ${summary.points.length} entries`}
                           />
                         </div>
                         <span className={styles.badge}>{trendBadge(summary.trend)}</span>

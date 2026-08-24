@@ -94,7 +94,7 @@ async function addDinnerRecipe(
     await page.getByRole("option", { name: options.ingredient.name, exact: true }).click();
     await page.getByRole("textbox", { name: /amount/i }).fill(options.ingredient.amount);
   }
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("20");
   await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes", level: 1 })).toBeVisible();
   await dismissToasts(page);

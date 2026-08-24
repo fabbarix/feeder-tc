@@ -24,7 +24,7 @@ test("saving a recipe with no meal tags warns before committing", async ({ page 
   await page.getByRole("button", { name: /^Ingredient/i }).click();
   await page.getByRole("option", { name: "Ground beef", exact: true }).click();
   await page.getByRole("textbox", { name: /amount/i }).fill("100");
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("20");
 
   // No meal tag touched — Save should warn, not save silently.
   await page.getByRole("button", { name: "Save recipe" }).click();
@@ -50,7 +50,7 @@ test("saving a completely empty recipe warns before committing", async ({ page }
   // the emptiness one, so it tags the recipe to skip straight past that.
   await page.getByRole("textbox", { name: "Name" }).fill("Empty Placeholder");
   await page.getByRole("group", { name: "Meal tags" }).getByRole("button", { name: "Dinner" }).click();
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("20");
 
   await page.getByRole("button", { name: "Save recipe" }).click();
   await expect(page.getByRole("heading", { name: "Nothing to cook from yet" })).toBeVisible();

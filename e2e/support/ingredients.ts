@@ -50,7 +50,7 @@ export async function addRichIngredient(page: Page, name: string, options: RichI
   }
 
   if (options.canonicalUnit) {
-    await page.getByRole("radiogroup", { name: "Canonical unit" }).getByRole("radio", { name: options.canonicalUnit }).click();
+    await page.getByRole("radiogroup", { name: "Measured in" }).getByRole("radio", { name: options.canonicalUnit }).click();
   }
   if (options.defaultLocation) {
     await page
@@ -83,10 +83,10 @@ export async function addRichIngredient(page: Page, name: string, options: RichI
   if (options.howYouMeasureIt) {
     await page.getByRole("button", { name: "+ How you measure it" }).click();
     if (options.howYouMeasureIt.cupWeightGrams) {
-      await page.getByRole("textbox", { name: "1 cup weighs (g)" }).fill(options.howYouMeasureIt.cupWeightGrams);
+      await page.getByRole("textbox", { name: "1 cup weighs" }).fill(options.howYouMeasureIt.cupWeightGrams);
     }
     if (options.howYouMeasureIt.pieceWeightGrams) {
-      await page.getByRole("textbox", { name: /^1 .+ weighs \(g\)$/ }).fill(options.howYouMeasureIt.pieceWeightGrams);
+      await page.getByRole("textbox", { name: /^1 .+ weighs$/ }).fill(options.howYouMeasureIt.pieceWeightGrams);
     }
   }
 

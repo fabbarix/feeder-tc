@@ -128,6 +128,7 @@ export function QuantityInput<U extends string = Unit>({
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;
+  const suffixId = `${inputId}-unit`;
 
   const [raw, setRaw] = useState<string>(() => {
     if (value !== null) return String(value);
@@ -157,7 +158,7 @@ export function QuantityInput<U extends string = Unit>({
   return (
     <div className={styles.root}>
       <label htmlFor={inputId} className={styles.label}>
-        {label} <span className={styles.unit}>({unit})</span>
+        {label}
       </label>
       <div className={styles.control}>
         {showSteppers ? (
@@ -181,13 +182,13 @@ export function QuantityInput<U extends string = Unit>({
           disabled={disabled}
           required={required}
           aria-invalid={error !== null}
-          aria-describedby={error !== null ? errorId : undefined}
+          aria-describedby={error !== null ? `${suffixId} ${errorId}` : suffixId}
           onChange={handleChange}
         />
         {SuffixIcon ? (
           <SuffixIcon size={18} className={styles.suffixIcon} aria-hidden="true" />
         ) : null}
-        <span className={styles.suffix} aria-hidden="true">
+        <span id={suffixId} className={styles.suffix}>
           {value === 1 && unitOne !== undefined ? unitOne : unit}
         </span>
         {showSteppers ? (

@@ -89,7 +89,7 @@ describe("PriceHistory — a single observation", () => {
 
     expect(await screen.findByText("Rice")).toBeInTheDocument();
     expect(screen.getByText("New")).toBeInTheDocument();
-    expect(screen.getByText(/\$0\.24 per 100 g · 1 observation/)).toBeInTheDocument();
+    expect(screen.getByText(/\$0\.24 per 100 g · 1 entry/)).toBeInTheDocument();
   });
 });
 
@@ -181,7 +181,7 @@ describe("PriceHistory — two levels (DESIGN_PRODUCTS.md §1.4)", () => {
 
     // Default level: ingredient.
     expect(await screen.findByText("Rice")).toBeInTheDocument();
-    expect(screen.getByText(/2 observations/)).toBeInTheDocument();
+    expect(screen.getByText(/2 entries/)).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole("radio", { name: "By product" }));

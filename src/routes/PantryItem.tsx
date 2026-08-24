@@ -249,7 +249,7 @@ export function PantryItem() {
             <div>
               <h1>{ingredient.name}</h1>
               <p className={detailStyles.dtSub}>
-                Canonical unit: {unitFullName(ingredient.unit)} ·{" "}
+                Measured in {unitFullName(ingredient.unit)} ·{" "}
                 {locationLabel(ingredient.defaultLocation)} default · shelf life{" "}
                 {ingredient.shelfLifeDays} days
               </p>
