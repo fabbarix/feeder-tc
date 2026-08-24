@@ -113,8 +113,8 @@ async function setCurrency(page: Page, currency: string): Promise<void> {
 
 test("Price history: zero observations shows a real empty state, not a blank screen", async ({ page }) => {
   await enterReadyShell(page, "products/prices");
-  await expect(page.getByRole("heading", { name: "Products", level: 1 })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Price history" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("radio", { name: "Price history" })).toBeChecked();
   await expect(page.getByText("No prices recorded yet")).toBeVisible();
   await expect(page.getByRole("link", { name: "Scan a barcode" })).toBeVisible();
 });
@@ -152,8 +152,8 @@ test("Price history: a single observation shows a price with no fabricated trend
   await expect(page.getByText("$0.24", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: /price history/i }).click();
-  await expect(page.getByRole("heading", { name: "Products", level: 1 })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Price history" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("radio", { name: "Price history" })).toBeChecked();
   await expect(page.getByText("New")).toBeVisible();
   await expect(page.getByText("$0.24 per 100 g · 1 observation")).toBeVisible();
 });
@@ -194,8 +194,8 @@ test("Price history: both levels are independently reachable for the same underl
 
   // ...and the top-level list's own toggle between the two.
   await page.getByRole("link", { name: /price history/i }).click();
-  await expect(page.getByRole("heading", { name: "Products", level: 1 })).toBeVisible();
-  await expect(page.getByRole("tab", { name: "Price history" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("radio", { name: "Price history" })).toBeChecked();
   await expect(page.getByText(/2 observations/)).toBeVisible();
 
   await page.getByRole("radio", { name: "By product" }).click();

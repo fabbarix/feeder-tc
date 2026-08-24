@@ -224,7 +224,11 @@ export function Pantry() {
 
   return (
     <section>
-      <h1>Pantry</h1>
+      {/* WP-VC5 defect sweep: the nav item "Pantry" already names this page
+          (owner-reported: "Pantry" appearing both selected in the nav and
+          again as the page's own h1) — visually hidden, not deleted, so it
+          still names the page for a screen reader. */}
+      <h1 className="visually-hidden">Pantry</h1>
 
       {pantry.loading ? (
         <div className={forms.form}>

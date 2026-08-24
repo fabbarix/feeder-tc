@@ -86,4 +86,13 @@ export {
   // Route error boundary (RouteError.tsx) — a genuine "this address doesn't
   // exist" 404, distinct from WarningCircle's "something went wrong".
   Compass,
+  // Recipe-card metadata (defect-sweep WP-VC5: "prep"/"cook"/"serves" spelled
+  // out in words on every card). `Clock` labels both time figures (prep and
+  // cook are both durations — one glyph, two values, same as a kitchen timer
+  // reads); `Users` labels the serving count. Each icon pairs with an
+  // `aria-label` on its wrapping `<span>` (Recipes.tsx) rather than standing
+  // alone — see that file's comment on why this is metadata, not a control,
+  // and still needs its value announced in full.
+  Clock,
+  Users,
 } from "@phosphor-icons/react";

@@ -109,7 +109,9 @@ export function Shopping() {
 
   return (
     <section>
-      <h1>Shopping</h1>
+      {/* WP-VC5 defect sweep: same treatment as Pantry.tsx/Plan.tsx/
+          Settings.tsx — the nav item already names this page. */}
+      <h1 className="visually-hidden">Shopping</h1>
 
       <p className={styles.mobileMeta} aria-live="polite">
         {itemsLeft} left

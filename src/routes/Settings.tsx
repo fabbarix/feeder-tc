@@ -114,7 +114,9 @@ export function Settings() {
 
   return (
     <section>
-      <h1>Settings</h1>
+      {/* WP-VC5 defect sweep: same treatment as Pantry.tsx/Shopping.tsx/
+          Plan.tsx — the nav item already names this page. */}
+      <h1 className="visually-hidden">Settings</h1>
 
       {loading ? (
         <>

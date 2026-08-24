@@ -5,79 +5,10 @@
    all). The household vote control moved to the recipe DETAIL page — see
    recipe-detail.module.css — it was never on the list card in the mockup. */
 
-.headerRow {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-1);
-}
-
 .subtitle {
   color: var(--text-muted);
   font-size: var(--fs-body-sm);
   margin: 0 0 var(--space-4);
-}
-
-.newButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: none;
-  min-height: var(--touch-target);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--accent-text);
-  font-weight: 600;
-  font-size: var(--fs-body);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.newButton:hover {
-  filter: brightness(1.06);
-}
-
-/* Compact, not full-bleed (owner-reported: the mock's own desktop Recipes
-   screen has no full-width search bar at all — only the phone view carries
-   one — so the app's version must not dominate the vertical rhythm the way
-   a full-width bar does). Search stays (it's genuinely useful for 18+
-   recipes), just capped to a sensible reading width and a smaller,
-   `.fchip`-scale footprint instead of the touch-target-tall full-width bar
-   this used to be. */
-.search {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  max-width: 320px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  padding: var(--space-3) var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.search svg {
-  color: var(--text-muted);
-  flex: none;
-}
-
-.searchInput {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  outline: none;
-  background: transparent;
-  font: inherit;
-  font-size: var(--fs-label);
-  color: var(--text-h);
-}
-
-.searchInput::placeholder {
-  color: var(--text-muted);
 }
 
 .filters {
@@ -163,6 +94,17 @@
   overflow: hidden;
   font-size: var(--fs-caption);
   color: var(--text-muted);
+}
+
+.cardMeta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-tight);
+  flex: none;
+}
+
+.cardMeta svg {
+  flex: none;
 }
 
 .tagRow {

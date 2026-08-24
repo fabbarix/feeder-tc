@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   EmptyState,
   ErrorState,
@@ -14,7 +14,8 @@ import { Tag } from "../../ui/icons.ts";
 import { getPhotoDataUrl } from "../../photos/index.ts";
 import { useWorkbookContext } from "../../workbook-context.ts";
 import { usePriceHistoryData } from "./usePriceHistoryData.ts";
-import { PRODUCT_SECTION_TABS } from "./product-tabs.ts";
+import { SECTION_TABS } from "../section-tabs.ts";
+import { PRODUCTS_VIEW_OPTIONS } from "./products-view.ts";
 import {
   aggregateByIngredient,
   aggregateByProduct,
@@ -58,6 +59,7 @@ function latestLine(summary: IngredientPriceSummary | ProductPriceSummary, curre
 export function PriceHistory() {
   const { store } = useWorkbookContext();
   const data = usePriceHistoryData();
+  const navigate = useNavigate();
   const [level, setLevel] = useState<Level>("ingredient");
 
   const ingredientSummaries = useMemo(
@@ -77,12 +79,29 @@ export function PriceHistory() {
 
   return (
     <>
-      {/* One h1 for the whole "Products" area, mirroring Ingredients.tsx's
-          identical WP-VC4 pattern — the tab strip below is the section
-          header now, not a per-tab repeat of "Price history". */}
-      <h1>Products</h1>
-      <RouteTabs aria-label="Products section" items={PRODUCT_SECTION_TABS} />
-      <section role="tabpanel" id="products-prices-panel" aria-labelledby="products-prices-panel-tab" tabIndex={-1}>
+      {/* One h1 for the whole "Recipes" area, same visually-hidden treatment
+          as Recipes.tsx/Ingredients.tsx/ProductsList.tsx now that this is a
+          view folded inside the "Products" tab rather than its own area. */}
+      <h1 className="visually-hidden">Recipes</h1>
+      {/* Same primary action as ProductsList.tsx, always shown (see that
+          file's comment on why this one doesn't hide for an empty list the
+          way Recipes.tsx/Ingredients.tsx's own actions do) — and the empty
+          state below carries no action of its own, for the same reason. */}
+      <div className={forms.sectionHeaderRow}>
+        <Link to="/scan" className={forms.addButton}>
+          Scan a barcode
+        </Link>
+      </div>
+      <RouteTabs aria-label="Recipes section" items={SECTION_TABS} />
+      <section role="tabpanel" id="products-panel" aria-labelledby="products-panel-tab" tabIndex={-1}>
+      <div className={styles.toolbar}>
+        <SegmentedControl
+          aria-label="Products view"
+          options={PRODUCTS_VIEW_OPTIONS}
+          value="prices"
+          onChange={(next) => navigate(next === "catalog" ? "/products" : "/products/prices")}
+        />
+      </div>
       <p className={styles.dtSub}>
         Tracked automatically from the prices you record while scanning — for each ingredient,
         and for each specific product you buy it as.
@@ -105,11 +124,6 @@ export function PriceHistory() {
           icon={Tag}
           title="No prices recorded yet"
           description="Prices are captured automatically the next time you record one while scanning a barcode at checkout."
-          action={
-            <Link to="/scan" className={forms.addButton}>
-              Scan a barcode
-            </Link>
-          }
         />
       ) : null}
 

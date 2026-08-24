@@ -38,11 +38,14 @@ test("Creating a bought meal", async ({ page }) => {
   await saveRecipeThroughNudges(page);
 
   // Then the recipe saves with prep time 0 — back on the recipe list, the
-  // card is tagged "Bought" and shows "0 prep" / "50 cook" directly...
+  // card is tagged "Bought" and shows the prep/cook figures directly, as an
+  // icon + value (WP-VC5 — no more spelled-out "0 prep"/"50 cook" text),
+  // each still fully announced via its own `aria-label`.
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
   await expect(page.getByRole("main")).toContainText("Bought");
-  await expect(page.getByRole("main")).toContainText("0 prep");
-  await expect(page.getByRole("main")).toContainText("50 cook");
+  const card = page.getByRole("link", { name: /Store lasagna/ });
+  await expect(card.locator('[class*="cardMeta"] > span[aria-label="Prep 0 minutes"]')).toBeVisible();
+  await expect(card.locator('[class*="cardMeta"] > span[aria-label="Cook 50 minutes"]')).toBeVisible();
 
   // ...confirmed directly on the recipe itself: clicking the card now opens
   // the read-only recipe view (WP-VC2 — design/mock-screens.html #recipe),
