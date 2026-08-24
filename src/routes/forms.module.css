@@ -411,3 +411,90 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* Recipe import from a photo (DESIGN_RECIPE_IMPORT_PHOTO.md §5/§14) — the
+   added-pages thumbnail strip, capped at 3, each with a delete button and,
+   if flagged, an inline glare/shadow advisory banner underneath (never a
+   modal — advisory only, sending is never blocked). */
+.photoThumbStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.photoThumb {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 120px;
+}
+
+.photoThumbImgWrap {
+  position: relative;
+  width: 120px;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.photoThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photoThumbRemove {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  color: var(--scan-overlay-text);
+  cursor: pointer;
+}
+
+.photoThumbRemove:hover {
+  background: var(--scan-overlay-bg);
+}
+
+/* Advisory, never blocking (§6/§14: "a calm inline banner under the
+   relevant photo, never a modal block") — same warn tokens as every other
+   non-critical inline warning in this kit. */
+.photoAdvisory {
+  font-size: var(--fs-body-sm);
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+/* Review screen (RecipeEditor.tsx): the imported photo(s) shown beside the
+   ingredient lines so quantities can be checked against the source image —
+   DESIGN_RECIPE_IMPORT_PHOTO.md's single most important review-screen
+   requirement ("make quantities the most scrutinised thing on the review
+   screen, with the image visible beside them"). */
+.reviewPhotoGallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.reviewPhotoGalleryImg {
+  width: 140px;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: block;
+}

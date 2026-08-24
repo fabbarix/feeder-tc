@@ -716,7 +716,13 @@ export function RecipeEditor() {
               real check for either. Open by default the first time (§11),
               collapsible so it doesn't crowd the rest of the review once
               checked. */}
-          {importDraft ? (
+          {/* A photo import has no pasted text or fetched-page source to
+              show here — its source is the photo(s) themselves, rendered
+              instead right beside the ingredient lines below (this file's
+              "Check the amounts below against the photo" gallery), which is
+              the more useful place to compare a quantity than a text panel
+              at the top of the screen. */}
+          {importDraft && !importDraft.photos ? (
             <div className={styles.sectionCard}>
               <button
                 type="button"
@@ -799,6 +805,29 @@ export function RecipeEditor() {
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionCardHead}>Ingredients</div>
                   <div className={styles.sectionCardBody}>
+                    {/* DESIGN_RECIPE_IMPORT_PHOTO.md's single most important
+                        review-screen requirement: "make quantities the most
+                        scrutinised thing on the review screen, with the
+                        image visible beside them" — no per-field confidence
+                        signal exists for a photo import (the shared schema
+                        deliberately has none), so the source photo itself is
+                        the backstop, shown right here next to the amounts
+                        it's meant to be checked against. */}
+                    {importDraft?.photos && importDraft.photos.length > 0 ? (
+                      <>
+                        <p className={styles.hint}>Check the amounts below against the photo.</p>
+                        <div className={styles.reviewPhotoGallery}>
+                          {importDraft.photos.map((photoUrl, index) => (
+                            <img
+                              key={index}
+                              src={photoUrl}
+                              alt={`Page ${index + 1} of the recipe you photographed`}
+                              className={styles.reviewPhotoGalleryImg}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    ) : null}
                     {lines.length === 0 ? (
                       <p className={styles.hint}>No ingredient lines yet.</p>
                     ) : null}
