@@ -254,3 +254,50 @@ editor, the known-product confirm dialog, and the shopping route's check-off
 sheet all now offer an optional free-text "Where did you buy this?" field,
 suggesting previously-used values (most-recent first) via a `<datalist>` — never
 a picklist, since §7 defers a structured `Shops` sheet to M7.
+
+## 9. The price chart's three views (owner decision, 2026-08-23)
+
+Owner decision 3 in §8 said "one line per product, split by shop". The owner has
+since widened it: the products screen offers **three views of the same
+observations**, chosen by the reader, not by us.
+
+| View | What it plots | Answers |
+|---|---|---|
+| **Overall** | Every observation for the product as one series, shop ignored | "What am I typically paying for this?" |
+| **By shop** | One series per shop, each independently toggleable | "Where is this actually cheaper?" |
+| **Average across shops** | One series: the mean of the per-shop values at each point | "What does this cost in general, without my shopping habits skewing it?" |
+
+**Overall and Average are not the same chart, and the difference is the point.**
+Overall is *observation-weighted*: eight cheap trips to one shop and one dear
+trip elsewhere pull it toward the cheap shop, because that is genuinely what the
+household pays. Average is *shop-weighted*: every shop counts once regardless of
+how often it was visited, which is the honest number for "is this product dear
+or cheap", independent of where this household happens to shop. Implement both
+literally; do not let one silently become the other, and do not "simplify" them
+into a single series.
+
+**Observations with no shop recorded.** Every observation written before §8's
+source capture has no `source`, and the field stays optional forever — a person
+in a hurry will skip it. So the unrecorded ones are a real, permanent bucket, not
+a migration artefact:
+
+- **Overall** includes them, unremarkably — the price was still paid.
+- **By shop** groups them under one clearly-labelled series and lets it be
+  toggled like any other. It must not be silently dropped, and it must not be
+  called "Unknown" in a way that reads as an error — nothing went wrong, the
+  shop simply was not noted.
+- **Average across shops** excludes them, because they cannot be attributed to a
+  shop and including them would quietly re-weight the average toward wherever
+  the unlabelled purchases happened. Say so on the chart when any are excluded,
+  rather than letting the two averages disagree unexplained.
+
+Until enough shops are recorded, **By shop** and **Average** will be thin or
+empty. That is a legitimate empty state with a real next action ("note where you
+shop when you check items off"), not a broken chart.
+
+**Comparability.** A merged product's barcodes all share a pack size within 2%
+(§8's merge rule), so plotting price per pack is sound within one product.
+Across products it is not — a 400 g jar and a 700 g jar are not comparable by
+pack price — so any cross-product or per-ingredient view must normalise to the
+ingredient's canonical unit via `src/domain/units.ts`, which remains the only
+sanctioned conversion module (invariant 3).
