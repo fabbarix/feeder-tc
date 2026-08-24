@@ -5,7 +5,7 @@
   display: inline-block;
   margin-bottom: var(--space-2);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
   font-weight: 500;
   text-decoration: none;
 }
@@ -21,7 +21,7 @@
   max-width: 32em;
   overflow: hidden;
   border-radius: var(--radius-md);
-  background: #000;
+  background: var(--scrim);
 }
 
 .video {
@@ -33,7 +33,7 @@
 .viewfinder {
   position: absolute;
   inset: 18% 12%;
-  border: 2px solid oklch(1 0 0 / 0.85);
+  border: 2px solid var(--scan-overlay-border);
   border-radius: var(--radius-md);
   pointer-events: none;
 }
@@ -67,14 +67,14 @@
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-4);
-  background: oklch(0.15 0 0 / 0.92);
-  color: oklch(0.95 0 0);
+  background: var(--scan-overlay-bg);
+  color: var(--scan-overlay-text);
   text-align: center;
 }
 
 .cameraHint {
-  color: oklch(0.8 0 0);
-  font-size: 0.85rem;
+  color: var(--scan-overlay-text-muted);
+  font-size: var(--fs-body-sm);
   margin: 0;
 }
 
@@ -84,7 +84,7 @@
   justify-content: center;
   min-height: var(--touch-target);
   padding: 0 var(--space-4);
-  border: 1px solid oklch(0.95 0 0 / 0.6);
+  border: 1px solid var(--scan-overlay-border-soft);
   border-radius: var(--radius-md);
   background: transparent;
   color: inherit;
@@ -111,7 +111,7 @@
 }
 
 .dialogHint {
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
   color: var(--text-muted);
 }
 
@@ -122,7 +122,7 @@
 }
 
 .buyDefaultLabel {
-  font-size: 0.75rem;
+  font-size: var(--fs-label);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -131,7 +131,7 @@
 
 .buyDefaultAmount {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: var(--fs-heading);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--text-h);
@@ -143,7 +143,7 @@
   background: transparent;
   color: var(--accent);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
   padding: var(--space-1) 0;
   cursor: pointer;
 }
@@ -161,7 +161,7 @@
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
 }
 
 .editorPanel {
@@ -199,10 +199,13 @@
 }
 
 .photoInput {
+  /* Visually-hidden technique — see PhotoField.module.css's identical block
+     for the rationale on -1px here. */
   position: absolute;
   width: 1px;
   height: 1px;
   padding: 0;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   margin: -1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);

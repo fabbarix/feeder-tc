@@ -91,7 +91,7 @@
   width: fit-content;
   color: var(--text-h);
   font-weight: 500;
-  font-size: 1.05rem;
+  font-size: var(--fs-body-lg);
   transition: color var(--motion-state) var(--ease-standard);
 }
 
@@ -122,7 +122,7 @@
 
 .secondary {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
 }
 
 .trailing {
@@ -139,19 +139,19 @@
   align-items: center;
   gap: var(--space-1);
   color: var(--danger);
-  font-size: 0.8rem;
-  margin-top: 2px;
+  font-size: var(--fs-body-sm);
+  margin-top: var(--space-hairline);
 }
 
 .retry {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-hairline);
   border: none;
   background: none;
   color: var(--danger);
   font: inherit;
-  font-size: 0.8rem;
+  font-size: var(--fs-body-sm);
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;

@@ -35,7 +35,7 @@
      sets this explicitly (see ConfirmDialog.module.css's `.confirm`) for
      the same reason; omitting it here left this one rendering at the UA
      default ~13px instead of the design system's type. */
-  font: 600 1rem/1 var(--sans);
+  font: 600 var(--fs-body-lg)/1 var(--sans);
   cursor: pointer;
 }
 
@@ -46,7 +46,7 @@
 
 .subtitle {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
   margin: 0 0 var(--space-4);
 }
 
@@ -103,11 +103,11 @@
 }
 
 .weekBandLabel {
-  font: 600 0.6rem/1 var(--sans);
+  font: 600 var(--fs-caption)/1 var(--sans);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--text-muted);
-  margin: 0 0 var(--space-2) 1px;
+  margin: 0 0 var(--space-2) var(--space-hairline);
 }
 
 /* Both bands share this identical 4-track grid (Plan.tsx renders the
@@ -158,7 +158,7 @@
 
 .dayHeading {
   margin: 0;
-  font: 600 0.65rem/1 var(--sans);
+  font: 600 var(--fs-caption)/1 var(--sans);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -196,7 +196,7 @@
 
 .leftoversEmptyText {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-body-sm);
 }
 
 .leftoversList {
@@ -205,7 +205,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-hairline);
 }
 
 /* An ancestor's `color`/`text-decoration` never cascades onto a nested `<a>`
@@ -214,9 +214,9 @@
 .leftoverEntry {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px;
-  margin: -4px;
+  gap: var(--space-tight);
+  padding: var(--space-1);
+  margin: calc(var(--space-1) * -1);
   border-radius: var(--radius-sm);
   color: inherit;
   text-decoration: none;
@@ -245,7 +245,7 @@
 }
 
 .leftoverEntryName {
-  font: 500 0.85rem/1.25 var(--sans);
+  font: 500 var(--fs-body-sm)/1.25 var(--sans);
   color: var(--text-h);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -253,7 +253,7 @@
 }
 
 .leftoverEntryMeta {
-  font-size: 0.7rem;
+  font-size: var(--fs-label);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -283,7 +283,7 @@
 
 .leftoversMore {
   align-self: flex-start;
-  font: 600 0.72rem/1 var(--sans);
+  font: 600 var(--fs-label)/1 var(--sans);
   color: var(--accent);
   text-decoration: none;
 }
@@ -334,7 +334,7 @@
   align-items: center;
   padding: var(--space-2) var(--space-3);
   background: var(--surface-2);
-  font: 600 0.7rem/1 var(--sans);
+  font: 600 var(--fs-label)/1 var(--sans);
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -355,14 +355,14 @@
    is a deliberate addition beyond the static mock rather than a fidelity
    gap — see the WP-22 handover report. ---- */
 .slot {
-  font: 500 0.85rem/1.25 var(--sans);
+  font: 500 var(--fs-body-sm)/1.25 var(--sans);
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   padding: var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -402,7 +402,7 @@
 }
 
 .slotTag {
-  font: 600 0.62rem/1 var(--sans);
+  font: 600 var(--fs-caption)/1 var(--sans);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -436,13 +436,13 @@
      tablet review's fix is `.weekBands`/`.week4` above; this wrap stays as
      the general safety net regardless of column count.) */
   flex-wrap: wrap;
-  row-gap: 4px;
+  row-gap: var(--space-1);
 }
 
 .slotRow2 {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-tight);
   /* Wraps onto a second internal line rather than overflowing sideways out
      of `.day` when a narrow column can't fit all four icons (Cook/Reroll/
      Pin/Remove) on one line — see `.slotRow1`'s comment above. */
@@ -468,7 +468,7 @@
 .stepper {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   flex: none;
 }
 
@@ -476,7 +476,7 @@
   border: none;
   background: transparent;
   padding: 0;
-  font: 500 0.95rem/1.2 var(--sans);
+  font: 500 var(--fs-body-lg)/1.2 var(--sans);
   color: var(--text-h);
   cursor: pointer;
   text-align: left;
@@ -512,18 +512,18 @@
 .addLabel {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-tight);
 }
 
 .slotActions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--space-tight);
   flex-wrap: wrap;
 }
 
 .scaleBadge {
-  font: 600 0.7rem/1 var(--sans);
+  font: 600 var(--fs-label)/1 var(--sans);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -546,7 +546,7 @@
 .iconButton {
   width: var(--touch-target);
   height: var(--touch-target);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-muted);
@@ -595,14 +595,14 @@
 .cookButton {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-tight);
   min-height: 34px;
   padding: 0 var(--space-3);
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--accent-text);
-  font: 600 0.82rem/1 var(--sans);
+  font: 600 var(--fs-body-sm)/1 var(--sans);
   cursor: pointer;
 }
 
@@ -612,9 +612,9 @@
 }
 
 .badge {
-  font: 600 0.65rem/1 var(--sans);
-  padding: 5px 8px;
-  border-radius: 999px;
+  font: 600 var(--fs-caption)/1 var(--sans);
+  padding: var(--space-tight) var(--space-2);
+  border-radius: var(--radius-pill);
   white-space: nowrap;
   background: var(--accent-bg);
   color: var(--accent);
@@ -657,8 +657,8 @@
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-muted);
-  font: 500 0.75rem/1 var(--sans);
-  padding: 6px 10px;
+  font: 500 var(--fs-label)/1 var(--sans);
+  padding: var(--space-tight) var(--space-3);
   cursor: pointer;
   flex: none;
 }
@@ -690,7 +690,7 @@
 
 .quarterHeading {
   margin: 0 0 var(--space-3);
-  font: 600 14px/1 var(--sans);
+  font: 600 var(--fs-body-sm)/1 var(--sans);
   letter-spacing: 0.06em;
   color: var(--text-muted);
 }
@@ -708,7 +708,7 @@
 }
 
 .qmonthLabel {
-  font: 600 12px/1 var(--sans);
+  font: 600 var(--fs-caption)/1 var(--sans);
   letter-spacing: 0.06em;
   color: var(--text-muted);
   margin-bottom: var(--space-2);

@@ -6,7 +6,7 @@
 }
 
 .circle {
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
 }
 
 @keyframes pulse {

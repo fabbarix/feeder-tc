@@ -7,10 +7,15 @@
 }
 
 .hiddenInput {
+  /* Visually-hidden technique (same idiom as index.css's own
+     `.visually-hidden`, which is exempt from the raw-px lint rule as the
+     one file allowed to author literals) — -1px here is the exact
+     byte-for-byte pixel the technique requires, not a spacing-scale value. */
   position: absolute;
   width: 1px;
   height: 1px;
   padding: 0;
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   margin: -1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
@@ -28,7 +33,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-tight);
   color: var(--text-muted);
   cursor: pointer;
   transition:
@@ -47,7 +52,7 @@
 }
 
 .addButton span {
-  font-size: 12px;
+  font-size: var(--fs-caption);
   font-weight: 600;
 }
 
@@ -72,15 +77,15 @@
 
 .actions {
   display: flex;
-  gap: 7px;
-  margin-top: 9px;
+  gap: var(--space-tight);
+  margin-top: var(--space-3);
 }
 
 .actionButton {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 600;
-  padding: 6px 10px;
-  border-radius: 999px;
+  padding: var(--space-tight) var(--space-3);
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-h);

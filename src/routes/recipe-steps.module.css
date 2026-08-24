@@ -7,10 +7,10 @@
 .stepCard {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 13px;
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .stepCardHead {
@@ -20,7 +20,7 @@
 }
 
 .stepCardNum {
-  font-size: 11px;
+  font-size: var(--fs-caption);
   font-weight: 700;
   color: var(--accent);
   text-transform: uppercase;
@@ -30,7 +30,7 @@
 .stepCardRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: start;
 }
 
@@ -49,13 +49,13 @@
 .detailTextarea {
   width: 100%;
   min-height: 4.5em;
-  padding: 9px 11px;
+  padding: var(--space-3) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   color: var(--text-h);
   font: inherit;
-  font-size: 13.5px;
+  font-size: var(--fs-label);
   line-height: 1.5;
   resize: vertical;
 }

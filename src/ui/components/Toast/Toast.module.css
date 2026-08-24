@@ -75,12 +75,12 @@
 .title {
   margin: 0;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: var(--fs-body-lg);
 }
 
 .description {
   margin: var(--space-1) 0 0;
-  font-size: 0.875rem;
+  font-size: var(--fs-body);
   /* `--text` on `--success-bg` measured 4.42:1 (axe, WCAG AA needs 4.5:1) —
      found 2026-08-20 once WP-21's bootstrap-ordering fix made the "Workbook
      ready" success toast reliably still on screen when a route's axe scan

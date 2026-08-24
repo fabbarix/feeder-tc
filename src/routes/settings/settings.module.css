@@ -30,7 +30,7 @@
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--line-soft);
   background: var(--surface-2);
-  font: 600 0.85rem/1.2 var(--sans);
+  font: 600 var(--fs-body-sm)/1.2 var(--sans);
   color: var(--text-h);
 }
 
@@ -54,7 +54,7 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--line-soft);
-  font-size: 0.85rem;
+  font-size: var(--fs-body-sm);
 }
 
 .daylay:last-child {
@@ -64,24 +64,24 @@
 .dayLabel {
   width: 40px;
   flex: none;
-  font: 600 0.7rem/1 var(--sans);
+  font: 600 var(--fs-label)/1 var(--sans);
   color: var(--text-muted);
   text-transform: uppercase;
 }
 
 .slotchips {
   display: flex;
-  gap: 5px;
+  gap: var(--space-tight);
   flex-wrap: wrap;
 }
 
 .slotchip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font: 500 0.72rem/1 var(--sans);
-  padding: 5px 9px;
-  border-radius: 6px;
+  gap: var(--space-1);
+  font: 500 var(--fs-label)/1 var(--sans);
+  padding: var(--space-tight) var(--space-3);
+  border-radius: var(--radius-sm);
   background: var(--accent-bg);
   color: var(--accent);
   border: 1px solid var(--accent-border);
@@ -89,9 +89,9 @@
 }
 
 .slotchipAdd {
-  font: 500 0.72rem/1 var(--sans);
-  padding: 5px 9px;
-  border-radius: 6px;
+  font: 500 var(--fs-label)/1 var(--sans);
+  padding: var(--space-tight) var(--space-3);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   border: 1px dashed var(--border);
@@ -105,12 +105,12 @@
 
 .tagRow {
   display: flex;
-  gap: 5px;
+  gap: var(--space-tight);
   flex-wrap: wrap;
 }
 
 .fieldLabel {
-  font: 600 0.72rem/1 var(--sans);
+  font: 600 var(--fs-label)/1 var(--sans);
   letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--text-muted);

@@ -5,7 +5,7 @@
 }
 
 .label {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-h);
 }
@@ -33,7 +33,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-dialog);
-  background: rgb(0 0 0 / 0.35);
+  background: var(--overlay-soft);
 }
 
 .sheet {
@@ -49,6 +49,9 @@
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: var(--shadow);
   padding: var(--space-4);
+  /* 0px is env()'s no-inset fallback, not a spacing-scale value — see
+     AppShell.module.css's identical pattern. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
 }
 

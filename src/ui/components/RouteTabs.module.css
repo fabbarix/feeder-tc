@@ -18,11 +18,15 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--touch-target);
-  padding: 0 2px;
+  padding: 0 var(--space-hairline);
+  /* Pixel-perfect border-overlap trick, not a spacing-scale value — cancels
+     the container's exact 1px border so the active tab's underline sits
+     flush on top of it. */
+  /* stylelint-disable-next-line declaration-property-value-disallowed-list */
   margin-bottom: -1px;
   color: var(--text-muted);
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   text-decoration: none;
   cursor: pointer;
   /* Reserve the underline's space at all times (a 2px transparent border)

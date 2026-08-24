@@ -9,7 +9,7 @@
 }
 
 .code {
-  padding: 1px 5px;
+  padding: var(--space-hairline) var(--space-tight);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   font-family: monospace;

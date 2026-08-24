@@ -5,7 +5,7 @@
 }
 
 .label {
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   font-weight: 600;
   color: var(--text-h);
 }
@@ -23,10 +23,10 @@
   min-height: calc(var(--touch-target) - 12px);
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: var(--fs-body);
   cursor: pointer;
   transition:
     background var(--motion-fast) ease-in-out,
@@ -64,6 +64,9 @@
     bottom: 0;
     top: auto;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    /* 0px is env()'s no-inset fallback, not a spacing-scale value — see
+       AppShell.module.css's identical pattern. */
+    /* stylelint-disable-next-line declaration-property-value-disallowed-list */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }

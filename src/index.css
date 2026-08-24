@@ -18,12 +18,27 @@
  * `src/ui/theme/ThemeProvider.tsx`. Absent attribute = follow system.
  */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
+  /*
+   * WP-tokens: these three were the last flat-hex holdouts in an otherwise
+   * all-OKLCH system (see the token-layer proposal, design-tokens branch,
+   * `#audit` "Colour: three authoring paths, one accidental"). Re-expressed
+   * here as `oklch()` at the SAME point in colour space — byte-identical
+   * rendered colour, not a redesign — so every colour in this file traces
+   * back to one mechanism. Measured contrast against `--paper`
+   * (oklch(0.985 0.006 156)): --text 5.48:1, --text-h 19.30:1, --text-muted
+   * 6.83:1 (against --surface, white: 5.73 / — / 7.13). Unchanged from the
+   * pre-migration hex values by construction; note this is lower than the
+   * "~7:1 AAA" the design proposal states for body text in general — that
+   * figure holds for --text-muted, not --text, which clears AA (4.5:1) with
+   * room but not AAA. Not touched further here: the instruction was "don't
+   * make it worse," not "hit a new number," and this is an identical color.
+   */
+  --text: oklch(0.514 0.03 305.5);
+  --text-h: oklch(0.13 0.017 298.9);
   /* #5c5566, not the lighter #8b8593 the WP-01 scaffold shipped: axe's
      color-contrast rule (WCAG 1.4.3, 4.5:1) failed at small nav-label sizes
      with the lighter value — see e2e/wp-15-a11y.spec.ts. */
-  --text-muted: #5c5566;
+  --text-muted: oklch(0.462 0.028 304);
 
   /*
    * Elevation — three surface levels (UI_DESIGN.md §13), not the one flat
@@ -64,7 +79,12 @@
   --line: oklch(0.9 0.01 var(--accent-hue));
   --line-soft: oklch(0.945 0.008 var(--accent-hue));
   --border: var(--line);
-  --code-bg: #f4f3ec;
+  /* WP-tokens: deleted as a distinct literal — aliased onto --surface-2,
+     which was already visually adjacent (old light code-bg rgb(244 243 236)
+     vs --surface-2 rgb(239 245 241); same story in dark). One fewer flat
+     hex in the system, at the cost of a barely-perceptible hue shift from
+     ivory toward the app's own green-grey. */
+  --code-bg: var(--surface-2);
 
   /* Two shadow tokens (§13) — shadows are for things that genuinely float
      (sheets, dialogs, a future FAB), never for cards, which separate from
@@ -148,32 +168,121 @@
   --warning: var(--warn);
   --warning-bg: var(--warn-bg);
   --warning-border: var(--warn-border);
-  --success: #157a45;
-  --success-bg: rgba(21, 122, 69, 0.12);
-  --success-border: rgba(21, 122, 69, 0.45);
+  /* WP-tokens: joins --warn/--crit's fixed-hue family (hue 152, never
+     derived from --accent-hue — same rationale: an accent-derived "done" tint
+     would vanish if a user picked green as their accent). Same fixed-L/C
+     construction, swept the same way. Light: oklch(0.45 0.16 152) measures
+     6.35:1 on --paper / 6.63:1 on --surface (old flat hex measured 6.13/6.40
+     at the same pairs — this reads as slightly MORE contrast, not less). */
+  --success: oklch(0.45 0.16 152);
+  --success-bg: oklch(0.95 0.05 152);
+  --success-border: oklch(0.75 0.14 152);
 
-  --focus-ring: #0b6ee0;
+  /* WP-tokens: re-expressed at the same point in colour space (byte-identical
+     rendered colour) — 4.65:1 on --paper. Deliberately NOT derived from
+     --accent-hue (UI_DESIGN.md's focus ring must stay visible regardless of
+     the user's chosen accent). KNOWN LIMITATION, not solved here: if a user
+     picks a blue accent close to this hue (~257), the ring can lose contrast
+     against accent-coloured fills. Flagged for the owner; out of scope for
+     this pass. */
+  --focus-ring: oklch(0.555 0.192 257.1);
 
-  /* Spacing scale (4px base) — shared by shell and kit so paddings/gaps line up. */
+  /* Spacing scale (4px base) — shared by shell and kit so paddings/gaps line up.
+     WP-tokens added --space-hairline and --space-tight (audit: 95 raw px
+     literals in padding/margin/gap that missed this scale, clustering hardest
+     at 5/7/9/11/13px — see the token-layer proposal's #space section).
+     --space-hairline (2px) is deliberately NOT part of the 4px rhythm below
+     it — it's an optical nudge (icon-to-baseline), not a spacing step; don't
+     chain two expecting 4px. */
+  --space-hairline: 2px;
   --space-1: 4px;
+  --space-tight: 6px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
 
+  /* Radius vocabulary (audit: "the opposite of the type-scale problem" —
+     six values, no drift). --radius-pill/--radius-circle are the same 999px
+     / 50% every pill/avatar in the kit already used, now named so lint can
+     enforce them like every other radius; no rendered pixel changes. */
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
+  --radius-pill: 999px;
+  --radius-circle: 50%;
 
   /* Minimum touch target (WCAG 2.5.5 / Material "comfortable" size) — the
      shopping list is used one-handed in a store aisle, so every interactive
      kit element (nav item, button, checkbox row) sizes against this. */
   --touch-target: 48px;
 
+  /* Deliberately theme-independent, like --focus-ring: a video letterboxing
+     backdrop (scan.module.css's camera frame) wants true black regardless
+     of light/dark, the same way a camera app's viewfinder never inverts. */
+  --scrim: #000;
+
+  /* Dialog/sheet backdrops — found as raw `rgb(0 0 0 / a)` literals in
+     ConfirmDialog/SelectSheet/RecipePickerDialog (WP-tokens audit; missed by
+     the original hex-only colour count because these were never hex). Also
+     theme-independent by design: a modal backdrop dims whatever is behind
+     it in either theme, it doesn't invert. */
+  --overlay: rgb(0 0 0 / 50%);
+  --overlay-soft: rgb(0 0 0 / 35%);
+
+  /* Camera viewfinder chrome (scan.module.css) — grayscale (chroma 0),
+     theme-independent for the same reason as --scrim: a camera overlay
+     reads against live video, not the app's paper/surface colours, so it
+     doesn't participate in light/dark theming. */
+  --scan-overlay-bg: oklch(0.15 0 0 / 92%);
+  --scan-overlay-text: oklch(0.95 0 0);
+  --scan-overlay-text-muted: oklch(0.8 0 0);
+  --scan-overlay-border: oklch(1 0 0 / 85%);
+  --scan-overlay-border-soft: oklch(0.95 0 0 / 60%);
+
   --z-nav: 10;
   --z-dialog: 100;
   --z-toast: 200;
+
+  /*
+   * Type scale (UI_DESIGN.md, token-layer proposal #type) — WP-tokens.
+   * Eight roles replace 38 raw font-size declarations (rem multiplied
+   * against a root that silently changed at 1024px, producing the
+   * near-duplicate size cluster a reviewer measured: 12.6/12.96/13.33/
+   * 13.5px). Root font-size is now FIXED at 18px everywhere — the
+   * `@media (max-width: 1024px) { font-size: 16px }` flip that caused the
+   * duplication is deleted, not patched — and every role below is a plain
+   * px value, consumed via `var(--fs-*)`, never `rem` (banned in src/, see
+   * CLAUDE.md and the stylelint config). --fs-heading and --fs-display get
+   * one explicit, named breakpoint bump each — an intentional per-role
+   * override, not the old silent whole-page multiplier — mirroring how
+   * `h1`/`h2` below already scale up at the same breakpoint.
+   */
+  --fs-caption: 12px; /* timestamps, counts, meta */
+  --fs-label: 13px; /* badges, pills, small buttons */
+  --fs-body-sm: 14px; /* secondary list-row line */
+  --fs-body: 16px; /* default UI text, form labels */
+  --fs-body-lg: 18px; /* primary list-row text, prose */
+  --fs-heading-sm: 20px; /* card titles, dialog headers */
+  --fs-heading: 24px; /* section headers inside a screen (not the `h2` tag, which keeps its own literal 20/22 — see below) */
+  --fs-display: 28px; /* rarely used outside `h1`, which keeps its own literal 28/34 */
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Nine ad hoc line-heights collapse to four named roles. */
+  --lh-tight: 1.15; /* display / heading */
+  --lh-snug: 1.3; /* labels, badges, one-line UI */
+  --lh-normal: 1.45; /* body — the existing 145% already used on :root */
+  --lh-relaxed: 1.65; /* markdown step detail, long-form only */
+
+  @media (min-width: 1024px) {
+    --fs-heading: 28px;
+    --fs-display: 34px;
+  }
 
   /*
    * Type (UI_DESIGN.md §13): Fraunces (headings, variable, optical size) +
@@ -196,10 +305,6 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 /*
@@ -218,10 +323,14 @@
  */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
+    /* WP-tokens: re-expressed as oklch() at the same point in colour space —
+       byte-identical rendered colour. Measured against --paper (dark,
+       oklch(0.17 0.012 156)): --text 7.52:1, --text-h 17.34:1, --text-muted
+       6.43:1. */
+    --text: oklch(0.714 0.019 261.3);
+    --text-h: oklch(0.967 0.003 264.5);
     /* #9096a3, not #767c8a: 4.27:1 against the dark bg, short of 4.5:1. */
-    --text-muted: #9096a3;
+    --text-muted: oklch(0.672 0.02 265.9);
 
     /* Elevation (§13) — three perceptibly distinct steps, not the ~5-RGB-unit
        gaps WP-15 shipped. */
@@ -236,7 +345,7 @@
     --line: oklch(0.33 0.016 var(--accent-hue));
     --line-soft: oklch(0.27 0.014 var(--accent-hue));
     --border: var(--line);
-    --code-bg: #1f2028;
+    --code-bg: var(--surface-2);
 
     --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
     --shadow-lg:
@@ -277,19 +386,27 @@
     --warning: var(--warn);
     --warning-bg: var(--warn-bg);
     --warning-border: var(--warn-border);
-    --success: #4ade80;
-    --success-bg: rgba(74, 222, 128, 0.16);
-    --success-border: rgba(74, 222, 128, 0.45);
+    /* WP-tokens: same fixed hue (152) as the light tokens, dark-mode L/C
+       pattern matching --warn/--crit's dark values. Measures 10.97:1 on
+       --paper, 10.06:1 on --surface (old flat hex measured 10.72/9.85 at the
+       same pairs — again slightly higher, not lower). */
+    --success: oklch(0.8 0.18 152);
+    --success-bg: oklch(0.28 0.08 152);
+    --success-border: oklch(0.55 0.16 152);
 
-    --focus-ring: #7cb8ff;
+    /* WP-tokens: re-expressed at the same point in colour space — 9.23:1 on
+       --paper. Same known limitation as the light value, see above. */
+    --focus-ring: oklch(0.77 0.12 253.4);
   }
 
 }
 
 :root[data-theme="dark"] {
-  --text: #9ca3af;
-  --text-h: #f3f4f6;
-  --text-muted: #9096a3;
+  /* WP-tokens: identical to the `prefers-color-scheme: dark` block above —
+     see its comment for contrast figures. */
+  --text: oklch(0.714 0.019 261.3);
+  --text-h: oklch(0.967 0.003 264.5);
+  --text-muted: oklch(0.672 0.02 265.9);
 
   /* Hue-derived — see the light-mode block's rationale comment above. */
   --paper: oklch(0.17 0.012 var(--accent-hue));
@@ -301,7 +418,7 @@
   --line: oklch(0.33 0.016 var(--accent-hue));
   --line-soft: oklch(0.27 0.014 var(--accent-hue));
   --border: var(--line);
-  --code-bg: #1f2028;
+  --code-bg: var(--surface-2);
 
   --shadow-sm: 0 2px 8px rgb(0 0 0 / 35%);
   --shadow-lg:
@@ -329,11 +446,11 @@
   --warning: var(--warn);
   --warning-bg: var(--warn-bg);
   --warning-border: var(--warn-border);
-  --success: #4ade80;
-  --success-bg: rgba(74, 222, 128, 0.16);
-  --success-border: rgba(74, 222, 128, 0.45);
+  --success: oklch(0.8 0.18 152);
+  --success-bg: oklch(0.28 0.08 152);
+  --success-border: oklch(0.55 0.16 152);
 
-  --focus-ring: #7cb8ff;
+  --focus-ring: oklch(0.77 0.12 253.4);
 }
 
 /* Focus visibility is a shell-wide token so every kit component gets the

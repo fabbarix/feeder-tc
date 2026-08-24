@@ -20,6 +20,6 @@
   background: var(--accent);
   color: var(--accent-text);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: var(--fs-body-lg);
   text-decoration: none;
 }
