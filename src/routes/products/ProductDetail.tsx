@@ -413,7 +413,7 @@ export function ProductDetail() {
                     <EmptyState
                       icon={Tag}
                       title="Not enough shops noted yet"
-                      description="Average across shops needs at least one priced observation with a shop recorded. Note where you shop when you check items off, and this fills in."
+                      description="Average across shops needs at least one price entry with a shop recorded. Note where you shop when you check items off, and this fills in."
                     />
                   ) : chartView === "by-shop" && byShopHasOnlyUnlabeled ? (
                     <>
@@ -443,7 +443,7 @@ export function ProductDetail() {
 
                   {chartView === "average" && averageExcluded > 0 ? (
                     <p className={styles.chartNote}>
-                      {averageExcluded} observation{averageExcluded === 1 ? "" : "s"} with no recorded shop excluded
+                      {averageExcluded} {averageExcluded === 1 ? "entry" : "entries"} with no recorded shop excluded
                       from this average.
                     </p>
                   ) : null}
@@ -459,7 +459,7 @@ export function ProductDetail() {
         title="Combine these products?"
         description={
           pendingMerge && product
-            ? `Every barcode and price observation from "${pendingMerge.a.id === product.id ? pendingMerge.b.name : pendingMerge.a.name}" moves onto "${product.name}". This can't be undone from here.`
+            ? `Every barcode and price entry from "${pendingMerge.a.id === product.id ? pendingMerge.b.name : pendingMerge.a.name}" moves onto "${product.name}". This can't be undone from here.`
             : undefined
         }
         confirmLabel="Combine"
@@ -480,7 +480,7 @@ export function ProductDetail() {
         title="Remove this barcode?"
         description={
           barcodeToRemove
-            ? `"${barcodeToRemove}" will no longer be linked to this product. Its past price observations stay recorded, but won't show here any more.`
+            ? `"${barcodeToRemove}" will no longer be linked to this product. Its past price entries stay recorded, but won't show here any more.`
             : undefined
         }
         confirmLabel="Remove"

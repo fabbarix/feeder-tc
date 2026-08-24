@@ -65,15 +65,31 @@ export const ENTRY_UNIT_OPTIONS: readonly { value: EntryUnit; label: string }[] 
   { value: "piece", label: "piece" },
 ];
 
-/** Default expiry as a *duration* (DESIGN_PRODUCTS.md §1.2: "6 months", "10 days") — presets in days, feeding the same `IntegerField (suffix "days")` idiom `IngredientEditor.tsx` already uses for shelf life, rather than inventing a second "duration" control. */
+/**
+ * Default expiry as a *duration* (DESIGN_PRODUCTS.md §1.2: "6 months", "10
+ * days") — presets in days, feeding the same `IntegerField (suffix "days")`
+ * idiom `IngredientEditor.tsx` already uses for shelf life, rather than
+ * inventing a second "duration" control.
+ *
+ * "1 month"/"6 months" wrapped to two lines in this 4-segment control's
+ * narrow phone-width columns while "10 days"/"1 year" stayed one line —
+ * same line-wrap defect as SPLIT_OPTIONS (recipe-options.ts), found by
+ * screenshot review rather than by name. "mo" is shortened, not "10 days"/"1
+ * year", because those already rendered on one line.
+ */
 export const SHELF_LIFE_PRESET_DAYS: readonly { value: string; label: string; days: number }[] = [
   { value: "10", label: "10 days", days: 10 },
-  { value: "30", label: "1 month", days: 30 },
-  { value: "182", label: "6 months", days: 182 },
+  { value: "30", label: "1 mo", days: 30 },
+  { value: "182", label: "6 mo", days: 182 },
   { value: "365", label: "1 year", days: 365 },
 ];
 
+// "Bulk / variable weight" wrapped to two lines next to "Packaged"'s one —
+// same line-wrap defect as SPLIT_OPTIONS/SHELF_LIFE_PRESET_DAYS above,
+// found by screenshot review. Shortened to "Bulk"; the full "weight varies
+// bag to bag" explanation already lives in this control's own hint text
+// (ProductEditorPanel.tsx/ProductDetail.tsx), not just the label.
 export const BULK_OPTIONS: readonly { value: "packaged" | "bulk"; label: string }[] = [
   { value: "packaged", label: "Packaged" },
-  { value: "bulk", label: "Bulk / variable weight" },
+  { value: "bulk", label: "Bulk" },
 ];

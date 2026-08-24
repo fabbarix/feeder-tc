@@ -879,9 +879,16 @@ export function RecipeEditor() {
                     />
                   </div>
                   <div className={styles.field}>
-                    <span className={styles.fieldLabel}>Can&rsquo;t be split</span>
+                    {/* Named for the question ("how does this recipe scale?"),
+                        not for either answer — a group whose accessible name
+                        repeats one of its own options is unannounceable by a
+                        screen reader ("Can't be split, group" ... "Can't be
+                        split, radio"). SPLIT_OPTIONS (recipe-options.ts) also
+                        shortens "Splits into portions" to "Splits" so both
+                        options render on one line. */}
+                    <span className={styles.fieldLabel}>Splitting</span>
                     <SegmentedControl<SplitChoice>
-                      aria-label="Can't be split"
+                      aria-label="Splitting"
                       options={SPLIT_OPTIONS}
                       value={indivisible ? "cant" : "splits"}
                       onChange={(value) => setIndivisibleOverride(value === "cant")}

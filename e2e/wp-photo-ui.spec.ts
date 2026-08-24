@@ -24,7 +24,7 @@ test("A recipe photo, and a step's detail + duration + photo, save and survive a
   await expect(page.getByRole("heading", { name: "Add recipe" })).toBeVisible();
 
   await page.getByRole("textbox", { name: "Name" }).fill("Chili E2E");
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("30");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("30");
 
   // The recipe's own photo — the Identity card's file input is the first on
   // the page.
@@ -33,7 +33,7 @@ test("A recipe photo, and a step's detail + duration + photo, save and survive a
 
   // One step card by default: instruction, duration, photo, detail.
   await page.getByRole("textbox", { name: "Instruction" }).fill("Simmer until thick");
-  const durationField = page.getByRole("textbox", { name: "Duration (min)" });
+  const durationField = page.getByRole("textbox", { name: "Duration" });
   await durationField.fill("20");
   await page.locator('input[type="file"]').nth(1).setInputFiles(TINY_PNG);
   await page
@@ -74,7 +74,7 @@ test("A recipe photo, and a step's detail + duration + photo, save and survive a
   // in the editor's own fields and back on the read view.
   await page.getByRole("link", { name: "Edit" }).click();
   await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "Duration (min)" })).toHaveValue("20");
+  await expect(page.getByRole("textbox", { name: "Duration" })).toHaveValue("20");
   await expect(page.getByRole("textbox", { name: /detail/i })).toHaveValue(
     "Stir every 5 minutes so it doesn't catch on the bottom of the pan.",
   );

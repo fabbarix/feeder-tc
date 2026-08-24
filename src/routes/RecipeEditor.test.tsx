@@ -157,16 +157,16 @@ describe("RecipeEditor — Can't be split (DESIGN_PURCHASING.md §4/§8)", () =>
     renderEditor(contextValue(store), "/recipes/new");
     await screen.findByLabelText("Name");
 
-    expect(screen.getByRole("radio", { name: "Splits into portions" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Splits" })).toBeChecked();
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole("radio", { name: "Store-bought" }));
-    expect(screen.getByRole("radio", { name: "Can't be split" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Bought" }));
+    expect(screen.getByRole("radio", { name: "Whole" })).toBeChecked();
 
     // Flipping Kind back keeps following it — the household never touched
     // "Can't be split" itself.
     await user.click(screen.getByRole("radio", { name: "Cooked" }));
-    expect(screen.getByRole("radio", { name: "Splits into portions" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Splits" })).toBeChecked();
   });
 
   it("saves indivisible explicitly once the household overrides it, and omits it when left following Kind", async () => {
@@ -177,7 +177,7 @@ describe("RecipeEditor — Can't be split (DESIGN_PURCHASING.md §4/§8)", () =>
     // stays implicit (never written) rather than freezing today's default.
     renderEditor(contextValue(store), "/recipes/new");
     await user.type(await screen.findByLabelText("Name"), "Frozen pizza");
-    await user.click(screen.getByRole("radio", { name: "Store-bought" }));
+    await user.click(screen.getByRole("radio", { name: "Bought" }));
     await saveRecipe(user);
     await screen.findByText("Recipes list");
 
@@ -194,7 +194,7 @@ describe("RecipeEditor — Can't be split (DESIGN_PURCHASING.md §4/§8)", () =>
     // Kind stays Cooked (indivisible defaults to false) — explicitly check
     // "Can't be split" anyway (a single 9-inch quiche can't be split either,
     // per §4).
-    await user.click(screen.getByRole("radio", { name: "Can't be split" }));
+    await user.click(screen.getByRole("radio", { name: "Whole" }));
     await saveRecipe(user);
     await screen.findByText("Recipes list");
 

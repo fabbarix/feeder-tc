@@ -120,4 +120,34 @@ describe("QuantityInput", () => {
     const { container } = render(<QuantityInput label="Amount" unit="ml" value={null} onChange={() => {}} />);
     expect(await axe(container)).toHaveNoViolations();
   });
+
+  // WP-17: "Servings (servings)" — the label used to append "(unit)" itself
+  // AND the field showed the unit again as its own suffix. The unit belongs
+  // in exactly one of those two places; this pins it to the field, so the
+  // visible/accessible label text is always exactly the bare `label` prop,
+  // for every current and future QuantityInput/Stepper caller across the
+  // app (recipe editor, settings, plan, shopping, pantry, scan all share
+  // this one component).
+  it("never repeats the unit in the label — it shows once, in the field itself", () => {
+    render(<QuantityInput label="Servings" unit="servings" unitOne="serving" value={4} onChange={() => {}} />);
+    const label = screen.getByText("Servings");
+    expect(label.tagName.toLowerCase()).toBe("label");
+    expect(label.textContent).toBe("Servings");
+    // The unit is still communicated — visibly, as the field's own suffix,
+    // and to a screen reader via aria-describedby (checked below) — just
+    // not duplicated into the label text.
+    expect(screen.getByText("servings", { selector: "span" })).toBeInTheDocument();
+  });
+
+  it("still exposes the unit to assistive tech via aria-describedby, even though the label text omits it", () => {
+    render(<QuantityInput label="Prep time" unit="min" value={5} onChange={() => {}} />);
+    const input = screen.getByRole("textbox", { name: "Prep time" });
+    const describedBy = input.getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    const describedText = describedBy!
+      .split(/\s+/)
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(describedText).toContain("min");
+  });
 });

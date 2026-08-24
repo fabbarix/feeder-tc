@@ -17,9 +17,15 @@ export function statusLabel(status: RecipeStatus): string {
   return STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
 }
 
+// "Store-bought" wrapped to two lines in the "Kind & rotation" rail while
+// its sibling "Cooked" stayed on one — the same line-wrap defect as
+// SPLIT_OPTIONS below, found generically (e2e/wp-17-editor-copy-invariants.spec.ts)
+// rather than by name. Shortened to "Bought", which also matches the
+// underlying `RecipeKind` value ("bought") and reads fine standing next to
+// "Cooked" on a recipe card/detail view elsewhere in the app.
 export const KIND_OPTIONS: readonly { value: RecipeKind; label: string }[] = [
   { value: "cooked", label: "Cooked" },
-  { value: "bought", label: "Store-bought" },
+  { value: "bought", label: "Bought" },
 ];
 
 export const MEAL_TAG_OPTIONS: readonly { value: MealTag; label: string }[] = [
@@ -40,7 +46,18 @@ export const MEAL_TAG_OPTIONS: readonly { value: MealTag; label: string }[] = [
  */
 export type SplitChoice = "splits" | "cant";
 
+// Both labels must fit on one line inside the "Kind & rotation" rail
+// (RecipeEditor.tsx's ~290px column, same as "Use in planning") at every
+// width the app supports, not just the widest one — "Splits into portions"
+// wrapped to two lines at 1512px while "Can't be split" sat one line tall
+// beside it; shortening only the first to "Splits" fixed 1512px/390px but
+// still left "Can't be split" itself wrapping to two lines at in-between
+// desktop widths (measured ~1280px), with "Splits" now the short one. Both
+// are shortened — "Splits" / "Whole" — so the pair is short enough to clear
+// every width, not just the two spot-checked ones. The group itself is
+// titled "Splitting", not either option's own text — see the field
+// label/aria-label next to `SPLIT_OPTIONS` in RecipeEditor.tsx.
 export const SPLIT_OPTIONS: readonly { value: SplitChoice; label: string }[] = [
-  { value: "splits", label: "Splits into portions" },
-  { value: "cant", label: "Can't be split" },
+  { value: "splits", label: "Splits" },
+  { value: "cant", label: "Whole" },
 ];

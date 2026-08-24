@@ -155,7 +155,7 @@ test("Price history: a single observation shows a price with no fabricated trend
   await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("radio", { name: "Price history" })).toBeChecked();
   await expect(page.getByText("New")).toBeVisible();
-  await expect(page.getByText("$0.24 per 100 g · 1 observation")).toBeVisible();
+  await expect(page.getByText("$0.24 per 100 g · 1 entry")).toBeVisible();
 });
 
 test("Price history: both levels are independently reachable for the same underlying data", async ({ page }) => {
@@ -196,7 +196,7 @@ test("Price history: both levels are independently reachable for the same underl
   await page.getByRole("link", { name: /price history/i }).click();
   await expect(page.getByRole("tab", { name: "Products" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("radio", { name: "Price history" })).toBeChecked();
-  await expect(page.getByText(/2 observations/)).toBeVisible();
+  await expect(page.getByText(/2 entries/)).toBeVisible();
 
   await page.getByRole("radio", { name: "By product" }).click();
   const productLink = page.getByRole("link", { name: /Riso Gallo Arborio/ });
@@ -227,6 +227,6 @@ test("Price history: currency comes from Settings, never a hardcoded symbol", as
   await expect(page.getByText("€0.24", { exact: true })).toBeVisible();
 
   await page.getByRole("link", { name: /price history/i }).click();
-  await expect(page.getByText("€0.24 per 100 g · 1 observation")).toBeVisible();
-  await expect(page.getByText("$0.24 per 100 g · 1 observation")).toHaveCount(0);
+  await expect(page.getByText("€0.24 per 100 g · 1 entry")).toBeVisible();
+  await expect(page.getByText("$0.24 per 100 g · 1 entry")).toHaveCount(0);
 });

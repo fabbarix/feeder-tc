@@ -93,7 +93,7 @@ export async function addDinnerRecipe(page: Page, name: string): Promise<void> {
   await page.getByRole("link", { name: /Add recipe|New recipe/ }).click();
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await page.getByRole("group", { name: "Meal tags" }).getByRole("button", { name: "Dinner" }).click();
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("20");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("20");
   await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes", level: 1 })).toBeVisible();
 }

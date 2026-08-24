@@ -20,14 +20,14 @@ test("Creating a bought meal", async ({ page }) => {
   // When they create a recipe "Store lasagna" of kind "bought" with cook
   // time 50 minutes and steps "375 degrees, 30 min covered, 20 uncovered"
   await page.getByRole("textbox", { name: "Name" }).fill("Store lasagna");
-  await page.getByRole("radio", { name: "Store-bought" }).click();
+  await page.getByRole("radio", { name: "Bought" }).click();
   // Selecting "bought" locks prep time at 0 — the SAME control
   // (`QuantityInput`) as every other numeric field on this screen, just
   // disabled, never swapped out for a sentence (WP-VC4, RecipeEditor.tsx).
-  const prepTimeField = page.getByRole("textbox", { name: "Prep time (min)" });
+  const prepTimeField = page.getByRole("textbox", { name: "Prep time" });
   await expect(prepTimeField).toBeDisabled();
   await expect(prepTimeField).toHaveValue("0");
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("50");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("50");
   // One empty step field exists by default — no need to add another. Each
   // step is now its own card (WP-PHOTO UI) with a separate "Step N" heading
   // and an "Instruction" field, rather than a "Step N"-labelled textbox.
@@ -56,11 +56,11 @@ test("Creating a bought meal", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Store lasagna" })).toBeVisible();
   await page.getByRole("link", { name: "Edit" }).click();
   await expect(page.getByRole("heading", { name: "Edit recipe" })).toBeVisible();
-  await expect(page.getByRole("radio", { name: "Store-bought" })).toBeChecked();
-  const editPrepTimeField = page.getByRole("textbox", { name: "Prep time (min)" });
+  await expect(page.getByRole("radio", { name: "Bought" })).toBeChecked();
+  const editPrepTimeField = page.getByRole("textbox", { name: "Prep time" });
   await expect(editPrepTimeField).toBeDisabled();
   await expect(editPrepTimeField).toHaveValue("0");
-  await expect(page.getByRole("textbox", { name: "Cook time (min)" })).toHaveValue("50");
+  await expect(page.getByRole("textbox", { name: "Cook time" })).toHaveValue("50");
 
   // And a catalog ingredient "Store lasagna" with unit "piece" is linked —
   // via the primary nav (the editor's own "← Recipes" breadcrumb is gone —
@@ -93,7 +93,7 @@ test("Retiring a recipe", async ({ page }) => {
   // to fill there.
   await page.getByRole("link", { name: "Add recipe" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill("Liver stew");
-  await page.getByRole("textbox", { name: "Cook time (min)" }).fill("40");
+  await page.getByRole("textbox", { name: "Cook time" }).fill("40");
   await saveRecipeThroughNudges(page);
   await expect(page.getByRole("heading", { name: "Recipes" })).toBeVisible();
 

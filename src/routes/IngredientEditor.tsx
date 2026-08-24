@@ -344,8 +344,12 @@ export function IngredientEditor() {
           </div>
 
           <div className={styles.field}>
-            <span className={styles.fieldLabel}>Canonical unit</span>
-            <SegmentedControl<Unit> aria-label="Canonical unit" options={SELECTABLE_UNITS} value={unit} onChange={setUnit} />
+            {/* "Canonical unit" is invariant-3 engineering vocabulary
+                (`canonicalUnit` in domain/types.ts, frozen) — a cook reads
+                this field as "which unit do I always measure this in", so
+                say that instead. */}
+            <span className={styles.fieldLabel}>Measured in</span>
+            <SegmentedControl<Unit> aria-label="Measured in" options={SELECTABLE_UNITS} value={unit} onChange={setUnit} />
           </div>
 
           <div className={styles.field}>

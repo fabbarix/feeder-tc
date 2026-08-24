@@ -10,11 +10,6 @@
   color: var(--text-h);
 }
 
-.unit {
-  font-weight: 400;
-  color: var(--text-muted);
-}
-
 .control {
   display: flex;
   align-items: center;
