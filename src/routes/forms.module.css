@@ -86,7 +86,30 @@
   color: var(--text-muted);
 }
 
-.field input[type="text"] {
+/* A checkbox's own caption is not a field label (owner-reported, WP-import-
+   text: `.field label`'s uppercase eyebrow styling — meant for the text
+   above an input — was leaking onto a checkbox's caption, reading heavier
+   than a checkbox caption should). Sentence case, body-text weight, sitting
+   inline next to the box rather than above it. */
+.checkboxField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.checkboxField label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-body-lg);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-h);
+}
+
+.field input[type="text"],
+.field input[type="password"] {
   min-height: var(--touch-target);
   padding: 0 var(--space-3);
   border: 1px solid var(--border);
@@ -97,7 +120,12 @@
   font-size: var(--fs-body-lg);
 }
 
-.field input[type="text"]:focus-visible {
+.field .row > input {
+  flex: 1 1 10em;
+}
+
+.field input[type="text"]:focus-visible,
+.field input[type="password"]:focus-visible {
   border-color: var(--accent);
   outline: 3px solid var(--focus-ring);
   outline-offset: 1px;
@@ -347,4 +375,39 @@
 .sectionCardBody .line:not(:last-child) {
   padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--line-soft);
+}
+
+/* Recipe import (DESIGN_RECIPE_IMPORT.md §11): the "What you pasted"
+   panel's own head is a real `<button>` (toggles the panel), styled
+   identically to every other `.sectionCardHead` but with the native button
+   chrome reset off. */
+.importSourceToggle {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.importSourceText {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  margin: 0;
+}
+
+/* A confidently pre-filled ingredient line (the matcher's own "still
+   editable, not locked" pre-fill, never a silent write) — a small marker
+   distinct from a line the cook picked themselves, per §4/§11's "never
+   implying more certainty than it has". */
+.importMatchedBadge {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }

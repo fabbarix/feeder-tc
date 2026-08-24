@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
 import {
@@ -44,6 +44,7 @@ import styles from "./forms.module.css";
 import detailStyles from "./recipe-detail.module.css";
 import stepStyles from "./recipe-steps.module.css";
 import { describeError as messageOf } from "../sheets/error-messages.ts";
+import type { RecipeImportDraft } from "./RecipeImport.tsx";
 
 /**
  * Field-by-field comparison of the parts of a `Recipe` this editor actually
@@ -79,6 +80,21 @@ interface LineDraft {
    * is chosen yet.
    */
   readonly entryUnit: EntryUnit | null;
+  /**
+   * Recipe import only (DESIGN_RECIPE_IMPORT.md §4/§11) — display-only,
+   * never saved: `true` when this line was pre-filled by the matcher's own
+   * confident match, shown with a visibly different "matched from import"
+   * marker so it never reads as more certain than it is (still editable,
+   * not locked). `undefined` for every hand-typed or hand-picked line.
+   */
+  readonly importMatched?: boolean;
+  /**
+   * Recipe import only — what the model actually returned for this line
+   * ("2 piece garlic"), shown as a hint under an UNMATCHED imported line so
+   * the cook can see what to enter even though no ingredient is picked yet
+   * (§10: "keeps the source text visible so a misread can be spotted").
+   */
+  readonly importRawText?: string;
 }
 
 /**
@@ -133,11 +149,22 @@ function emptyStepDraft(key: string, rng: Rng): StepDraft {
 export function RecipeEditor() {
   const { recipeId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { store, rng, clock } = useWorkbookContext();
   const { showToast } = useToast();
   const isNew = recipeId === undefined;
   const lineKeyCounter = useRef(0);
   const stepKeyCounter = useRef(0);
+  // DESIGN_RECIPE_IMPORT.md §11: pre-fills THIS editor rather than a second
+  // screen — "the review screen is the existing RecipeEditor, pre-filled".
+  // Captured once via a lazy `useState` initializer (never set again after
+  // mount, so it behaves like a stable value) from router state
+  // (`RecipeImport.tsx`'s navigate call) — not a `useRef`, which
+  // `react-hooks/refs` forbids reading during render.
+  const [importDraft] = useState(() =>
+    isNew ? ((location.state as { importedDraft?: RecipeImportDraft } | null)?.importedDraft ?? undefined) : undefined,
+  );
+  const [showImportSource, setShowImportSource] = useState(true);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -164,12 +191,12 @@ export function RecipeEditor() {
   const [ingredientsCatalog, setIngredientsCatalog] = useState<readonly Ingredient[]>([]);
   const [linkedIngredientId, setLinkedIngredientId] = useState<IngredientId | undefined>(undefined);
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState(() => importDraft?.parsed.name ?? "");
   const [kind, setKind] = useState<RecipeKind>("cooked");
   const [status, setStatus] = useState<RecipeStatus>("in-rotation");
-  const [baseServings, setBaseServings] = useState<number | null>(4);
-  const [prepMinutes, setPrepMinutes] = useState<number | null>(15);
-  const [cookMinutes, setCookMinutes] = useState<number | null>(30);
+  const [baseServings, setBaseServings] = useState<number | null>(() => importDraft?.parsed.servings ?? 4);
+  const [prepMinutes, setPrepMinutes] = useState<number | null>(() => importDraft?.parsed.prepMinutes ?? 15);
+  const [cookMinutes, setCookMinutes] = useState<number | null>(() => importDraft?.parsed.cookMinutes ?? 30);
   const [mealTags, setMealTags] = useState<readonly MealTag[]>([]);
   // "Can't be split" (DESIGN_PURCHASING.md §4/§8) — pre-checked for Bought,
   // matching `Recipe.indivisible`'s own default (`kind === "bought"`).
@@ -186,13 +213,38 @@ export function RecipeEditor() {
   // (see `StepDraft`'s doc comment).
   const [recipeInitialHasPhoto, setRecipeInitialHasPhoto] = useState(false);
   const [recipePhotoDraft, setRecipePhotoDraft] = useState<PhotoDraft>({ status: "unchanged" });
-  const [lines, setLines] = useState<readonly LineDraft[]>([]);
+  const [lines, setLines] = useState<readonly LineDraft[]>(() =>
+    importDraft
+      ? importDraft.lines.map((resolved): LineDraft => {
+          const importRawText =
+            resolved.ingredientId === null
+              ? (resolved.conversionNote ??
+                `As read: "${[resolved.amount, resolved.entryUnit, resolved.rawName].filter((part) => part !== null && part !== "").join(" ")}${resolved.rawNote ? ` (${resolved.rawNote})` : ""}"`)
+              : undefined;
+          return {
+            key: resolved.key,
+            ingredientId: resolved.ingredientId,
+            amount: resolved.ingredientId !== null ? resolved.amount : null,
+            entryUnit: resolved.ingredientId !== null ? resolved.entryUnit : null,
+            importMatched: resolved.matched,
+            ...(importRawText !== undefined ? { importRawText } : {}),
+          };
+        })
+      : [],
+  );
   // Fixed literal key, not the ref-backed counter below: reading a ref
   // during render (even just to seed useState's lazy initializer) trips
   // react-hooks' "refs are for effects/handlers, not render" rule. This
   // runs exactly once regardless, so a hardcoded key is no less unique than
   // one drawn from the counter would have been.
-  const [steps, setSteps] = useState<readonly StepDraft[]>(() => [emptyStepDraft("initial-step", rng)]);
+  const [steps, setSteps] = useState<readonly StepDraft[]>(() =>
+    importDraft && importDraft.parsed.steps.length > 0
+      ? importDraft.parsed.steps.map((step, index) => ({
+          ...emptyStepDraft(`import-step-${index}`, rng),
+          description: step.description,
+        }))
+      : [emptyStepDraft("initial-step", rng)],
+  );
 
   useEffect(() => {
     // `loading`/`error` are only ever set from the promise's own
@@ -657,6 +709,45 @@ export function RecipeEditor() {
             </div>
           </div>
 
+          {/* DESIGN_RECIPE_IMPORT.md §10/§11: "keeps the original pasted
+              text visible side-by-side with the draft" — the dangerous
+              failure here is a misread quantity, not a hallucinated
+              ingredient, and the cook's own read of the source is the only
+              real check for either. Open by default the first time (§11),
+              collapsible so it doesn't crowd the rest of the review once
+              checked. */}
+          {importDraft ? (
+            <div className={styles.sectionCard}>
+              <button
+                type="button"
+                className={`${styles.sectionCardHead} ${styles.importSourceToggle}`}
+                aria-expanded={showImportSource}
+                onClick={() => setShowImportSource((v) => !v)}
+              >
+                {importDraft.sourceText.trim() !== "" ? "What you pasted" : "Where this came from"}{" "}
+                {showImportSource ? "▾" : "▸"}
+              </button>
+              {showImportSource ? (
+                <div className={styles.sectionCardBody}>
+                  {importDraft.sourceUrl ? (
+                    <p className={styles.hint}>Source: {importDraft.sourceUrl}</p>
+                  ) : null}
+                  <p className={styles.hint}>
+                    Compare this against the draft below — quantities are the easiest thing to misread.
+                  </p>
+                  {importDraft.sourceText.trim() !== "" ? (
+                    <pre className={`${stepStyles.detailTextarea} ${styles.importSourceText}`}>{importDraft.sourceText}</pre>
+                  ) : (
+                    <p className={styles.hint}>
+                      Feeder opened the address above itself and read the recipe from it — there&rsquo;s no pasted
+                      text to compare, so check the draft below carefully against the page.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Three concerns, three (or four) titled cards — never one
               run-on list (WP-VC4, design/mock-screens.html #editor's own
               note: "the form has three distinct concerns — identity,
@@ -727,6 +818,16 @@ export function RecipeEditor() {
                         ingredient && line.amount !== null ? gramsPreview(line.amount, entryUnit, ingredient) : undefined;
                       return (
                         <div key={line.key}>
+                          {/* DESIGN_RECIPE_IMPORT.md §4/§11: a confident
+                              match pre-fills the picker but is never shown
+                              as more certain than "this is a fill-in, still
+                              check it" — the badge, not a lock. */}
+                          {line.importMatched ? (
+                            <p className={styles.hint}>
+                              <span className={styles.importMatchedBadge}>Matched from import</span>
+                            </p>
+                          ) : null}
+                          {line.importRawText ? <p className={styles.hint}>{line.importRawText}</p> : null}
                           <div className={styles.line}>
                             <SelectSheet
                               label="Ingredient"

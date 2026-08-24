@@ -3,6 +3,7 @@ import { EmptyState, ErrorState, Skeleton } from "../ui/components";
 import { ThemeControl } from "../ui/theme/ThemeControl";
 import { useSettings } from "./settings/useSettings.ts";
 import { DaySlotEditor } from "./settings/DaySlotEditor.tsx";
+import { RecipeImportSettings } from "./settings/RecipeImportSettings.tsx";
 import { Stepper } from "./Stepper.tsx";
 import {
   WEEKDAY_ORDER,
@@ -197,6 +198,8 @@ export function Settings() {
                 <ThemeControl />
               </div>
             </div>
+
+            <RecipeImportSettings />
           </div>
         </div>
       ) : null}
