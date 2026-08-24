@@ -51,10 +51,10 @@ describe("fetchAuthenticatedUser", () => {
     await expect(fetchAuthenticatedUser("tok", fetchImpl as unknown as typeof fetch)).rejects.toThrow(SheetsHttpError);
   });
 
-  it("throws when the response is missing emailAddress", async () => {
+  it("throws a plain-language error when the response is missing emailAddress (jargon sweep, WP-fix-sheets-429 — no API method names in a user-facing message)", async () => {
     const fetchImpl = vi.fn(async () => jsonResponse({ user: {} }));
     await expect(fetchAuthenticatedUser("tok", fetchImpl as unknown as typeof fetch)).rejects.toThrow(
-      /emailAddress/,
+      "Couldn't confirm your account details. Please try signing in again.",
     );
   });
 });

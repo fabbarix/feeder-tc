@@ -12,10 +12,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
 import type { Recipe } from "../domain/index.ts";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+import { describeError as messageOf } from "../sheets/error-messages.ts";
 
 export interface UseRecipesDataResult {
   readonly loading: boolean;

@@ -75,10 +75,7 @@ import {
   syncSnapshot,
 } from "../../sync/index.ts";
 import type { OutboxSyncController } from "../../sync/index.ts";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+import { describeError as messageOf } from "../../sheets/error-messages.ts";
 
 /** A fixed 7-day "this week" window — see the module doc comment for why it's not Shopping.tsx's own current range. */
 const THIS_WEEK_DAYS = 6;

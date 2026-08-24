@@ -52,7 +52,9 @@ export async function fetchAuthenticatedUser(
   const body = (await response.json()) as DriveAboutResponse;
   const email = body.user?.emailAddress;
   if (!email) {
-    throw new Error("Drive about.get response was missing user.emailAddress.");
+    // Plain language on purpose (jargon sweep, WP-fix-sheets-429) - reaches
+    // App.tsx's handleSignIn catch, whose toast shows this verbatim.
+    throw new Error("Couldn't confirm your account details. Please try signing in again.");
   }
   return {
     name: body.user?.displayName ?? email,

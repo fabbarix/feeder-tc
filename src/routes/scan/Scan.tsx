@@ -37,15 +37,12 @@ import { KnownProductFlow, type KnownProductPurchaseInput } from "./KnownProduct
 import { ProductEditorPanel, type ProductEditorSaveInput } from "./ProductEditorPanel.tsx";
 import styles from "./scan.module.css";
 import forms from "../forms.module.css";
+import { describeError as messageOf } from "../../sheets/error-messages.ts";
 
 type Phase =
   | { readonly kind: "scanning" }
   | { readonly kind: "known"; readonly product: Product; readonly barcode: Barcode }
   | { readonly kind: "new"; readonly barcode: Barcode };
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 export function Scan() {
   const flow = useScanFlow();

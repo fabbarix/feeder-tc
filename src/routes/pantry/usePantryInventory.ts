@@ -61,10 +61,7 @@ import {
   syncSnapshot,
 } from "../../sync/index.ts";
 import type { FlushOutboxResult, OutboxSyncController } from "../../sync/index.ts";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+import { describeError as messageOf } from "../../sheets/error-messages.ts";
 
 /** The single event id/timestamp a failed flush names, plus the `lotId` it concerned, if any (`UseEvent` has none — see manual-events.ts). Used to mark just that one row `failed` (UI_DESIGN.md §8), never a global "something broke" state. */
 interface FlushFailure {

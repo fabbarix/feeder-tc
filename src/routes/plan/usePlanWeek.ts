@@ -89,10 +89,7 @@ import {
   type PlanDay,
   type WeekSummary,
 } from "./plan-derive.ts";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+import { describeError as messageOf } from "../../sheets/error-messages.ts";
 
 /**
  * WP-stale-save: structural equality of the fields a re-generate could

@@ -330,7 +330,11 @@ export function createGoogleSheetsTransport(options: CreateSheetsTransportOption
       const body = (await response.json()) as { updates?: { updatedRange?: string } };
       const updatedRange = body.updates?.updatedRange;
       if (!updatedRange) {
-        throw new Error(`Sheets append response for ${sheetName} was missing updates.updatedRange.`);
+        // Plain language on purpose (jargon sweep, WP-fix-sheets-429) - a
+        // plain Error (not SheetsHttpError, so error-messages.ts's
+        // instanceof branch never sees it) whose .message can reach a
+        // screen verbatim, e.g. via a failed outbox flush's toast.
+        throw new Error("Couldn't confirm that change was saved. Please try again.");
       }
       return { updatedRange };
     },
