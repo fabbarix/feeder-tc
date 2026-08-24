@@ -96,6 +96,7 @@ export function createPwaUpdateWatcher(
     serviceWorkerContainer.addEventListener("controllerchange", () => {
       if (reloadingForUpdate) return;
       reloadingForUpdate = true;
+      // eslint-disable-next-line no-restricted-syntax -- pattern-audit #2's ban targets ErrorState retry; this is the unrelated PWA "new version" reload, user-initiated via applyUpdate(), not a data re-fetch.
       window.location.reload();
     });
   }

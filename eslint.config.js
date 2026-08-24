@@ -5,6 +5,15 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 import prettierConfig from "eslint-config-prettier";
+import confirmDialogDestructive from "./eslint-rules/confirm-dialog-destructive.js";
+import routeDataHookShape from "./eslint-rules/route-data-hook-shape.js";
+
+// Local, in-repo rules (eslint-rules/**) — same reasoning as every other
+// `no-restricted-*` entry below: pin the CONVENTION structurally so CI
+// catches the next instance, not just the ones this audit happened to find.
+// See each rule file's own header comment for which pattern-audit finding
+// it pins.
+const local = { rules: { "confirm-dialog-destructive": confirmDialogDestructive, "route-data-hook-shape": routeDataHookShape } };
 
 export default tseslint.config(
   {
@@ -125,6 +134,12 @@ export default tseslint.config(
     // *.module.css, and this isn't a general ban on inline styles (dynamic
     // values like a computed `width: pct + "%"` or a `height` passed through
     // as a prop are unaffected; only a literal number token is banned).
+    //
+    // The pattern-audit #2/#5 selectors below (reload-as-retry, raw
+    // toLocale*String) also apply here — flat config REPLACES, not merges,
+    // a `rules` key across matching objects, so every `no-restricted-syntax`
+    // selector that should fire inside src/ui/** has to live in this same
+    // array rather than a second object also matching src/ui/**.
     files: ["src/ui/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": [
@@ -133,6 +148,18 @@ export default tseslint.config(
           selector: "JSXAttribute[name.name='style'] ObjectExpression Property > Literal[raw=/^-?\\d/]",
           message:
             "No raw pixel dimension in an inline style — add/use a design token (var(--space-*), var(--radius-*), var(--fs-*)) or a CSS module class instead (token-layer proposal, enforcement #6).",
+        },
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name='reload'][callee.object.type='MemberExpression'][callee.object.property.name='location']",
+          message:
+            "window.location.reload() must not be used as an ErrorState retry (pattern-audit #2) — it throws away scroll position, focus and any typed search. Sync state arrives as props from the container (UI_DESIGN.md §7/§8) — a retry belongs to the route hook, not the kit.",
+        },
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name=/^toLocale(Date|Time)?String$/]",
+          message:
+            "No direct toLocaleDateString/toLocaleTimeString/toLocaleString for a displayed date (pattern-audit #5) — add a formatter to src/routes/date-format.ts and use that instead, so every date/month display shares one locale-/timezone-safe implementation.",
         },
       ],
     },
@@ -160,6 +187,75 @@ export default tseslint.config(
           ],
         },
       ],
+    },
+  },
+  {
+    // Pattern audit #1: "a destructive dialog that is not marked
+    // destructive, four lines from one that is" — see
+    // eslint-rules/confirm-dialog-destructive.js's own header comment.
+    files: ["src/**/*.tsx"],
+    plugins: { local },
+    rules: {
+      "local/confirm-dialog-destructive": "error",
+    },
+  },
+  {
+    // Pattern audit #2 half A + #5, in ONE config object: flat config
+    // merges `rules` per-key across matching objects, so a SECOND object
+    // also setting `no-restricted-syntax` for overlapping files would
+    // silently REPLACE this one instead of adding to it — both selectors
+    // have to live in the same array.
+    //
+    // #2 half A — "retry means two different things on sibling tabs": a
+    // route's ErrorState must always offer a soft re-fetch, never a hard
+    // reload that throws away scroll/focus/typed search. The one
+    // deliberate exception is RouteError.tsx's own error-boundary retry
+    // (an error boundary has no state left to preserve and genuinely
+    // cannot soft-retry — its own header comment explains why), silenced
+    // there with an inline eslint-disable rather than a file `ignores`
+    // here, precisely so it can't silently swallow this rule's OTHER
+    // selector too. pwa/update.ts's reload is a different feature (the PWA
+    // "new version" prompt, user-initiated) and needs no exception at all.
+    //
+    // #5 — "a chart axis bypasses the shared date formatter":
+    // `date-format.ts` exists precisely because
+    // `toLocaleDateString`/`toLocaleString`/`toLocaleTimeString` are
+    // locale- and timezone-sensitive, and every display date in the app was
+    // deliberately moved onto it (ProductPriceChart.tsx's monthLabel was
+    // the one holdout). `date-format.ts` itself does its own manual
+    // day/month parsing rather than calling these, so this is a flat ban.
+    // Excludes src/ui/** — those same two selectors already live in the
+    // src/ui/**-scoped object above, alongside its own raw-pixel selector,
+    // for the "same rule key, one array" reason explained there too.
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/ui/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name='reload'][callee.object.type='MemberExpression'][callee.object.property.name='location']",
+          message:
+            "window.location.reload() must not be used as an ErrorState retry outside RouteError.tsx (pattern-audit #2) — it throws away scroll position, focus and any typed search. Give the route a useXxxData-shaped hook exposing retry instead (see useRecipesData.ts/useIngredientsData.ts/useHomeData.ts). A genuine error-boundary exception needs an inline eslint-disable, not a file-level ignore.",
+        },
+        {
+          selector:
+            "CallExpression[callee.type='MemberExpression'][callee.property.name=/^toLocale(Date|Time)?String$/]",
+          message:
+            "No direct toLocaleDateString/toLocaleTimeString/toLocaleString for a displayed date (pattern-audit #5) — add a formatter to src/routes/date-format.ts and use that instead, so every date/month display shares one locale-/timezone-safe implementation.",
+        },
+      ],
+    },
+  },
+  {
+    // Pattern audit #2, half B: the hook-shape half of the same fix — see
+    // eslint-rules/route-data-hook-shape.js's own header comment for why
+    // this is scoped by FILE naming convention rather than by the type's
+    // own name.
+    files: ["src/routes/**/use*.{ts,tsx}"],
+    plugins: { local },
+    rules: {
+      "local/route-data-hook-shape": "error",
     },
   },
 );

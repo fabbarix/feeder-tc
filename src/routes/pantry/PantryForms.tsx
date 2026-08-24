@@ -67,7 +67,7 @@ export function AddLotForm({ ingredients, today, onSubmit, onCancel }: AddLotFor
           required
         />
         <div className={forms.field}>
-          <span>Location</span>
+          <span className={forms.fieldLabel}>Location</span>
           <SegmentedControl<StorageLocation> aria-label="Location" options={LOCATION_OPTIONS} value={location} onChange={setLocation} />
         </div>
         <DateChips label="Purchase date" options={purchaseDateOptions(today)} value={purchaseDate} onChange={setPurchaseDate} allowPick />

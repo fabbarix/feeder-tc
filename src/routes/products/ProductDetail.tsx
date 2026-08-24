@@ -307,7 +307,7 @@ export function ProductDetail() {
 
                 {ingredient ? (
                   <div className={forms.field}>
-                    <span>Package size</span>
+                    <span className={forms.fieldLabel}>Package size</span>
                     <SegmentedControl<EntryUnit>
                       aria-label="Package unit"
                       options={ENTRY_UNIT_OPTIONS.filter((o) => entryUnitsFor(ingredient.unit).includes(o.value))}
@@ -319,7 +319,7 @@ export function ProductDetail() {
                 ) : null}
 
                 <div className={forms.field}>
-                  <span>Product type</span>
+                  <span className={forms.fieldLabel}>Product type</span>
                   <SegmentedControl<"packaged" | "bulk">
                     aria-label="Product type"
                     options={BULK_OPTIONS}
@@ -464,6 +464,7 @@ export function ProductDetail() {
         }
         confirmLabel="Combine"
         cancelLabel="Cancel"
+        destructive
         onConfirm={() => {
           if (pendingMerge && product) {
             const other = pendingMerge.a.id === product.id ? pendingMerge.b : pendingMerge.a;

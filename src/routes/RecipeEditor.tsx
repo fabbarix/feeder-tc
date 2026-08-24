@@ -613,6 +613,17 @@ export function RecipeEditor() {
 
   return (
     <section>
+      {/* One exit affordance per screen (pattern audit #3): a breadcrumb
+          link above the heading, same place/weight as every other detail
+          and editor screen (RecipeDetail.tsx, IngredientEditor.tsx,
+          ProductDetail.tsx, PantryItem.tsx) — not a second, equally-weighted
+          "Cancel" pill beside Save, which used to live in the top bar below
+          and read as two competing primary actions. */}
+      <p>
+        <Link to={cancelTo} className={styles.backLink}>
+          &larr; Cancel
+        </Link>
+      </p>
       {/* Exactly one h1 (axe `page-has-heading-one`, same discipline as
           RecipeDetail.tsx) — shown here while loading/erroring, and again,
           once, inside the form's own top bar below once data is ready. */}
@@ -643,9 +654,6 @@ export function RecipeEditor() {
               ) : null}
             </div>
             <div className={detailStyles.headActions}>
-              <Link to={cancelTo} className={detailStyles.editLink}>
-                Cancel
-              </Link>
               <button type="submit" className={styles.saveButton} disabled={saving}>
                 {saving ? "Saving…" : "Save recipe"}
               </button>

@@ -49,6 +49,7 @@ export function RouteError() {
       <ErrorState
         title="Something went wrong"
         description="This page hit a snag and couldn't load. Reloading usually fixes it — if not, head back to the home screen and try again."
+        // eslint-disable-next-line no-restricted-syntax -- the one deliberate exception (pattern-audit #2/eslint.config.js): an error BOUNDARY has no component state left to preserve, so it genuinely cannot soft-retry.
         onRetry={() => window.location.reload()}
         retryLabel="Reload"
       />

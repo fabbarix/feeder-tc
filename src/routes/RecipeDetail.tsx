@@ -277,6 +277,15 @@ export function RecipeDetail() {
 
   return (
     <section>
+      {/* One exit affordance per screen (pattern audit #3): a breadcrumb
+          link above the heading, same place/weight as every other detail
+          screen (ProductDetail.tsx, PantryItem.tsx) — this screen had none
+          at all beyond the shell nav before this fix. */}
+      <p>
+        <Link to="/recipes" className={formsStyles.backLink}>
+          &larr; Recipes
+        </Link>
+      </p>
       {/* Exactly one h1 either way — required for axe's
           `page-has-heading-one` (e2e/wp-15-a11y.spec.ts's "/recipes/12"
           case: an id that doesn't exist still has to render a heading

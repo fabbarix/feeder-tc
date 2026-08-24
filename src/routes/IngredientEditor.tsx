@@ -299,7 +299,7 @@ export function IngredientEditor() {
     <section>
       <p>
         <Link to="/recipes/ingredients" className={styles.backLink}>
-          &larr; Ingredients
+          &larr; Cancel
         </Link>
       </p>
       <h1>{isNew ? "Add ingredient" : "Edit ingredient"}</h1>
@@ -344,12 +344,12 @@ export function IngredientEditor() {
           </div>
 
           <div className={styles.field}>
-            <span>Canonical unit</span>
+            <span className={styles.fieldLabel}>Canonical unit</span>
             <SegmentedControl<Unit> aria-label="Canonical unit" options={SELECTABLE_UNITS} value={unit} onChange={setUnit} />
           </div>
 
           <div className={styles.field}>
-            <span>Default storage location</span>
+            <span className={styles.fieldLabel}>Default storage location</span>
             <SegmentedControl<StorageLocation>
               aria-label="Default storage location"
               options={LOCATIONS}
