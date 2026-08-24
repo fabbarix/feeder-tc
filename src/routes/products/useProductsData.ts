@@ -186,13 +186,24 @@ export function useProductsData(): ProductsData {
       setSaving(true);
       try {
         const plan = planProductMerge(keepId, dropId, productBarcodeRows, observations);
+        // Reassign first, remove second (order matters — see
+        // WorkbookStore.products.remove's doc comment): if the process is
+        // interrupted between these two steps, `dropId` is left as a
+        // zero-barcode row rather than deleted, and its barcodes/price
+        // history are already safely on `keepId`. Nothing points at a
+        // product that no longer exists. A retried merge is idempotent —
+        // `planProductMerge` recomputes the same barcode set, and
+        // `products.remove` is a no-op if `dropId` is already gone — so the
+        // recoverable state is a "merge not finished yet" one, not a stuck one.
         for (const row of plan.barcodeRows) {
           await store.productBarcodes.upsert(row);
         }
+        await store.products.remove(dropId);
         setProductBarcodeRows((current) => {
           const untouched = current.filter((row) => row.productId !== keepId && row.productId !== dropId);
           return [...untouched, ...plan.barcodeRows];
         });
+        setProducts((current) => current.filter((p) => p.id !== dropId));
         showToast({
           variant: "success",
           title: "Products merged",

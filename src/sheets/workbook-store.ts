@@ -52,6 +52,7 @@ import type {
   PriceObservation,
   Product,
   ProductBarcode,
+  ProductId,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -445,6 +446,9 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
       },
       async upsert(product: Product): Promise<void> {
         await upsertByKey(transport, "Products", PRODUCTS_HEADER, decodeProduct, encodeProduct, (p) => p.id, product);
+      },
+      async remove(productId: ProductId): Promise<void> {
+        await removeByKey(transport, "Products", PRODUCTS_HEADER, decodeProduct, (p) => p.id, productId);
       },
     },
 

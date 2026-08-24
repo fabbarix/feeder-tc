@@ -153,6 +153,9 @@ export function createFakeWorkbookStore(): WorkbookStore {
       async upsert(product) {
         products.set(product.id, product);
       },
+      async remove(productId) {
+        products.delete(productId);
+      },
     },
     productBarcodes: {
       async readAll() {

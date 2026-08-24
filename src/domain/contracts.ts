@@ -25,6 +25,7 @@ import type {
   PriceObservation,
   Product,
   ProductBarcode,
+  ProductId,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -182,6 +183,20 @@ export interface WorkbookStore {
   readonly products: {
     readAll(): Promise<DecodeResult<Product>>;
     upsert(product: Product): Promise<void>;
+    /**
+     * WP-products-screen: removes a product row outright — the merge
+     * confirmation flow's completion step, called only after the loser's
+     * barcodes and (transitively, via `ProductBarcodes`) its price history
+     * have already been reassigned to the surviving product. Same "no
+     * delete primitive, overwrite the row with blanks" treatment as
+     * `photos.remove`/`productBarcodes.remove` (see
+     * `src/sheets/workbook-store.ts`'s identical pattern there). Idempotent
+     * if already removed. Never call this before the reassignment: an
+     * interrupted merge must leave an orphaned-but-recoverable barcode
+     * pointing at a product that still exists, not a barcode pointing at a
+     * product that is already gone.
+     */
+    remove(productId: ProductId): Promise<void>;
   };
   /**
    * WP-PRODUCTS-MODEL re-key — DESIGN_PRODUCTS.md's `Product` gained its own

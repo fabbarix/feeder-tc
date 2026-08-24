@@ -263,6 +263,36 @@ re-keys a frozen entity's identity, not just widens it:**
   observation is still shown, under whichever barcode it named), it just
   isn't combined into the one-line-per-product view yet.
 
+**WP-products-screen contract change (additive-only, `contracts.ts` only —
+recorded here because the PR that made it left this changelog unwritten):**
+
+- `WorkbookStore.productBarcodes` gained `remove(barcode)` — WP-PRODUCTS-MODEL
+  above deliberately shipped without one, but the products screen's own
+  barcode-repair path ("I scanned the wrong item and this barcode was never
+  this product") is a genuine detach-with-no-replacement need, distinct from
+  a merge's reassignment. Same "no delete primitive on `SheetsTransport`,
+  overwrite the row with blanks instead" treatment as `photos.remove`
+  (`src/sheets/workbook-store.ts`'s `removeByKey` helper, shared by both).
+- `WorkbookStore.products` gained `remove(productId)` — the gap this same
+  package's merge-confirmation flow shipped with initially: barcodes and
+  price history were reassigned to the surviving product on confirm, but the
+  "losing" product's now-zero-barcode row was left behind in `Products`,
+  where it kept showing up in the browse list as if the merge had not
+  happened. `confirmMerge` (`src/routes/products/useProductsData.ts`) now
+  calls `productBarcodes.upsert` for every reassigned row FIRST and
+  `products.remove(dropId)` SECOND — reassign-then-remove, not the reverse —
+  so a process interrupted between the two steps leaves the loser as a
+  recoverable zero-barcode row rather than an orphaned barcode pointing at a
+  product that no longer exists. If `products.remove` itself fails after the
+  reassignment already succeeded, the barcodes/price history are already
+  safely on the survivor and stay there; the loser is left behind as a
+  zero-barcode row exactly like the pre-fix bug, and a retried
+  `confirmMerge` recovers cleanly — `planProductMerge` recomputes the same
+  barcode set (idempotent) and `products.remove` on an already-removed id is
+  a no-op — so nothing needs manual repair. Same blank-row shape as
+  `productBarcodes.remove`/`photos.remove` above; fake and real
+  implementations both follow that identical pattern.
+
 ## The purity rule
 
 Every module in `src/domain` is pure: no I/O, no React, no browser/Node
