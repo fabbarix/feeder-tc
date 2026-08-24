@@ -166,8 +166,21 @@
   color: var(--text-muted);
 }
 
+/*
+ * Fixed 180px, not `12em` (design/mock-desktop-density.html §"Decided: the
+ * freshness meter's width stops being font-size-dependent"). `12em` is a
+ * layout width wearing a font unit: src/index.css flips the root font-size
+ * 18px -> 16px at <=1024px, so this bar silently rode that flip too —
+ * measured 163px at 1024px (16px root) vs 184px at 1440px+ (18px root), a
+ * ~13% jump in a freshness indicator for a reason that has nothing to do
+ * with shelf life. 180px is a literal px value on purpose, not a `--fs-*`/
+ * `--space-*` role — this was scoped as a layout call, not a type-scale
+ * one, and CLAUDE.md's own standing rule for this codebase is "`rem` is a
+ * trap... use px." It sits between the two measured values, closer to the
+ * desktop number (184px, where most pantry review actually happens).
+ */
 .meter {
-  max-width: 12em;
+  max-width: 180px;
 }
 
 .actions {

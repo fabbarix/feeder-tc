@@ -150,7 +150,18 @@ test.describe("Recipe read view (design/mock-screens.html #recipe)", () => {
     await expect(page.getByRole("main")).toContainText("Cooked 1 time");
   });
 
-  test("desktop: a recipe's own page keeps the narrow reading measure (a detail view, not a grid)", async ({ page }) => {
+  test("desktop: a recipe's own page gets its own third container width, not the plain 840px reading measure and not the 1680px browse cap", async ({ page }) => {
+    // design/mock-desktop-density.html §"A recipe" (owner-approved
+    // 2026-08-23): a recipe's own page is a detail view, not a form and not
+    // a browse grid, so it gets a THIRD container width — `.mainDetail`,
+    // ~1080px at >=1440px — rather than either of the other two. The photo
+    // inset (`PhotoMedia`'s 320px `.detail` token) has nowhere honest to
+    // sit inside the plain 840px measure without stealing width from the
+    // ingredient/method reading column, so it gets its own column instead
+    // (`recipe-detail.module.css`'s `.cols`, `AppShell.tsx`'s
+    // `RECIPE_DETAIL_PATTERN`). This test used to assert the OLD 841px cap;
+    // that assertion is exactly what this WP's owner-approved change
+    // deliberately overturns for this one route.
     await page.setViewportSize({ width: 1677, height: 1000 });
     await enterReadyShell(page, "recipes");
     await addRecipe(page, "Tomato salad", 10);
@@ -159,7 +170,8 @@ test.describe("Recipe read view (design/mock-screens.html #recipe)", () => {
     const measure = page.locator("main > div").first();
     const box = await measure.boundingBox();
     expect(box).not.toBeNull();
-    expect(box!.width).toBeLessThanOrEqual(841);
+    expect(box!.width).toBeGreaterThan(841);
+    expect(box!.width).toBeLessThanOrEqual(1081);
   });
 
   test("a populated recipe read view has no axe violations", async ({ page }) => {

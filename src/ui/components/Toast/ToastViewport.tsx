@@ -1,4 +1,5 @@
 import { X } from "../../icons.ts";
+import { Tooltip } from "../Tooltip.tsx";
 import { useToast } from "./useToast.ts";
 import type { ToastVariant } from "./types.ts";
 import styles from "./Toast.module.css";
@@ -54,14 +55,16 @@ export function ToastViewport() {
             <p className={styles.title}>{toast.title}</p>
             {toast.description ? <p className={styles.description}>{toast.description}</p> : null}
           </div>
-          <button
-            type="button"
-            className={styles.dismiss}
-            onClick={() => dismissToast(toast.id)}
-            aria-label={`Dismiss: ${toast.title}`}
-          >
-            <X size={16} aria-hidden="true" />
-          </button>
+          <Tooltip label="Dismiss">
+            <button
+              type="button"
+              className={styles.dismiss}
+              onClick={() => dismissToast(toast.id)}
+              aria-label={`Dismiss: ${toast.title}`}
+            >
+              <X size={16} aria-hidden="true" />
+            </button>
+          </Tooltip>
         </div>
       ))}
     </div>

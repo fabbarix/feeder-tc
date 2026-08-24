@@ -76,6 +76,31 @@
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: var(--space-2);
+    /*
+     * Height fix (design/mock-desktop-density.html §Plan) — measured: this
+     * grid rendered a FIXED 393px tall at 1440x900 and 1512x950 (373px at
+     * 1920x1080), because a single-row grid's implicit row track sizes to
+     * its tallest cell's own content by default, never to the container.
+     * Dead space below it grew with the window instead (220px -> 420px),
+     * which is the single cleanest measured case in that proposal of "a
+     * bigger monitor made the empty margin bigger, not the calendar."
+     * `grid-auto-rows: 1fr` on the one implicit row plus an explicit
+     * container height (calc against the viewport, since this grid has no
+     * intrinsically taller sibling to stretch against) makes the row -
+     * and every `.day` inside it, via the grid's own default
+     * `align-items: stretch` - fill the space actually available instead.
+     * The subtracted constant approximates the shell header/nav plus this
+     * route's own heading/subtitle/week-nav row above the grid; see the
+     * screenshot verification in the PR report for the exact numbers this
+     * was calibrated against at 900/1080px viewport heights.
+     */
+    grid-auto-rows: 1fr;
+    min-height: calc(100vh - 340px);
+  }
+
+  .week .day {
+    min-height: 0;
+    height: 100%;
   }
 }
 
@@ -582,14 +607,6 @@
 .iconButtonDanger:focus-visible {
   border-color: var(--crit-border);
   color: var(--crit);
-}
-
-/* Visually separates the destructive action from the constructive ones
-   beside it (Cook/Reroll/Pin) — mock's `style="margin-left:auto"` on the
-   same button, ported to a class since this file doesn't use inline
-   styles elsewhere. */
-.iconButtonPushRight {
-  margin-left: auto;
 }
 
 .cookButton {

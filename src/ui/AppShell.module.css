@@ -284,6 +284,34 @@
   }
 }
 
+/*
+ * Third container-width mode, `/recipes/:id` only (AppShell.tsx's
+ * `RECIPE_DETAIL_PATTERN`) — design/mock-desktop-density.html §"A recipe",
+ * owner-approved 2026-08-23. Same 840px reading measure as `.mainMeasure`
+ * below 1440px (nothing changes for phone/tablet, out of scope for that
+ * proposal); at >=1440px it widens to 1080px so the photo can sit in its
+ * own 320px column beside the ~680-720px reading measure instead of
+ * stealing width from it (320 + gap + ~680 ≈ 1080, not the 1680px
+ * `.mainWide` cap — this is still a detail/reading screen, not a browse
+ * grid).
+ */
+.mainDetail {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .mainDetail {
+    max-width: 840px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 1440px) {
+  .mainDetail {
+    max-width: 1080px;
+  }
+}
+
 @media (min-width: 768px) {
   .main {
     padding-bottom: var(--space-4);

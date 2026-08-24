@@ -1,3 +1,6 @@
+export { Tooltip } from "./Tooltip.tsx";
+export type { TooltipProps } from "./Tooltip.tsx";
+
 export { EntityTable } from "./EntityTable.tsx";
 export type { EntityTableColumn, EntityTableProps } from "./EntityTable.tsx";
 

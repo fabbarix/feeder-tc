@@ -1,5 +1,5 @@
 import { useMemo, useState, type MouseEvent } from "react";
-import { CheckRow, ConfirmDialog, DateChips, QuantityInput, SegmentedControl } from "../../ui/components";
+import { CheckRow, ConfirmDialog, DateChips, QuantityInput, SegmentedControl, Tooltip } from "../../ui/components";
 import { Minus, Plus } from "../../ui/icons.ts";
 import {
   formatQuantity,
@@ -284,19 +284,23 @@ export function ShoppingRow({
               need becomes pantry stock, not waste.
             </p>
             <div className={forms.qty}>
-              <button
-                type="button"
-                aria-label="Fewer"
-                onClick={() => setAdjustAmount((a) => Math.max(0, a - step))}
-              >
-                <Minus size={16} aria-hidden="true" />
-              </button>
+              <Tooltip label="Fewer">
+                <button
+                  type="button"
+                  aria-label="Fewer"
+                  onClick={() => setAdjustAmount((a) => Math.max(0, a - step))}
+                >
+                  <Minus size={16} aria-hidden="true" />
+                </button>
+              </Tooltip>
               <span className={forms.qtyValue}>
                 {formatBuyPrimary(makeQuantity(adjustAmount, ingredient.unit), ingredient, suggestion)}
               </span>
-              <button type="button" aria-label="More" onClick={() => setAdjustAmount((a) => a + step)}>
-                <Plus size={16} aria-hidden="true" />
-              </button>
+              <Tooltip label="More">
+                <button type="button" aria-label="More" onClick={() => setAdjustAmount((a) => a + step)}>
+                  <Plus size={16} aria-hidden="true" />
+                </button>
+              </Tooltip>
             </div>
           </div>
         }

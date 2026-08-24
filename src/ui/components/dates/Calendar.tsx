@@ -4,6 +4,7 @@ import { useCalendarState, type CalendarState } from "react-stately";
 import { GregorianCalendar, getWeeksInMonth, parseDate, type CalendarDate } from "@internationalized/date";
 import { makeIsoDate, type IsoDate } from "../../../domain/types.ts";
 import { CaretLeft, CaretRight, type IconComponent } from "../../icons.ts";
+import { Tooltip } from "../Tooltip.tsx";
 import styles from "./Calendar.module.css";
 
 /**
@@ -84,9 +85,11 @@ function NavButton({
   const ref = useRef<HTMLButtonElement>(null);
   const { buttonProps } = useButton({ ...buttonAriaProps, "aria-label": label }, ref);
   return (
-    <button {...buttonProps} ref={ref} type="button" className={styles.navButton}>
-      <Icon size={18} aria-hidden="true" />
-    </button>
+    <Tooltip label={label}>
+      <button {...buttonProps} ref={ref} type="button" className={styles.navButton}>
+        <Icon size={18} aria-hidden="true" />
+      </button>
+    </Tooltip>
   );
 }
 

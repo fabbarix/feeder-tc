@@ -51,3 +51,28 @@
     border-bottom: 1px solid var(--border);
   }
 }
+
+/*
+ * Fixed 2-column split (ListSectionProps.layout === "grid2") — desktop only
+ * (>=1440px, design/mock-desktop-density.html §Pantry: "the list stays a
+ * single column at every desktop width... it's the one screen where width
+ * literally buys nothing"). Deliberately NOT the `auto-fill`/`minmax` grid
+ * above: Pantry's rows carry a name, quantity and freshness meter, so they
+ * want a proportional half-width column rather than hunting for however
+ * many 230px cards fit. Below 1440px this renders identically to the plain
+ * list (`.rows`) — tablet is untouched, matching this file's scope.
+ */
+@media (min-width: 1440px) {
+  .rowsGrid2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--space-4);
+  }
+
+  /* Same reasoning as `.rowsGrid`'s matching rule above: every card needs
+     its own bottom border in a 2-up grid, not just an overall "last row"
+     border a single-column list can rely on. */
+  .rowsGrid2 > * {
+    border-bottom: 1px solid var(--border);
+  }
+}

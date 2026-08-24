@@ -10,6 +10,7 @@ import {
   SelectSheet,
   Skeleton,
   ToggleChips,
+  Tooltip,
 } from "../ui/components";
 import { PhotoField, type PhotoDraft } from "../ui/photo/index.ts";
 import { Plus, Trash } from "../ui/icons";
@@ -745,14 +746,16 @@ export function RecipeEditor() {
                                 onChange={(value) => setLineEntryUnit(line.key, value)}
                               />
                             ) : null}
-                            <button
-                              type="button"
-                              className={styles.removeButton}
-                              onClick={() => removeLine(line.key)}
-                              aria-label="Remove ingredient line"
-                            >
-                              <Trash size={18} aria-hidden="true" />
-                            </button>
+                            <Tooltip label="Remove ingredient line">
+                              <button
+                                type="button"
+                                className={styles.removeButton}
+                                onClick={() => removeLine(line.key)}
+                                aria-label="Remove ingredient line"
+                              >
+                                <Trash size={18} aria-hidden="true" />
+                              </button>
+                            </Tooltip>
                           </div>
                           {/* §10.5: "1 cup flour (130 g)" — the household
                               sees both what they typed and the canonical
@@ -794,14 +797,16 @@ export function RecipeEditor() {
                     <div className={stepStyles.stepCard} key={step.key}>
                       <div className={stepStyles.stepCardHead}>
                         <span className={stepStyles.stepCardNum}>Step {index + 1}</span>
-                        <button
-                          type="button"
-                          className={styles.removeButton}
-                          onClick={() => removeStep(index)}
-                          aria-label={`Remove step ${index + 1}`}
-                        >
-                          <Trash size={18} aria-hidden="true" />
-                        </button>
+                        <Tooltip label={`Remove step ${index + 1}`}>
+                          <button
+                            type="button"
+                            className={styles.removeButton}
+                            onClick={() => removeStep(index)}
+                            aria-label={`Remove step ${index + 1}`}
+                          >
+                            <Trash size={18} aria-hidden="true" />
+                          </button>
+                        </Tooltip>
                       </div>
                       <TextField
                         label="Instruction"

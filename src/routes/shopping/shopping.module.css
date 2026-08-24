@@ -60,6 +60,25 @@
   gap: var(--space-5);
 }
 
+/*
+ * Desktop: category cards lay out 2-up (design/mock-desktop-density.html
+ * §Shopping) — measured, content stopped at a fixed ~335px regardless of
+ * viewport height, so the dead space below it grew with the window
+ * (615px at 1512x950 -> 745px at 1920x1080), the same shape of defect as
+ * Pantry/Plan. Row-major order (reading order, top-to-bottom-then-across),
+ * not aisle order — aisle order only matters in-store, i.e. on phone,
+ * which is untouched — so this is a plain 2-column grid, not a masonry
+ * layout that would reorder categories to balance column heights.
+ */
+@media (min-width: 1440px) {
+  .categoryGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 var(--space-4);
+    align-items: start;
+  }
+}
+
 .rail {
   display: none;
 }
