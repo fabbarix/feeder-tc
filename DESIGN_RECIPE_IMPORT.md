@@ -564,3 +564,90 @@ adding a parallel one.
   first cut small, but it's the difference between "paste text" and "actually
   paste a link" from the cook's point of view, and that gap might matter enough
   to the owner to reorder it.
+
+---
+
+# Decisions (owner, 2026-08-24)
+
+Both research documents — this one and `DESIGN_RECIPE_IMPORT_PHOTO.md` — are
+now settled by the following. Where they disagree with anything above, these win.
+
+## 1. CORS is not a blocker, and it was measured
+
+Verified by preflight from this repo, not assumed:
+
+```
+OPTIONS https://api.openai.com/v1/chat/completions
+Origin: https://feeder.torchetti.us
+→ HTTP 200
+  access-control-allow-origin: https://feeder.torchetti.us
+  access-control-allow-headers: authorization,content-type
+  access-control-allow-methods: GET, OPTIONS, POST
+```
+
+Note the origin is **reflected**, not `*` — one research pass reported a
+wildcard, which is wrong. Immaterial to the design, but the record should be
+accurate.
+
+## 2. Link import is possible beyond OpenAI — the earlier conclusion was too narrow
+
+`DESIGN_RECIPE_IMPORT.md` concluded that fetching a page server-side meant
+OpenAI only. That is not so. vLLM takes a `--tool-server` argument, opt-in and
+off by default, exposing built-in `browser` and `python` tools through the
+**Responses API**, with MCP tool servers supported and `allowed_tools`
+filtering. So the real requirement is *"an endpoint implementing the Responses
+API with a tool server enabled"* — OpenAI, or a deliberately configured vLLM.
+Not stock Ollama, not stock LM Studio, not vLLM out of the box.
+
+**Open question, to be settled by a spike before the link path is built:** the
+vLLM path visible in its docs calls `call_tool("search", …)`. Whether that
+browser tool can *open a specific URL* or only *search the web* is the
+difference between "import this recipe" and "find me something like it". Do not
+assume; prove it.
+
+## 3. Both inputs, with paste-text as the floor
+
+- Offer the **link** box when the configured endpoint exposes a browser tool.
+- Offer **paste-the-text** always, on every endpoint, as the guaranteed path.
+- The photo path is independent of both and works anywhere the endpoint accepts
+  images.
+
+A feature that silently disappears depending on a setting is worse than one
+that is simply always there, so text is the floor and the link is the bonus.
+
+## 4. Spend is guarded twice, independently
+
+- **In the app:** a per-day import counter with a limit the household sets,
+  refusing further imports with a plain-language message that says when it
+  resets.
+- **At the provider:** a hard spend cap, which is the only thing that can
+  genuinely stop money leaving.
+
+Neither relies on the other. The app-side counter exists because a stuck retry
+loop can otherwise burn an entire monthly cap before anyone notices; the
+provider cap exists because app-side counters live in the same browser storage
+as the key and are no defence against a stolen one.
+
+## 5. Timing
+
+In scope for **v1.0.0**, at the owner's explicit direction, accepting that this
+moves the tag out by a build-and-review cycle.
+
+## 6. Unchanged from the research, and binding
+
+- The key is the household's own, entered in Settings, stored in `localStorage`
+  — **never** in the workbook, which the whole household shares, and never a
+  `VITE_` variable, which ships in the public bundle.
+- The model returns **free-text names and units only** — never an
+  `IngredientId`, never a canonical `Unit`. Resolution happens client-side
+  through the catalogue matcher and `src/domain/units.ts` (invariant 3).
+- **Nothing is written until a person has reviewed it.** The dangerous failure
+  is not a hallucinated ingredient but a misread quantity — 500 g for 50 g is
+  plausible, easy to miss, and corrupts the shopping list. The review screen is
+  the only real backstop, and no model can be relied on to flag itself as
+  confidently wrong.
+- The 512 px / 32 KB stored-photo pipeline is for storage and display. Reading
+  text needs a **separate, larger encode used only as model input and
+  discarded** — the stored-photo path is untouched.
+- One shared matcher module serves both input paths. Two implementations of
+  ingredient resolution would drift, and drift here means a wrong shopping list.
