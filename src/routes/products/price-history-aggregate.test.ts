@@ -203,6 +203,31 @@ describe("aggregateByProduct / productSummariesForIngredient", () => {
     expect(forIngredient).toHaveLength(1);
     expect(productSummariesForIngredient(summaries, MILK_ID)).toHaveLength(0);
   });
+
+  // Pins the exact regression this package's brief calls out: "aggregateByProduct
+  // still groups by barcode, so a merged product renders as several rows."
+  // Two different barcodes resolving to the SAME ProductId (exactly what a
+  // confirmed merge produces — src/domain/products.ts's planProductMerge
+  // reassigns every barcode either product owned onto one ProductId) must
+  // collapse into ONE summary with both barcodes' observations pooled, not
+  // two separate rows for the same physical product.
+  it("groups by ProductId, not by barcode — a merged product's several barcodes render as one row", () => {
+    const otherBarcode = makeBarcode("5000112548167");
+    const observations = [
+      observation({ id: "a", timestamp: "2026-08-01T10:00:00.000Z", ingredientId: RICE_ID, amount: 1000, unit: "g", price: 2.0, barcode: RICE_BARCODE }),
+      observation({ id: "b", timestamp: "2026-08-10T10:00:00.000Z", ingredientId: RICE_ID, amount: 1000, unit: "g", price: 2.2, barcode: otherBarcode }),
+    ];
+    // Both barcodes resolve to the same Product row — the post-merge state.
+    const productsByBarcode = new Map([
+      [RICE_BARCODE, riceGalloProduct],
+      [otherBarcode, riceGalloProduct],
+    ]);
+    const ingredientsById = new Map([[RICE_ID, rice]]);
+    const summaries = aggregateByProduct(observations, productsByBarcode, ingredientsById);
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]!.product.id).toBe(riceGalloProduct.id);
+    expect(summaries[0]!.points.map((p) => p.observation.id).sort()).toEqual(["a", "b"]);
+  });
 });
 
 describe("sparklineValues", () => {

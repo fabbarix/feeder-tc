@@ -161,6 +161,9 @@ export function createFakeWorkbookStore(): WorkbookStore {
       async upsert(row) {
         productBarcodes.set(row.barcode, row);
       },
+      async remove(barcode) {
+        productBarcodes.delete(barcode);
+      },
     },
     photos: {
       // Deliberately no `readAll` here — see WorkbookStore.photos's own doc

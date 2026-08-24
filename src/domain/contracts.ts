@@ -11,6 +11,7 @@
  * no new value exports of its own beyond the interfaces/types declared here.
  */
 import type {
+  Barcode,
   EventId,
   Ingredient,
   InventoryEvent,
@@ -190,13 +191,19 @@ export interface WorkbookStore {
    * barcode belongs to exactly one product at a time, so reassigning one to
    * a different product (a confirmed merge, `src/domain/products.ts`'s
    * `planProductMerge`) overwrites its row instead of duplicating it.
-   * Deliberately no `remove`: nothing in this package needs to detach a
-   * barcode without reassigning it to another product; add one later only
-   * if a genuine need appears.
+   *
+   * `remove` (WP-products-screen, the "genuine need" this namespace's
+   * earlier doc comment anticipated): detaches a barcode with no
+   * replacement — the products screen's own repair path for "I scanned the
+   * wrong item and this barcode was never this product." Same "no delete
+   * primitive, overwrite the row with blanks" treatment as `photos.remove`
+   * (see `src/sheets/workbook-store.ts`'s identical pattern there) — never
+   * confused with a merge, which reassigns rather than detaches.
    */
   readonly productBarcodes: {
     readAll(): Promise<DecodeResult<ProductBarcode>>;
     upsert(row: ProductBarcode): Promise<void>;
+    remove(barcode: Barcode): Promise<void>;
   };
   /**
    * WP-PHOTO — DESIGN_PHOTOS.md §2/§6. One sheet for every photo-owning

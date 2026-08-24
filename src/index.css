@@ -178,6 +178,26 @@
   --success-bg: oklch(0.95 0.05 152);
   --success-border: oklch(0.75 0.14 152);
 
+  /* WP-products: a small categorical palette for the products screen's
+     "By shop" price chart (DESIGN_PRODUCTS.md §9) — one fixed hue per
+     series slot, same fixed-L/C-per-role OKLCH construction as
+     --warn/--crit/--success above (never derived from --accent-hue, for
+     the same reason: a user-chosen accent must not silently recolour or
+     collide with a shop's line). Six slots, cycled by index — plenty for
+     the handful of shops a household actually uses; a seventh shop reuses
+     slot 1 rather than growing the palette further. Hues spaced away from
+     --warn (72), --crit (27) and --success (152) so a shop line is never
+     mistaken for a status colour. The "not noted" series (observations with
+     no recorded shop) deliberately does NOT get a slot here — it renders in
+     --text-muted, dashed, so it never competes with a real shop's colour
+     nor reads as an alarming/error hue (DESIGN_PRODUCTS.md §9). */
+  --series-1: oklch(0.5 0.16 235);
+  --series-2: oklch(0.5 0.15 320);
+  --series-3: oklch(0.48 0.14 190);
+  --series-4: oklch(0.52 0.17 40);
+  --series-5: oklch(0.48 0.13 280);
+  --series-6: oklch(0.5 0.13 105);
+
   /* WP-tokens: re-expressed at the same point in colour space (byte-identical
      rendered colour) — 4.65:1 on --paper. Deliberately NOT derived from
      --accent-hue (UI_DESIGN.md's focus ring must stay visible regardless of
@@ -394,6 +414,15 @@
     --success-bg: oklch(0.28 0.08 152);
     --success-border: oklch(0.55 0.16 152);
 
+    /* WP-products: dark-mode series palette — lightness raised to read
+       against a dark surface, same hues as the light tokens above. */
+    --series-1: oklch(0.78 0.13 235);
+    --series-2: oklch(0.78 0.12 320);
+    --series-3: oklch(0.76 0.11 190);
+    --series-4: oklch(0.8 0.14 40);
+    --series-5: oklch(0.76 0.1 280);
+    --series-6: oklch(0.78 0.1 105);
+
     /* WP-tokens: re-expressed at the same point in colour space — 9.23:1 on
        --paper. Same known limitation as the light value, see above. */
     --focus-ring: oklch(0.77 0.12 253.4);
@@ -449,6 +478,15 @@
   --success: oklch(0.8 0.18 152);
   --success-bg: oklch(0.28 0.08 152);
   --success-border: oklch(0.55 0.16 152);
+
+  /* WP-products: same dark-mode series palette as the media-query dark
+     block above — see its comment. */
+  --series-1: oklch(0.78 0.13 235);
+  --series-2: oklch(0.78 0.12 320);
+  --series-3: oklch(0.76 0.11 190);
+  --series-4: oklch(0.8 0.14 40);
+  --series-5: oklch(0.76 0.1 280);
+  --series-6: oklch(0.78 0.1 105);
 
   --focus-ring: oklch(0.77 0.12 253.4);
 }

@@ -28,6 +28,7 @@ import type {
   IngredientId,
   PriceObservation,
   Product,
+  ProductId,
 } from "../../domain/index.ts";
 
 export interface NormalizedPoint {
@@ -135,43 +136,51 @@ export function aggregateByIngredient(
 export interface ProductPriceSummary {
   readonly product: Product;
   /**
-   * WP-PRODUCTS-MODEL: the barcode this summary was grouped by — a `Product`
-   * no longer carries its own barcode(s) (it may own several), so callers
-   * building a per-product URL or photo key need this explicitly rather than
-   * reading `product.barcode` (which no longer exists). Grouping stays
-   * per-barcode, not per-`ProductId`, deliberately: DESIGN_PRODUCTS.md's
-   * "price charts split by shop" is the follow-up UI task this package's
-   * brief explicitly defers — see this file's own header comment. A merged
-   * product's several barcodes therefore still produce separate summaries
-   * here; nothing is lost (every observation is still present, just not yet
-   * combined into one line), which is exactly the non-destructive behaviour
-   * the brief asks for pending that follow-up.
+   * WP-PRODUCTS-MODEL-follow-up (2026-08-23 fix): ONE representative barcode
+   * belonging to this product — kept only for a caller that still needs a
+   * barcode-shaped key (e.g. a photo cache keyed by barcode elsewhere in
+   * the app); it is no longer what this summary is grouped by. Grouping is
+   * now by `product.id` (see `aggregateByProduct` below) precisely so a
+   * merged product's several barcodes roll up into ONE summary instead of
+   * rendering as several rows — the grouping bug flagged alongside the
+   * product re-key (DESIGN_PRODUCTS.md §8: "the existing price-history
+   * views still group by barcode, not by ProductId; a merged product's
+   * several barcodes render as separate rows there until that follow-up
+   * lands"). This IS that follow-up.
    */
   readonly barcode: Barcode;
   readonly ingredient: Ingredient | undefined;
-  /** Only observations naming THIS barcode — oldest first. */
+  /** Every observation naming ANY barcode this product currently owns — oldest first. */
   readonly points: readonly NormalizedPoint[];
   readonly trend: PriceTrend;
 }
 
-/** One summary per product barcode that has at least one price observation naming it. Sorted by product name. */
+/**
+ * One summary per `ProductId` that has at least one price observation
+ * naming any barcode it currently owns — not one per barcode. A merged
+ * product (`src/domain/products.ts`'s `planProductMerge` reassigning
+ * several barcodes to one `ProductId`) therefore renders as exactly one
+ * row here, with every barcode's observation history pooled into it,
+ * fixing the grouping bug described on `ProductPriceSummary.barcode`'s doc
+ * comment above. Sorted by product name.
+ */
 export function aggregateByProduct(
   observations: readonly PriceObservation[],
   productsByBarcode: ReadonlyMap<Barcode, Product>,
   ingredientsById: ReadonlyMap<IngredientId, Ingredient>,
 ): readonly ProductPriceSummary[] {
-  const byBarcode = new Map<Barcode, PriceObservation[]>();
+  const byProductId = new Map<ProductId, { product: Product; barcode: Barcode; observations: PriceObservation[] }>();
   for (const observation of observations) {
     if (observation.barcode === undefined) continue;
-    const existing = byBarcode.get(observation.barcode);
-    if (existing) existing.push(observation);
-    else byBarcode.set(observation.barcode, [observation]);
+    const product = productsByBarcode.get(observation.barcode);
+    if (!product) continue; // Barcode referenced by an observation but no longer in the Products sheet — skip, don't crash.
+    const existing = byProductId.get(product.id);
+    if (existing) existing.observations.push(observation);
+    else byProductId.set(product.id, { product, barcode: observation.barcode, observations: [observation] });
   }
 
   const summaries: ProductPriceSummary[] = [];
-  for (const [barcode, productObservations] of byBarcode) {
-    const product = productsByBarcode.get(barcode);
-    if (!product) continue; // Barcode referenced by an observation but no longer in the Products sheet — skip, don't crash.
+  for (const { product, barcode, observations: productObservations } of byProductId.values()) {
     const points = normalizedPointsFor(productObservations);
     if (points.length === 0) continue;
     summaries.push({

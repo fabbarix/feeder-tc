@@ -225,12 +225,14 @@ export function Scan() {
 
       {!flow.loading && !flow.error && phase.kind === "known" && activeIngredient ? (
         <>
-          {/* M6 (DESIGN_PRODUCTS.md §1.4) — the price-history view is a
-              separate, reads-only route (src/routes/products/**); this is
-              its one entry point from the scan flow itself. */}
+          {/* WP-products-screen: the scan flow's own entry point into the
+              full product screen (name/brand, barcodes, price charts, merge
+              suggestions) — a separate route (src/routes/products/**), not
+              inline here, same "one entry point" pattern as before this
+              package (M6, DESIGN_PRODUCTS.md §1.4). */}
           <p>
-            <Link to={`/products/prices/product/${phase.barcode}`} className={styles.backLink}>
-              View price history for this product
+            <Link to={`/products/${phase.product.id}`} className={styles.backLink}>
+              View this product
             </Link>
           </p>
           <KnownProductFlow
