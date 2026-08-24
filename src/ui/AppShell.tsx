@@ -111,7 +111,20 @@ const NAV_ITEMS: readonly NavItem[] = [
 // real width to earn its place (UI_DESIGN.md §13 "width buys information,
 // not padding") — the 840px reading measure would squeeze list+rail into a
 // column narrower than either wants.
-const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/recipes/ingredients", "/pantry", "/plan", "/shopping"]);
+// "/products" (WP-products-screen) joins this set for the same reason as
+// "/recipes/ingredients": a flat, alphabetical, browsed catalogue with no
+// scan order to protect, rendered as `ListSection`'s reflowing card grid
+// (see ProductsList.tsx's own `layout="grid"` usage) — it needs the same
+// room to actually show more than one column that every other browse route
+// here already gets.
+const WIDE_ROUTES: ReadonlySet<string> = new Set([
+  "/recipes",
+  "/recipes/ingredients",
+  "/pantry",
+  "/plan",
+  "/shopping",
+  "/products",
+]);
 
 /**
  * A recipe's own page (`/recipes/:id`), matched by pattern since the id
@@ -136,9 +149,25 @@ const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/recipes/ingredie
  */
 const RECIPE_DETAIL_PATTERN = /^\/recipes\/(?!ingredients$|new$)[^/]+$/;
 
+/**
+ * A product's own page (`/products/:productId`) — the second, deliberate
+ * user of `.mainDetail` (WP-products-screen). Same width, different reason
+ * than the recipe detail route above: there is no photo-inset column here
+ * (a product's photo sits inline with its fields, same as the ingredient
+ * editor), but the price chart (`ProductPriceChart.tsx`) genuinely wants
+ * more than an 840px reading line to show a multi-month, multi-shop series
+ * legibly — narrower than that and the by-shop legend wraps awkwardly under
+ * a chart with barely room to breathe. Not wide enough to earn the full
+ * 1680px browse width either: this is a single record's detail, not a
+ * multi-column grid. Excludes `/products/prices` (the sibling tab, its own
+ * nested routes) via the same negative-lookahead shape as the recipe
+ * pattern above.
+ */
+const PRODUCT_DETAIL_PATTERN = /^\/products\/(?!prices$)[^/]+$/;
+
 function mainContainerClass(pathname: string): string | undefined {
   if (WIDE_ROUTES.has(pathname)) return styles.mainWide;
-  if (RECIPE_DETAIL_PATTERN.test(pathname)) return styles.mainDetail;
+  if (RECIPE_DETAIL_PATTERN.test(pathname) || PRODUCT_DETAIL_PATTERN.test(pathname)) return styles.mainDetail;
   return styles.mainMeasure;
 }
 

@@ -1,0 +1,198 @@
+/* Products screen (browse + detail) — WP-products-screen. Not part of the
+   src/ui kit (UI_DESIGN.md §7: feature-specific layout). Literal px sizes
+   below match every other route module's own convention: root font-size is
+   18px (src/index.css), so `rem` here would render oversized. */
+
+.dtSub {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+  margin: var(--space-hairline) 0 var(--space-4);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.search {
+  margin-bottom: var(--space-4);
+}
+
+.headRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+
+.subline {
+  color: var(--text-muted);
+  font-size: var(--fs-label);
+}
+
+/* --- Merge suggestions --- */
+
+.mergeCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-bg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
+.mergeHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.mergeReasons {
+  margin: 0;
+  padding-left: var(--space-5);
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+}
+
+.mergeActions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* --- Barcodes --- */
+
+.barcodeList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.barcodeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.barcodeValue {
+  font-variant-numeric: tabular-nums;
+  font-family: monospace;
+  color: var(--text-h);
+}
+
+.barcodeAddRow {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.barcodeAddRow input {
+  flex: 1;
+  min-width: 12ch;
+}
+
+/* --- Chart --- */
+
+.chartWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.chartSvg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.chartAxis {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chartTick {
+  fill: var(--text-muted);
+  /* SVG text inside a `viewBox` scales with the chart itself (see
+     ProductPriceChart.tsx's fixed 600-unit viewBox), so this is a
+     viewBox-unit size, not a real on-screen px — var(--fs-caption) here
+     would render roughly 30x too large. Same "SVG internal units aren't
+     CSS px" exception PriceSparkline.tsx's stroke-width already relies on. */
+  font-size: 9px; /* stylelint-disable-line declaration-property-value-disallowed-list -- SVG viewBox unit, not a CSS px (see comment above) */
+}
+
+.chartEmpty {
+  padding: var(--space-5);
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
+
+.chartLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chartLegendButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-caption);
+  cursor: pointer;
+}
+
+.chartLegendLabelHidden {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.chartSwatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-circle);
+  display: inline-block;
+  flex: none;
+}
+
+.chartSwatchMuted {
+  background: var(--text-muted);
+}
+
+.chartCaption {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+}
+
+.chartNote {
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+}
+
+.viewToolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: var(--space-3);
+}

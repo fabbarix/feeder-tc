@@ -214,8 +214,8 @@ export function PriceHistoryIngredient() {
                       <ListSection heading={`${productSummaries.length} product${productSummaries.length === 1 ? "" : "s"}`}>
                         {productSummaries.map((summary) => (
                           <Link
-                            key={summary.barcode}
-                            to={`/products/prices/product/${summary.barcode}`}
+                            key={summary.product.id}
+                            to={`/products/${summary.product.id}`}
                             className={forms.itemLink}
                           >
                             <ListRow

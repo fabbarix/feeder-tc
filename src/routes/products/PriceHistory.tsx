@@ -5,6 +5,7 @@ import {
   ErrorState,
   ListRow,
   ListSection,
+  RouteTabs,
   SegmentedControl,
   Skeleton,
 } from "../../ui/components";
@@ -13,6 +14,7 @@ import { Tag } from "../../ui/icons.ts";
 import { getPhotoDataUrl } from "../../photos/index.ts";
 import { useWorkbookContext } from "../../workbook-context.ts";
 import { usePriceHistoryData } from "./usePriceHistoryData.ts";
+import { PRODUCT_SECTION_TABS } from "./product-tabs.ts";
 import {
   aggregateByIngredient,
   aggregateByProduct,
@@ -74,8 +76,13 @@ export function PriceHistory() {
   const hasAnyData = ingredientSummaries.length > 0;
 
   return (
-    <section>
-      <h1>Price history</h1>
+    <>
+      {/* One h1 for the whole "Products" area, mirroring Ingredients.tsx's
+          identical WP-VC4 pattern — the tab strip below is the section
+          header now, not a per-tab repeat of "Price history". */}
+      <h1>Products</h1>
+      <RouteTabs aria-label="Products section" items={PRODUCT_SECTION_TABS} />
+      <section role="tabpanel" id="products-prices-panel" aria-labelledby="products-prices-panel-tab" tabIndex={-1}>
       <p className={styles.dtSub}>
         Tracked automatically from the prices you record while scanning — for each ingredient,
         and for each specific product you buy it as.
@@ -166,8 +173,8 @@ export function PriceHistory() {
             <ListSection heading={`${productSummaries.length} tracked product${productSummaries.length === 1 ? "" : "s"}`}>
               {productSummaries.map((summary) => (
                 <Link
-                  key={summary.barcode}
-                  to={`/products/prices/product/${summary.barcode}`}
+                  key={summary.product.id}
+                  to={`/products/${summary.product.id}`}
                   className={forms.itemLink}
                 >
                   <ListRow
@@ -207,6 +214,7 @@ export function PriceHistory() {
           ) : null}
         </>
       ) : null}
-    </section>
+      </section>
+    </>
   );
 }

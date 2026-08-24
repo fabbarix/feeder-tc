@@ -304,6 +304,21 @@ export function IngredientEditor() {
       </p>
       <h1>{isNew ? "Add ingredient" : "Edit ingredient"}</h1>
 
+      {/* WP-products-screen (usability finding): the only way to fix a
+          barcode scanned onto the wrong ingredient used to be "stand in the
+          shop with the product in your hand" — there was no way to reach
+          the products for an ingredient from here at all. This is that
+          repair path: from the ingredient, straight to every product that
+          claims it, where a barcode can be moved, removed, or the products
+          merged. */}
+      {!isNew && !loading && !error ? (
+        <p>
+          <Link to={`/products?ingredient=${ingredientId}`} className={styles.itemLink}>
+            View products for this ingredient
+          </Link>
+        </p>
+      ) : null}
+
       {loading ? <Skeleton /> : null}
       {!loading && error ? <ErrorState title="Couldn't load this ingredient" description={error} /> : null}
       {!loading && !error ? (

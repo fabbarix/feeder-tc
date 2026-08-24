@@ -35,15 +35,17 @@ const ROUTES = [
   // — exactly the state that must stay accessible (manual entry, never a
   // dead end).
   "scan",
-  // M6 (DESIGN_PRODUCTS.md §1.4): the price-history view, the last piece of
-  // M6. "rice" is always present (the seeded catalog) with zero
-  // observations, so the ingredient-level route exercises its own empty
-  // state; the barcode below has no seeded Product row, so the product
-  // route exercises its "no such product" ErrorState — same "scan a route
-  // whose param doesn't resolve" convention as "recipes/12" above.
+  // M6 (DESIGN_PRODUCTS.md §1.4): the price-history view. "rice" is always
+  // present (the seeded catalog) with zero observations, so the
+  // ingredient-level route exercises its own empty state.
   "products/prices",
   "products/prices/ingredient/rice",
-  "products/prices/product/8001120000123",
+  // WP-products-screen: browse (empty state — no products seeded) and one
+  // product's own detail route with an id that resolves to no row, so it
+  // exercises its "no such product" ErrorState — same "scan a route whose
+  // param doesn't resolve" convention as "recipes/12" above.
+  "products",
+  "products/does-not-exist",
 ];
 
 test("signed-out gate screen has no axe violations", async ({ page }) => {

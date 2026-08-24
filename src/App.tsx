@@ -95,8 +95,17 @@ const PriceHistory = lazy(() =>
 const PriceHistoryIngredient = lazy(() =>
   import("./routes/products/PriceHistoryIngredient.tsx").then((m) => ({ default: m.PriceHistoryIngredient })),
 );
-const PriceHistoryProduct = lazy(() =>
-  import("./routes/products/PriceHistoryProduct.tsx").then((m) => ({ default: m.PriceHistoryProduct })),
+// WP-products-screen (usability finding: a barcode mapped to the wrong
+// ingredient had no repair path — see this route package's own header
+// comment): browse every product, edit it, manage its barcodes, and confirm
+// merge suggestions. Supersedes the old per-barcode-only
+// `PriceHistoryProduct` route (removed) — every place that used to link
+// there now links to `/products/:productId` instead.
+const ProductsList = lazy(() =>
+  import("./routes/products/ProductsList.tsx").then((m) => ({ default: m.ProductsList })),
+);
+const ProductDetail = lazy(() =>
+  import("./routes/products/ProductDetail.tsx").then((m) => ({ default: m.ProductDetail })),
 );
 
 /** Suspense fallback for a lazily-loaded route — matches the multi-`Skeleton` loading shape every route's own data-loading state already uses (e.g. Shopping.tsx, Plan.tsx). */
@@ -515,9 +524,10 @@ const router = createBrowserRouter(
             { path: "plan/month", element: lazyRoute(<Plan />) },
             { path: "settings", element: lazyRoute(<Settings />) },
             { path: "scan", element: lazyRoute(<Scan />) },
+            { path: "products", element: lazyRoute(<ProductsList />) },
             { path: "products/prices", element: lazyRoute(<PriceHistory />) },
             { path: "products/prices/ingredient/:ingredientId", element: lazyRoute(<PriceHistoryIngredient />) },
-            { path: "products/prices/product/:barcode", element: lazyRoute(<PriceHistoryProduct />) },
+            { path: "products/:productId", element: lazyRoute(<ProductDetail />) },
             // Any path that matches none of the above — a genuine bad URL
             // (UA review finding #1). A real route match, not an error, so
             // it renders like any other route: inside this same wrapper,

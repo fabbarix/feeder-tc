@@ -40,6 +40,7 @@ import type {
   WorkbookStore,
 } from "../domain/contracts.ts";
 import type {
+  Barcode,
   Ingredient,
   IngredientId,
   InventoryEvent,
@@ -51,6 +52,7 @@ import type {
   PriceObservation,
   Product,
   ProductBarcode,
+  ProductId,
   Recipe,
   RecipeId,
   RecipeIngredient,
@@ -213,6 +215,41 @@ async function upsertByKey<T>(
     await ensureHeader(transport, sheet, header);
     await transport.appendRows(sheet, [encoded]);
   }
+}
+
+/**
+ * Detach-by-key: overwrites the one matching row with blanks (same "no
+ * delete-row primitive" treatment as `photos.remove` — see this file's own
+ * header comment). A no-op, not an error, when no row matches: removing
+ * something already gone is idempotent, same discipline as every other
+ * write in this file.
+ */
+async function removeByKey<T>(
+  transport: SheetsTransport,
+  sheet: WorkbookSheetName,
+  header: CellRow,
+  decodeOne: (row: CellRow) => T,
+  keyOf: (entity: T) => string,
+  key: string,
+): Promise<void> {
+  const lastCol = columnLetter(header.length);
+  const raw = await readDataRows(transport, sheet, header);
+  let matchIndex = -1;
+  for (let i = 0; i < raw.length; i += 1) {
+    const row = raw[i];
+    if (!row || isBlankRow(row)) continue;
+    try {
+      if (keyOf(decodeOne(row)) === key) {
+        matchIndex = i;
+        break;
+      }
+    } catch {
+      // Malformed existing row — can't tell what its key is; leave it alone.
+    }
+  }
+  if (matchIndex < 0) return;
+  const rowNumber = matchIndex + 2;
+  await transport.updateRange(`${sheet}!A${rowNumber}:${lastCol}${rowNumber}`, [blankRow(header.length)]);
 }
 
 /** Replaces every row whose first cell (recipe_id) equals `recipeId`, keeping every other recipe's rows untouched — RecipeIngredients/RecipeSteps' `replaceForRecipe`. */
@@ -410,6 +447,9 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
       async upsert(product: Product): Promise<void> {
         await upsertByKey(transport, "Products", PRODUCTS_HEADER, decodeProduct, encodeProduct, (p) => p.id, product);
       },
+      async remove(productId: ProductId): Promise<void> {
+        await removeByKey(transport, "Products", PRODUCTS_HEADER, decodeProduct, (p) => p.id, productId);
+      },
     },
 
     productBarcodes: {
@@ -426,6 +466,9 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
           (r) => r.barcode,
           row,
         );
+      },
+      async remove(barcode: Barcode): Promise<void> {
+        await removeByKey(transport, "ProductBarcodes", PRODUCT_BARCODES_HEADER, decodeProductBarcode, (r) => r.barcode, barcode);
       },
     },
 
