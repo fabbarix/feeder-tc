@@ -118,6 +118,30 @@
   }
 }
 
+/*
+ * Desktop: photo rail moves to the LEFT and widens to the photo's own real
+ * token width (design/mock-desktop-density.html §"A recipe" /
+ * §"The photo question" — "a photo with no seat of its own", ported from
+ * the mock's `.dtcols-photorail`). 320px, not the tablet's 290px: this is
+ * `PhotoMedia`'s `.detail` cap (PhotoMedia.module.css) — the rail should
+ * equal that token exactly, never a neighbouring column's incidental
+ * width (that mismatch, borrowing Pantry's ~290px rail, is the literal
+ * bug the mock names). DOM order is unchanged (`.main` still precedes
+ * `.rail` — ingredients/method still come first for keyboard/reader
+ * order, which also happens to be the more useful reading order); `order`
+ * only reorders the visual columns, matching the mock's drawn layout
+ * without reordering the underlying content.
+ */
+@media (min-width: 1440px) {
+  .cols {
+    grid-template-columns: 320px minmax(0, 1fr);
+  }
+
+  .rail {
+    order: -1;
+  }
+}
+
 .main {
   min-width: 0;
   display: flex;

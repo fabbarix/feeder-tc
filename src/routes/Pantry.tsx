@@ -314,10 +314,14 @@ export function Pantry() {
             ) : (
               <>
                 {expiring.length > 0 ? (
-                  <ListSection heading="Expiring soon">{expiring.map(renderRow)}</ListSection>
+                  <ListSection heading="Expiring soon" layout="grid2">
+                    {expiring.map(renderRow)}
+                  </ListSection>
                 ) : null}
                 {fresh.length > 0 ? (
-                  <ListSection heading="Fresh">{fresh.map(renderRow)}</ListSection>
+                  <ListSection heading="Fresh" layout="grid2">
+                    {fresh.map(renderRow)}
+                  </ListSection>
                 ) : null}
                 {filtered.length === 0 && aggregates.length > 0 ? (
                   <EmptyState

@@ -171,27 +171,29 @@ export function Shopping() {
                 />
               )
             ) : (
-              groupedSections.map((section) => (
-                <ListSection key={section.heading} heading={section.heading}>
-                  {section.entries.map(({ line, ingredient }) => (
-                    <ShoppingRow
-                      key={ingredient.id}
-                      line={line}
-                      ingredient={ingredient}
-                      checkedItem={shopping.checkedByIngredient.get(ingredient.id)}
-                      today={today}
-                      failed={shopping.failedCheckoff?.ingredientId === ingredient.id}
-                      provenanceContext={provenanceContext}
-                      currencySymbol={shopping.settings?.currency ?? "$"}
-                      previousSources={shopping.previousSources}
-                      onRetryFailed={shopping.retryFlush}
-                      onCheckOff={(input) => void shopping.checkOff(line, input)}
-                      onUncheck={() => void shopping.uncheck(line)}
-                      onAdjust={(override) => void shopping.setPurchaseOverride(line, override)}
-                    />
-                  ))}
-                </ListSection>
-              ))
+              <div className={styles.categoryGrid}>
+                {groupedSections.map((section) => (
+                  <ListSection key={section.heading} heading={section.heading}>
+                    {section.entries.map(({ line, ingredient }) => (
+                      <ShoppingRow
+                        key={ingredient.id}
+                        line={line}
+                        ingredient={ingredient}
+                        checkedItem={shopping.checkedByIngredient.get(ingredient.id)}
+                        today={today}
+                        failed={shopping.failedCheckoff?.ingredientId === ingredient.id}
+                        provenanceContext={provenanceContext}
+                        currencySymbol={shopping.settings?.currency ?? "$"}
+                        previousSources={shopping.previousSources}
+                        onRetryFailed={shopping.retryFlush}
+                        onCheckOff={(input) => void shopping.checkOff(line, input)}
+                        onUncheck={() => void shopping.uncheck(line)}
+                        onAdjust={(override) => void shopping.setPurchaseOverride(line, override)}
+                      />
+                    ))}
+                  </ListSection>
+                ))}
+              </div>
             )}
           </div>
 

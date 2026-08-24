@@ -2,6 +2,7 @@ import { useId, useRef, useState, type ChangeEvent } from "react";
 import { useButton } from "react-aria";
 import type { Unit } from "../../domain/types.ts";
 import { Minus, Plus, type IconComponent } from "../icons.ts";
+import { Tooltip } from "./Tooltip.tsx";
 import styles from "./QuantityInput.module.css";
 
 /**
@@ -222,8 +223,10 @@ function Stepper({
   const ref = useRef<HTMLButtonElement>(null);
   const { buttonProps } = useButton({ "aria-label": label, isDisabled: disabled, onPress }, ref);
   return (
-    <button {...buttonProps} ref={ref} type="button" className={styles.stepper}>
-      <Icon size={16} aria-hidden="true" />
-    </button>
+    <Tooltip label={label}>
+      <button {...buttonProps} ref={ref} type="button" className={styles.stepper}>
+        <Icon size={16} aria-hidden="true" />
+      </button>
+    </Tooltip>
   );
 }

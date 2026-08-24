@@ -1,0 +1,35 @@
+/* Tooltip (see Tooltip.tsx's doc comment for the full rationale) — pure CSS,
+   desktop-only progressive enhancement over an icon-only control's own
+   `aria-label`. Not part of any route's feature layout; lives in the kit
+   since every consumer is a shared component (IconButton family, NavButton,
+   QuantityInput's stepper, …). */
+
+.wrap {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.bubble {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) and (min-width: 1440px) {
+  .wrap:hover .bubble,
+  .wrap:focus-within .bubble {
+    display: block;
+    position: absolute;
+    bottom: calc(100% + var(--space-1));
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font: 500 var(--fs-caption)/1 var(--sans);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--text-h);
+    color: var(--surface);
+    box-shadow: var(--shadow-sm);
+    z-index: var(--z-nav);
+    pointer-events: none;
+  }
+}

@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useButton } from "react-aria";
 import { CaretLeft, CaretRight, type IconComponent } from "../icons.ts";
+import { Tooltip } from "./Tooltip.tsx";
 import styles from "./WeekNav.module.css";
 
 export interface WeekNavProps {
@@ -70,8 +71,10 @@ function NavButton({
   const ref = useRef<HTMLButtonElement>(null);
   const { buttonProps } = useButton({ "aria-label": label, onPress }, ref);
   return (
-    <button {...buttonProps} ref={ref} type="button" className={styles.navButton}>
-      <Icon size={20} aria-hidden="true" />
-    </button>
+    <Tooltip label={label}>
+      <button {...buttonProps} ref={ref} type="button" className={styles.navButton}>
+        <Icon size={20} aria-hidden="true" />
+      </button>
+    </Tooltip>
   );
 }

@@ -1,3 +1,4 @@
+import { Tooltip } from "../ui/components";
 import { Minus, Plus } from "../ui/icons.ts";
 import forms from "./forms.module.css";
 
@@ -35,25 +36,29 @@ export function Stepper({ label, value, unit, unitOne, min = 0, disabled = false
     <div className={forms.field}>
       <span className={forms.fieldLabel}>{label}</span>
       <div className={`${forms.qty}${disabled ? ` ${forms.qtyDisabled}` : ""}`}>
-        <button
-          type="button"
-          aria-label={`Fewer — ${label}`}
-          disabled={disabled}
-          onClick={() => onChange(Math.max(min, value - 1))}
-        >
-          <Minus size={16} aria-hidden="true" />
-        </button>
+        <Tooltip label={`Fewer — ${label}`}>
+          <button
+            type="button"
+            aria-label={`Fewer — ${label}`}
+            disabled={disabled}
+            onClick={() => onChange(Math.max(min, value - 1))}
+          >
+            <Minus size={16} aria-hidden="true" />
+          </button>
+        </Tooltip>
         <span className={forms.qtyValue}>
           {value} <span className={forms.qtyUnit}>{value === 1 && unitOne !== undefined ? unitOne : unit}</span>
         </span>
-        <button
-          type="button"
-          aria-label={`More — ${label}`}
-          disabled={disabled}
-          onClick={() => onChange(value + 1)}
-        >
-          <Plus size={16} aria-hidden="true" />
-        </button>
+        <Tooltip label={`More — ${label}`}>
+          <button
+            type="button"
+            aria-label={`More — ${label}`}
+            disabled={disabled}
+            onClick={() => onChange(value + 1)}
+          >
+            <Plus size={16} aria-hidden="true" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

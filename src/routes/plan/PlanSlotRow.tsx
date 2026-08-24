@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useButton } from "react-aria";
 import { resolveTargetServings } from "../../domain/index.ts";
 import type { PlanSlotId, Settings } from "../../domain/index.ts";
+import { Tooltip } from "../../ui/components";
 import { ArrowsClockwise, CookingPot, Minus, Plus, PushPin, PushPinSlash, Trash, type IconComponent } from "../../ui/icons.ts";
 import { mealTagLabel } from "./plan-week.ts";
 import { computeIndivisibleForecast, type PlanSlotView } from "./plan-derive.ts";
@@ -14,7 +15,6 @@ function IconButton({
   disabled = false,
   active = false,
   danger = false,
-  pushRight = false,
 }: {
   readonly icon: IconComponent;
   readonly label: string;
@@ -22,19 +22,20 @@ function IconButton({
   readonly disabled?: boolean;
   readonly active?: boolean;
   readonly danger?: boolean;
-  readonly pushRight?: boolean;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const { buttonProps } = useButton({ "aria-label": label, isDisabled: disabled, onPress }, ref);
   return (
-    <button
-      {...buttonProps}
-      ref={ref}
-      type="button"
-      className={`${styles.iconButton}${active ? ` ${styles.iconButtonActive}` : ""}${danger ? ` ${styles.iconButtonDanger}` : ""}${pushRight ? ` ${styles.iconButtonPushRight}` : ""}`}
-    >
-      <Icon size={15} aria-hidden="true" />
-    </button>
+    <Tooltip label={label}>
+      <button
+        {...buttonProps}
+        ref={ref}
+        type="button"
+        className={`${styles.iconButton}${active ? ` ${styles.iconButtonActive}` : ""}${danger ? ` ${styles.iconButtonDanger}` : ""}`}
+      >
+        <Icon size={15} aria-hidden="true" />
+      </button>
+    </Tooltip>
   );
 }
 
@@ -45,9 +46,19 @@ function IconButton({
  * per day card via a day-scoped locator, matching how this file's other
  * icon actions already work. `Plan.tsx` owns the actual removal (it opens
  * the two-variant confirm dialog first — never fires on a bare click).
+ *
+ * Used to also carry `pushRight` (`plan.module.css`'s
+ * `.iconButtonPushRight`, `margin-left: auto`), shoving this button to the
+ * far right of `.slotRow2` away from Cook/Reroll/Pin — spatial isolation
+ * with no visual line, label or gap-width change marking it as related to
+ * the other three at all (design/mock-desktop-density.html §"Decided: the
+ * Remove button rejoins its own action group"). Dropped: Remove now sits
+ * in the same flex group, same gap token, ordered last by convention
+ * (destructive last), distinguished only by `.iconButtonDanger`'s existing
+ * hover/focus colour — neutral at rest, `--crit` only on hover/focus.
  */
 function RemoveButton({ onPress, disabled }: { readonly onPress: () => void; readonly disabled: boolean }) {
-  return <IconButton icon={Trash} label="Remove from plan" onPress={onPress} disabled={disabled} danger pushRight />;
+  return <IconButton icon={Trash} label="Remove from plan" onPress={onPress} disabled={disabled} danger />;
 }
 
 export interface PlanSlotRowProps {

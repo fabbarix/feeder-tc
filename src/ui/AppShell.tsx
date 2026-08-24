@@ -113,8 +113,32 @@ const NAV_ITEMS: readonly NavItem[] = [
 // column narrower than either wants.
 const WIDE_ROUTES: ReadonlySet<string> = new Set(["/recipes", "/recipes/ingredients", "/pantry", "/plan", "/shopping"]);
 
+/**
+ * A recipe's own page (`/recipes/:id`), matched by pattern since the id
+ * varies — deliberately excludes `/recipes/ingredients` and `/recipes/new`
+ * (exact sibling paths, not a `:id` — `/recipes/new` would otherwise match
+ * this pattern too, since a single path segment after `/recipes/` is all
+ * it requires) and `/recipes/:id/edit` (the editor, which stays a form at
+ * the plain 840px measure per design/mock-desktop-density.html §"Left
+ * alone": forms get shorter reading lines, not more columns).
+ *
+ * design/mock-desktop-density.html §"A recipe" measured the detail route
+ * flat at 840px on every desktop viewport tested and proposed a THIRD
+ * container width, `.mainDetail` (~1080px), owner-approved 2026-08-23:
+ * the 320px photo inset (`PhotoMedia`'s `.detail`) has nowhere honest to
+ * sit inside an 840px reading column without stealing width from the
+ * ingredient lines, so at >=1440px it gets its own column instead
+ * (recipe-detail.module.css's `.cols`). This reopens a three-mode system
+ * the project just collapsed from three to two (`.mainWide`/`.mainMeasure`
+ * above) — deliberately, per that explicit sign-off, not a quiet re-creep;
+ * the next route that wants a bespoke width still needs its own owner
+ * conversation, not "recipe detail already did it."
+ */
+const RECIPE_DETAIL_PATTERN = /^\/recipes\/(?!ingredients$|new$)[^/]+$/;
+
 function mainContainerClass(pathname: string): string | undefined {
   if (WIDE_ROUTES.has(pathname)) return styles.mainWide;
+  if (RECIPE_DETAIL_PATTERN.test(pathname)) return styles.mainDetail;
   return styles.mainMeasure;
 }
 

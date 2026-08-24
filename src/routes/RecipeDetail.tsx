@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { useToast } from "../ui/components/Toast/useToast.ts";
-import { ErrorState, Markdown, SegmentedControl, Skeleton } from "../ui/components";
+import { ErrorState, Markdown, SegmentedControl, Skeleton, Tooltip } from "../ui/components";
 import { PhotoMedia } from "../ui/photo/index.ts";
 import { Minus, Pause, Plus, Timer, X } from "../ui/icons";
 import {
@@ -381,22 +381,26 @@ export function RecipeDetail() {
                                   <p className={styles.timerCount}>{formatTimer(activeTimer.remainingSeconds)}</p>
                                 </div>
                                 <div className={styles.timerActions}>
-                                  <button
-                                    type="button"
-                                    className={styles.timerButton}
-                                    aria-label={activeTimer.paused ? "Resume timer" : "Pause timer"}
-                                    onClick={togglePauseTimer}
-                                  >
-                                    <Pause size={18} aria-hidden="true" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className={styles.timerButton}
-                                    aria-label="Cancel timer"
-                                    onClick={cancelTimer}
-                                  >
-                                    <X size={18} aria-hidden="true" />
-                                  </button>
+                                  <Tooltip label={activeTimer.paused ? "Resume timer" : "Pause timer"}>
+                                    <button
+                                      type="button"
+                                      className={styles.timerButton}
+                                      aria-label={activeTimer.paused ? "Resume timer" : "Pause timer"}
+                                      onClick={togglePauseTimer}
+                                    >
+                                      <Pause size={18} aria-hidden="true" />
+                                    </button>
+                                  </Tooltip>
+                                  <Tooltip label="Cancel timer">
+                                    <button
+                                      type="button"
+                                      className={styles.timerButton}
+                                      aria-label="Cancel timer"
+                                      onClick={cancelTimer}
+                                    >
+                                      <X size={18} aria-hidden="true" />
+                                    </button>
+                                  </Tooltip>
                                 </div>
                               </div>
                             );
@@ -487,23 +491,27 @@ export function RecipeDetail() {
                 <div className={formsStyles.sectionCardHead}>Servings</div>
                 <div className={formsStyles.sectionCardBody}>
                   <div className={formsStyles.qty}>
-                    <button
-                      type="button"
-                      aria-label="Fewer servings"
-                      onClick={() => setServings((s) => Math.max(1, (s ?? recipe.baseServings) - 1))}
-                    >
-                      <Minus size={16} aria-hidden="true" />
-                    </button>
+                    <Tooltip label="Fewer servings">
+                      <button
+                        type="button"
+                        aria-label="Fewer servings"
+                        onClick={() => setServings((s) => Math.max(1, (s ?? recipe.baseServings) - 1))}
+                      >
+                        <Minus size={16} aria-hidden="true" />
+                      </button>
+                    </Tooltip>
                     <span className={formsStyles.qtyValue}>
                       {servings ?? recipe.baseServings} <span className={formsStyles.qtyUnit}>servings</span>
                     </span>
-                    <button
-                      type="button"
-                      aria-label="More servings"
-                      onClick={() => setServings((s) => (s ?? recipe.baseServings) + 1)}
-                    >
-                      <Plus size={16} aria-hidden="true" />
-                    </button>
+                    <Tooltip label="More servings">
+                      <button
+                        type="button"
+                        aria-label="More servings"
+                        onClick={() => setServings((s) => (s ?? recipe.baseServings) + 1)}
+                      >
+                        <Plus size={16} aria-hidden="true" />
+                      </button>
+                    </Tooltip>
                   </div>
                   <p className={formsStyles.hint}>
                     Base {recipe.baseServings} · surplus becomes a leftover lot when cooked.
