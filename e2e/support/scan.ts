@@ -88,6 +88,10 @@ export async function enterBarcode(page: Page, barcode: string): Promise<void> {
  * instead of 1000 g — a real trap this helper closes by always clicking the
  * unit explicitly rather than assuming a default.
  */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export async function createUnknownProduct(
   page: Page,
   input: {
@@ -104,7 +108,19 @@ export async function createUnknownProduct(
   await page.getByLabel("Name").fill(input.name);
   await page.getByRole("button", { name: /which ingredient is this/i }).click();
   await page.getByRole("textbox", { name: /search ingredient/i }).fill(input.ingredientName);
-  await page.getByRole("option", { name: input.ingredientName, exact: true }).click();
+  // ProductEditorPanel.tsx's `ingredientOptions` appends " — on your list"
+  // to any ingredient that currently has a live shopping need (a fixed
+  // rolling 7-day window anchored on TODAY — see useScanFlow.ts's own doc
+  // comment for why that's deliberately not the same window Shopping.tsx's
+  // "This week" preset uses). Whether that suffix is present for a given
+  // ingredient at scan time can therefore depend on which day of the week
+  // the suite runs, so match on the ingredient name with an optional
+  // suffix — anchored start/end so "Rice" never accidentally matches
+  // "Basmati Rice" — rather than assuming the plain name is always the
+  // full accessible name.
+  await page
+    .getByRole("option", { name: new RegExp(`^${escapeRegExp(input.ingredientName)}( — on your list)?$`) })
+    .click();
   await page.getByRole("radiogroup", { name: "Package unit" }).getByRole("radio", { name: input.packageContentUnit, exact: true }).click();
   await page.getByLabel(/package content/i).fill(input.packageContentAmount);
   await page.getByRole("button", { name: "+ Record the price you paid" }).click();
