@@ -32,14 +32,28 @@ describe("recipe import settings storage", () => {
       model: "gpt-4o-mini",
       dailyLimit: 5,
       linkEnabled: true,
+      toolServerUrl: "",
     };
     saveRecipeImportSettings(settings);
     expect(readRecipeImportSettings()).toEqual(settings);
     expect(isRecipeImportConfigured(readRecipeImportSettings())).toBe(true);
   });
 
+  it("round-trips a configured tool-server address", () => {
+    const settings: RecipeImportSettings = {
+      baseUrl: "https://mock-vllm.test/v1",
+      apiKey: "sk-test",
+      model: "",
+      dailyLimit: 5,
+      linkEnabled: true,
+      toolServerUrl: "https://mock-vllm.test/tools/web",
+    };
+    saveRecipeImportSettings(settings);
+    expect(readRecipeImportSettings()).toEqual(settings);
+  });
+
   it("clear removes the saved settings entirely", () => {
-    saveRecipeImportSettings({ baseUrl: "https://x", apiKey: "k", model: "m", dailyLimit: 3, linkEnabled: false });
+    saveRecipeImportSettings({ baseUrl: "https://x", apiKey: "k", model: "m", dailyLimit: 3, linkEnabled: false, toolServerUrl: "" });
     clearRecipeImportSettings();
     expect(readRecipeImportSettings()).toEqual(DEFAULT_RECIPE_IMPORT_SETTINGS);
   });

@@ -110,6 +110,19 @@ describe("importRecipeFromLink", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it("sends the MCP tool-server shape, requesting 'open' but not 'search', when a tool-server address is configured", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ status: "completed", output_text: VALID_DRAFT_CONTENT }));
+    await importRecipeFromLink({ ...LINK_PARAMS, toolServerUrl: "https://mock-vllm.test/tools/web" }, fetchImpl);
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const body = JSON.parse((init as RequestInit).body as string) as {
+      tools: { type: string; server_label?: string; server_url?: string; allowed_tools?: string[] }[];
+    };
+    expect(body.tools).toEqual([
+      { type: "mcp", server_label: "web_search_preview", server_url: "https://mock-vllm.test/tools/web", allowed_tools: ["open"] },
+    ]);
+    expect(body.tools[0]!.allowed_tools).not.toContain("search");
+  });
+
   it("falls back to scanning output[] for an output_text content item when there's no top-level output_text", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
       jsonResponse({
@@ -122,6 +135,15 @@ describe("importRecipeFromLink", () => {
     );
     const draft = await importRecipeFromLink(LINK_PARAMS, fetchImpl);
     expect(draft.name).toBe("Garlic Rice");
+  });
+
+  it("throws tool-unsupported when a misconfigured tool-server address is rejected as an unrecognised MCP server", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(
+      async () => new Response(JSON.stringify({ error: { message: "mcp server_url could not be reached" } }), { status: 400 }),
+    );
+    await expect(importRecipeFromLink({ ...LINK_PARAMS, toolServerUrl: "https://wrong.test" }, fetchImpl)).rejects.toMatchObject({
+      reason: "tool-unsupported",
+    });
   });
 
   it("throws tool-unsupported, in plain language, when the endpoint rejects the browser tool", async () => {

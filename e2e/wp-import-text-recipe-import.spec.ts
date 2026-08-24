@@ -66,13 +66,19 @@ async function goToImportScreen(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: "Add from a recipe you found online" })).toBeVisible();
 }
 
-async function configureProvider(page: Page, { linkEnabled = false }: { linkEnabled?: boolean } = {}): Promise<void> {
+async function configureProvider(
+  page: Page,
+  { linkEnabled = false, toolServerUrl }: { linkEnabled?: boolean; toolServerUrl?: string } = {},
+): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Primary" });
   await nav.getByRole("link", { name: "Settings" }).click();
   await page.getByLabel("The address to send recipes to").fill(MOCK_BASE_URL);
   await page.getByLabel("The password for that address").fill("test-key");
   if (linkEnabled) {
     await page.getByLabel("This address can open a web link, not just read pasted text").check();
+  }
+  if (toolServerUrl !== undefined) {
+    await page.getByLabel("The address of your own web-reading helper (optional)").fill(toolServerUrl);
   }
   await goToImportScreen(page);
 }
@@ -91,6 +97,12 @@ async function mockRecipeReaderResponsesFetch(page: Page, status: number, body: 
       window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === "string" ? input : input.toString();
         if (url === `${baseUrl as string}/responses`) {
+          // Stashed for tests that need to see which tool shape was actually
+          // sent (e.g. the MCP tool-server shape) — read back afterwards via
+          // page.evaluate, never inspected mid-flight.
+          (window as unknown as { __lastResponsesRequestBody?: unknown }).__lastResponsesRequestBody = init?.body
+            ? JSON.parse(init.body as string)
+            : undefined;
           return new Response(JSON.stringify(responseBody), {
             status: responseStatus as number,
             headers: { "Content-Type": "application/json" },
@@ -224,4 +236,49 @@ test("a page that turns out not to be a recipe surfaces the same plain message a
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
   await expect(page.getByText(/doesn't look like a recipe/i)).toBeVisible();
+});
+
+test("the tool-server field is only offered once the link toggle is on, and stays out of sight otherwise", async ({ page }) => {
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: false });
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await nav.getByRole("link", { name: "Settings" }).click();
+  await expect(page.getByLabel("The address of your own web-reading helper (optional)")).toHaveCount(0);
+});
+
+test("filling in the tool-server address sends the MCP shape, requesting 'open' but never naming MCP on screen", async ({ page }) => {
+  await mockRecipeReaderResponsesFetch(page, 200, VALID_RESPONSES_BODY);
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: true, toolServerUrl: "https://mock-tool-server.test/web" });
+
+  // The field's own label/hint never say "MCP" or "tool server" — a cook shouldn't have to know either term.
+  await expect(page.getByText(/mcp/i)).toHaveCount(0);
+  await expect(page.getByText(/tool server/i)).toHaveCount(0);
+
+  await page.getByLabel("Or, the web address to read this recipe from").fill("https://example.com/garlic-rice");
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+
+  const sentBody = await page.evaluate(() => (window as unknown as { __lastResponsesRequestBody?: unknown }).__lastResponsesRequestBody);
+  expect(sentBody).toMatchObject({
+    tools: [
+      {
+        type: "mcp",
+        server_label: "web_search_preview",
+        server_url: "https://mock-tool-server.test/web",
+        allowed_tools: ["open"],
+      },
+    ],
+  });
+});
+
+test("a wrongly-filled-in tool-server address still surfaces the plain-language tool-unsupported message", async ({ page }) => {
+  await mockRecipeReaderResponsesFetch(page, 400, { error: { message: "mcp server_url could not be reached" } });
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: true, toolServerUrl: "https://wrong-address.test" });
+
+  await page.getByLabel("Or, the web address to read this recipe from").fill("https://example.com/garlic-rice");
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page.getByText(/doesn't seem to support reading a recipe straight from a link/i)).toBeVisible();
 });

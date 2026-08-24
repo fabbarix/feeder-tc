@@ -88,6 +88,7 @@ export function RecipeImport() {
             apiKey: settings.apiKey,
             model: settings.model,
             url: trimmedUrl,
+            ...(settings.toolServerUrl.trim() !== "" ? { toolServerUrl: settings.toolServerUrl.trim() } : {}),
           })
         : await importRecipeFromText({
             baseUrl: settings.baseUrl,

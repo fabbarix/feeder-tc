@@ -119,6 +119,20 @@ export function RecipeImportSettings() {
             regardless of this setting.
           </p>
         </div>
+        {settings.linkEnabled ? (
+          <TextField
+            label="The address of your own web-reading helper (optional)"
+            value={settings.toolServerUrl}
+            onChange={(toolServerUrl) => update({ toolServerUrl })}
+            placeholder="Leave blank unless you were told to fill this in"
+          />
+        ) : null}
+        {settings.linkEnabled ? (
+          <p className={forms.hint}>
+            Most households leave this blank. Only fill it in if whoever set up the address above told you it needs
+            a second, separate address to actually open a page.
+          </p>
+        ) : null}
         {configured ? (
           <button type="button" className={forms.cancelButton} onClick={() => setConfirmingRemove(true)}>
             Remove this password

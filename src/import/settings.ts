@@ -34,6 +34,18 @@ export interface RecipeImportSettings {
    * only appears once the household has said yes.
    */
   readonly linkEnabled: boolean;
+  /**
+   * Optional, only meaningful when `linkEnabled` is true: the address of a
+   * separate helper the configured address relies on to actually open a web
+   * page (owner's 2026-08-24 follow-up — vLLM's browser tool is reached
+   * through a second address, not built into the address above the way
+   * OpenAI's is). Left blank, `client.ts` sends OpenAI's own built-in
+   * shape, which needs no second address. Filled in, it sends the MCP tool
+   * shape instead, naming this address as the tool server. Never shown to
+   * the household as "MCP" or "tool server" anywhere on screen — see
+   * `RecipeImportSettings.tsx`'s label/hint for the cook-facing wording.
+   */
+  readonly toolServerUrl: string;
 }
 
 export const DEFAULT_RECIPE_IMPORT_SETTINGS: RecipeImportSettings = {
@@ -42,6 +54,7 @@ export const DEFAULT_RECIPE_IMPORT_SETTINGS: RecipeImportSettings = {
   model: "",
   dailyLimit: 10,
   linkEnabled: false,
+  toolServerUrl: "",
 };
 
 const SETTINGS_KEY = "feeder.recipeImport.settings.v1";
@@ -67,6 +80,7 @@ export function readRecipeImportSettings(storage: Storage = window.localStorage)
           ? parsed.dailyLimit
           : DEFAULT_RECIPE_IMPORT_SETTINGS.dailyLimit,
       linkEnabled: typeof parsed.linkEnabled === "boolean" ? parsed.linkEnabled : DEFAULT_RECIPE_IMPORT_SETTINGS.linkEnabled,
+      toolServerUrl: typeof parsed.toolServerUrl === "string" ? parsed.toolServerUrl : DEFAULT_RECIPE_IMPORT_SETTINGS.toolServerUrl,
     };
   } catch {
     return DEFAULT_RECIPE_IMPORT_SETTINGS;

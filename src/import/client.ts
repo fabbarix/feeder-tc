@@ -21,6 +21,14 @@
  * `validateRecipeImportResponse` — one matcher, two ways to reach it, never
  * two implementations of "is this a usable recipe."
  *
+ * The browser tool itself is requested in one of two shapes, per a second
+ * owner follow-up the same day, once vLLM's actual docs were checked rather
+ * than assumed: OpenAI's is a native `web_search_preview` tool type built
+ * into the address the household already entered; vLLM's is reached through
+ * MCP, at a *second* address (`toolServerUrl`, optional, blank by default —
+ * `buildLinkTools` below picks the shape). Neither shape has been exercised
+ * against a real server from this repo — CI mocks both, nothing more.
+ *
  * Every failure mode is a typed `RecipeImportError` with a `reason`
  * discriminant; `src/import/error-messages.ts` turns each into the
  * plain-language sentence a cook actually reads (no "endpoint," "token,"
@@ -213,12 +221,48 @@ export interface ImportRecipeFromLinkParams {
   readonly model: string;
   /** The page to open — sent to the endpoint, never fetched by this app itself. */
   readonly url: string;
+  /**
+   * Optional address of a separate web-reading helper — `RecipeImportSettings.tsx`'s
+   * "your own web-reading helper" field. Owner's 2026-08-24 follow-up:
+   * OpenAI's browser tool is built into the address above (no second
+   * address needed), but a vLLM `--tool-server` deployment reaches its
+   * browser tool through a *second* address via MCP, so the two shapes
+   * genuinely differ and the household has to say which one they have.
+   */
+  readonly toolServerUrl?: string;
 }
 
 /** Same instructions as the text path, plus telling the model it has to fetch the page rather than being handed it. */
 const RECIPE_IMPORT_LINK_INSTRUCTION =
   "Open the page at the given address and read the recipe from its content, then extract it exactly as instructed above. " +
   "If the page doesn't load, or isn't a recipe once you've read it, set isRecipe to false.";
+
+/**
+ * The one browsing tool this feature ever asks for, in whichever of the two
+ * documented Responses-API shapes the household's own setup needs — verified
+ * against OpenAI's own docs and vLLM's docs (2026-08-24 follow-up), not
+ * assumed to be the same shape:
+ *
+ *  - **No `toolServerUrl`** (OpenAI, or anything that speaks OpenAI's own
+ *    Responses API dialect): the built-in `web_search_preview` tool type,
+ *    nothing further to configure — this is the default and needs no extra
+ *    Settings field filled in.
+ *  - **`toolServerUrl` set** (a vLLM `--tool-server` deployment): vLLM's
+ *    browser tool isn't a native tool type — it's reached through MCP, named
+ *    by a `server_label`/`server_url` pair, with sub-tools `search`, `open`,
+ *    `find` gated by `allowed_tools`. `open` is the one that opens a
+ *    specific URL rather than searching for one (matches the earlier
+ *    spike's reading of `simple_browser_tool.py`'s `direct_url_open`) — it
+ *    is always requested; `search` is not, because this feature only ever
+ *    hands the model one exact address, never "find something like this."
+ */
+function buildLinkTools(toolServerUrl: string | undefined): unknown[] {
+  const trimmed = toolServerUrl?.trim();
+  if (trimmed === undefined || trimmed === "") {
+    return [{ type: "web_search_preview" }];
+  }
+  return [{ type: "mcp", server_label: "web_search_preview", server_url: trimmed, allowed_tools: ["open"] }];
+}
 
 function buildLinkRequestBody(params: ImportRecipeFromLinkParams): unknown {
   return {
@@ -227,7 +271,7 @@ function buildLinkRequestBody(params: ImportRecipeFromLinkParams): unknown {
       { role: "system", content: `${RECIPE_IMPORT_SYSTEM_PROMPT} ${RECIPE_IMPORT_LINK_INSTRUCTION}` },
       { role: "user", content: `Recipe page: ${params.url}` },
     ],
-    tools: [{ type: "web_search_preview" }],
+    tools: buildLinkTools(params.toolServerUrl),
     text: {
       format: { type: "json_schema", name: "recipe_import", strict: true, schema: RECIPE_IMPORT_JSON_SCHEMA },
     },
@@ -235,7 +279,7 @@ function buildLinkRequestBody(params: ImportRecipeFromLinkParams): unknown {
 }
 
 /** A word that shows up in an endpoint's rejection of an unrecognised `tools`/Responses-API request — heuristic, not a documented contract, because every provider phrases this differently. False positives just mean a genuine failure is (correctly) described as "this address doesn't support that" instead of a generic network error; both tell the cook to try something else. */
-const TOOL_UNSUPPORTED_HINT = /\b(tool|tools|web_search|browser|responses api|unsupported|unknown (type|parameter)|not (support|implement))\b/i;
+const TOOL_UNSUPPORTED_HINT = /\b(tool|tools|mcp|web_search|browser|server_url|server_label|responses api|unsupported|unknown (type|parameter)|not (support|implement))\b/i;
 
 function extractResponsesOutputText(json: unknown): string | undefined {
   if (typeof json !== "object" || json === null) return undefined;
