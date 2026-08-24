@@ -24,10 +24,7 @@ import { basisLabel } from "./currency-format.ts";
 import { ProductPriceChart, type ChartSeriesInput } from "./ProductPriceChart.tsx";
 import styles from "./products.module.css";
 import forms from "../forms.module.css";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+import { describeError as messageOf } from "../../sheets/error-messages.ts";
 
 type ChartView = "overall" | "by-shop" | "average";
 

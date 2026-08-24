@@ -25,6 +25,7 @@ import { STATUS_OPTIONS } from "./recipe-options.ts";
 import formsStyles from "./forms.module.css";
 import recipesStyles from "./recipes.module.css";
 import styles from "./recipe-detail.module.css";
+import { describeError as messageOf } from "../sheets/error-messages.ts";
 
 /** One running/paused kitchen timer, tied to a specific step — only one at a time (mock-responsive.html shows a single `.timerrun`, contextual to whichever step started it). */
 interface ActiveTimer {
@@ -38,10 +39,6 @@ function formatTimer(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function capitalize(word: string): string {

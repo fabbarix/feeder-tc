@@ -42,6 +42,7 @@ import {
 } from "./camera.ts";
 import { isBarcodeDetectorSupported } from "./capabilities.ts";
 import { createNativeBarcodeDetector, detectBarcodes, type BarcodeDetectorLike } from "./detector.ts";
+import { describeError as messageOf } from "../sheets/error-messages.ts";
 
 export type ScannerStatus =
   | "idle"
@@ -65,10 +66,6 @@ export interface UseBarcodeScannerResult {
 const DECODE_INTERVAL_MS = 350;
 /** Frames are downscaled to this width before the WASM decoder runs on them — full camera resolution (often 1920px+) makes every decode attempt needlessly slow. */
 const WASM_FRAME_WIDTH = 640;
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
 
 export function useBarcodeScanner(
   videoRef: RefObject<HTMLVideoElement | null>,

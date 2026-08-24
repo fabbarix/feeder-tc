@@ -178,7 +178,10 @@ function createRealGoogleAuthDeps(clientId: string): GoogleAuthDeps {
       await loadScriptOnce("https://accounts.google.com/gsi/client");
       const oauth2 = window.google?.accounts?.oauth2;
       if (!oauth2) {
-        throw new Error("Google Identity Services script loaded but window.google.accounts.oauth2 is missing.");
+        // Plain language on purpose (jargon sweep, WP-fix-sheets-429) -
+        // reaches App.tsx's handleSignIn catch, whose toast shows this
+        // verbatim.
+        throw new Error("Couldn't complete sign-in. Please try again.");
       }
       return oauth2.initTokenClient({
         client_id: clientId,

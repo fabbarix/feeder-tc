@@ -46,7 +46,10 @@ export function createGooglePickerLauncher(apiKey: string): PickerLauncher {
       await ensurePickerApi();
       const picker = window.google?.picker;
       if (!picker) {
-        throw new Error("Google Picker script loaded but window.google.picker is missing.");
+        // Plain language on purpose (jargon sweep, WP-fix-sheets-429) -
+        // reaches App.tsx's handlePickWorkbook catch, whose toast shows this
+        // verbatim.
+        throw new Error("Couldn't open the file picker. Please try again.");
       }
       return new Promise<PickedWorkbook | undefined>((resolve, reject) => {
         try {

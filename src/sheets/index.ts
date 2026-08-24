@@ -18,6 +18,7 @@ export {
   type EnsureWorkbookSchemaOptions,
   type EnsureWorkbookSchemaResult,
 } from "./migrate.ts";
+export { hasWorkbookSchemaMigrated, markWorkbookSchemaMigrated } from "./migration-flag.ts";
 export {
   createGooglePickerLauncher,
   pickWorkbook,

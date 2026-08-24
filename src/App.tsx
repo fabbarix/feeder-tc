@@ -20,6 +20,8 @@ import {
   createWorkbookRegistry,
   ensureWorkbookSchema,
   fetchAuthenticatedUser,
+  hasWorkbookSchemaMigrated,
+  markWorkbookSchemaMigrated,
   pickWorkbook,
   bootstrapWorkbook,
   runProductBarcodeMigration,
@@ -37,10 +39,7 @@ import {
 } from "./sync/index.ts";
 import { createPwaUpdateWatcher } from "./pwa/update.ts";
 import { warmBarcodeDecoderIfNeeded } from "./scan/warm-wasm-decoder.ts";
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+import { describeError as messageOf } from "./sheets/error-messages.ts";
 
 // ---------------------------------------------------------------------------
 // Route-level code splitting (WP-VC3) — the bundle was 720 kB raw / 215 kB
@@ -398,10 +397,23 @@ function ShellContainer() {
   // "ready" — a slow or offline migration attempt must not block first
   // paint or gate any route mounting. `ensureWorkbookSchema` itself is cheap
   // when there is nothing to fix (one "list this spreadsheet's tabs" call,
-  // no writes), so this costs at most one extra request per workbook open.
+  // no writes), so this costs at most one extra request per workbook open —
+  // except this used to run that "at most one extra request" (really three,
+  // once `runProductBarcodeMigration`'s own two reads are counted) on EVERY
+  // open, forever, even for a workbook this exact browser already confirmed
+  // was current five minutes ago (request-volume fix, WP-fix-sheets-429).
+  // `hasWorkbookSchemaMigrated`/`markWorkbookSchemaMigrated`
+  // (migration-flag.ts) memoize "already checked" per browser, so a repeat
+  // open of the same workbook on the same device costs zero requests here.
+  // Deliberately client-side, not a `Meta` flag: see that module's own doc
+  // comment for why a stale/missing flag only ever costs one redundant
+  // (already-idempotent) re-check, never a correctness risk — a workbook
+  // opened for the first time on a new device is unaffected, and always
+  // gets migrated exactly as before.
   useEffect(() => {
     if (!activeWorkbook || !store) return;
     const spreadsheetId = activeWorkbook.id;
+    if (hasWorkbookSchemaMigrated(window.localStorage, spreadsheetId)) return;
     const transport = createGoogleSheetsTransport({ spreadsheetId, auth });
     let cancelled = false;
     void ensureWorkbookSchema({ spreadsheetId, auth, transport })
@@ -414,6 +426,11 @@ function ShellContainer() {
         // guaranteed to exist before this reads/writes it.
         runProductBarcodeMigration(store),
       )
+      .then(() => {
+        // Only marked done on a SUCCESSFUL pass - a failed attempt (below)
+        // must keep trying on the next open, not memoize a broken state.
+        if (!cancelled) markWorkbookSchemaMigrated(window.localStorage, spreadsheetId);
+      })
       .catch((err: unknown) => {
         // Best-effort only. A failed attempt (offline, a transient API error)
         // leaves the workbook exactly as tolerant as it already was — every

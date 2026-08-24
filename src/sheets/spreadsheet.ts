@@ -58,7 +58,12 @@ export async function createSpreadsheet(
   }
   const body = (await response.json()) as { spreadsheetId?: string; properties?: { title?: string } };
   if (!body.spreadsheetId) {
-    throw new Error("Sheets API create response was missing spreadsheetId.");
+    // Plain language on purpose (jargon sweep, WP-fix-sheets-429): a
+    // defensive check against a malformed create response, not a
+    // status-coded HTTP failure (those are SheetsHttpError, translated by
+    // error-messages.ts) - but still a plain Error whose .message can reach
+    // a screen verbatim via App.tsx's handleCreateWorkbook catch.
+    throw new Error("Couldn't finish setting up your meal planner. Please try again.");
   }
   return { id: body.spreadsheetId, name: body.properties?.title ?? title };
 }
