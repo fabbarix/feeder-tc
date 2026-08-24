@@ -20,6 +20,7 @@ export function describeRecipeImportError(err: unknown): string {
       case "network":
       case "unauthorized":
       case "rate-limited":
+      case "tool-unsupported":
         return err.message;
       case "invalid-response":
         return err.message;

@@ -86,6 +86,28 @@
   color: var(--text-muted);
 }
 
+/* A checkbox's own caption is not a field label (owner-reported, WP-import-
+   text: `.field label`'s uppercase eyebrow styling — meant for the text
+   above an input — was leaking onto a checkbox's caption, reading heavier
+   than a checkbox caption should). Sentence case, body-text weight, sitting
+   inline next to the box rather than above it. */
+.checkboxField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.checkboxField label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-body-lg);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-h);
+}
+
 .field input[type="text"],
 .field input[type="password"] {
   min-height: var(--touch-target);

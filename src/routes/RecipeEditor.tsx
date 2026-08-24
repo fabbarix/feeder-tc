@@ -724,7 +724,8 @@ export function RecipeEditor() {
                 aria-expanded={showImportSource}
                 onClick={() => setShowImportSource((v) => !v)}
               >
-                What you pasted {showImportSource ? "▾" : "▸"}
+                {importDraft.sourceText.trim() !== "" ? "What you pasted" : "Where this came from"}{" "}
+                {showImportSource ? "▾" : "▸"}
               </button>
               {showImportSource ? (
                 <div className={styles.sectionCardBody}>
@@ -734,7 +735,14 @@ export function RecipeEditor() {
                   <p className={styles.hint}>
                     Compare this against the draft below — quantities are the easiest thing to misread.
                   </p>
-                  <pre className={`${stepStyles.detailTextarea} ${styles.importSourceText}`}>{importDraft.sourceText}</pre>
+                  {importDraft.sourceText.trim() !== "" ? (
+                    <pre className={`${stepStyles.detailTextarea} ${styles.importSourceText}`}>{importDraft.sourceText}</pre>
+                  ) : (
+                    <p className={styles.hint}>
+                      Feeder opened the address above itself and read the recipe from it — there&rsquo;s no pasted
+                      text to compare, so check the draft below carefully against the page.
+                    </p>
+                  )}
                 </div>
               ) : null}
             </div>

@@ -103,18 +103,20 @@ export function RecipeImportSettings() {
           Feeder stops after this many for the day, as a safety net — the address you set up above may also let you
           set your own spending limit there, which is the only real backstop against a much larger bill.
         </p>
-        <div className={forms.field}>
+        <div className={forms.checkboxField}>
           <label>
             <input
               type="checkbox"
               checked={settings.linkEnabled}
               onChange={(event) => update({ linkEnabled: event.target.checked })}
-            />{" "}
+            />
             This address can open a web link, not just read pasted text
           </label>
           <p className={forms.hint}>
-            Leave this off unless you know the address above can fetch a page itself. Most cannot — pasting the
-            recipe&rsquo;s text always works regardless of this setting.
+            Turn this on only if the address above can fetch a page itself — most cannot. When it&rsquo;s on, the
+            &ldquo;Add from a recipe you found online&rdquo; screen gets a second option: give it the page&rsquo;s
+            address and Feeder opens it and reads the recipe itself. Pasting the recipe&rsquo;s text always works
+            regardless of this setting.
           </p>
         </div>
         {configured ? (

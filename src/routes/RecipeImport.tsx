@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { importRecipeFromText } from "../import/client.ts";
+import { importRecipeFromLink, importRecipeFromText } from "../import/client.ts";
 import { describeRecipeImportError } from "../import/error-messages.ts";
 import { getImportUsage, isRecipeImportConfigured, readRecipeImportSettings, recordImportUsed } from "../import/settings.ts";
 import { resolveImportedLines, type ParsedRecipeDraft, type ResolvedIngredientLine } from "../import/match.ts";
@@ -18,11 +18,20 @@ export interface RecipeImportDraft {
 
 /**
  * The paste screen (DESIGN_RECIPE_IMPORT.md §11) — "Add from a recipe you
- * found online." Paste-text is the floor and always available; the link
- * field only appears once the household has declared, in Settings, that
- * their configured address can actually open one (decisions §3 — a feature
- * that silently disappears depending on a setting is worse than one that's
- * simply always there).
+ * found online." Paste-text is the floor and always available, never
+ * conditional on anything.
+ *
+ * The "where did this come from" field is a single field whose behaviour
+ * follows the household's Settings toggle — never a second box that also
+ * takes a URL but silently does something else (owner's own framing of the
+ * defect this replaces). With the toggle off, it is exactly what it always
+ * was: a provenance note saved with the recipe, never fetched. With the
+ * toggle on and something typed into it, it becomes the real thing: the
+ * page Feeder opens itself, via `importRecipeFromLink` (the Responses API,
+ * with the browser tool enabled) — and in that case the pasted text above,
+ * even if present, is not sent for that request. The copy next to the field
+ * says which of the two is about to happen before the household taps
+ * anything.
  */
 export function RecipeImport() {
   const navigate = useNavigate();
@@ -46,15 +55,26 @@ export function RecipeImport() {
   // between them.
   const usage = useMemo(() => getImportUsage(clock.today(), settings), [settings, clock]);
 
+  const trimmedUrl = sourceUrl.trim();
+  // One field, two jobs, chosen by the household's own Settings toggle
+  // (RecipeImportSettings.tsx) — never two boxes that both take a URL and
+  // silently do different things. Off: the address is a provenance note,
+  // never fetched. On, with something typed: the address IS what gets
+  // fetched, via the Responses API's browser tool, and the pasted text
+  // below is not sent for this particular import.
+  const usingLink = settings.linkEnabled && trimmedUrl !== "";
+
   const disabledReason = !configured
     ? "not-configured"
     : !online
       ? "offline"
       : usage.atLimit
         ? "daily-limit"
-        : text.trim() === ""
-          ? "empty"
-          : undefined;
+        : usingLink
+          ? undefined
+          : text.trim() === ""
+            ? "empty"
+            : undefined;
 
   async function handleImport(): Promise<void> {
     if (disabledReason !== undefined || loading) return;
@@ -62,21 +82,28 @@ export function RecipeImport() {
     setError(undefined);
     try {
       const today = clock.today();
-      const parsed = await importRecipeFromText({
-        baseUrl: settings.baseUrl,
-        apiKey: settings.apiKey,
-        model: settings.model,
-        pastedText: text,
-        ...(sourceUrl.trim() !== "" ? { sourceUrl: sourceUrl.trim() } : {}),
-      });
+      const parsed = usingLink
+        ? await importRecipeFromLink({
+            baseUrl: settings.baseUrl,
+            apiKey: settings.apiKey,
+            model: settings.model,
+            url: trimmedUrl,
+          })
+        : await importRecipeFromText({
+            baseUrl: settings.baseUrl,
+            apiKey: settings.apiKey,
+            model: settings.model,
+            pastedText: text,
+            ...(!settings.linkEnabled && trimmedUrl !== "" ? { sourceUrl: trimmedUrl } : {}),
+          });
       recordImportUsed(today);
       const { rows: catalogue } = await store.ingredients.readAll();
       const lines = resolveImportedLines(parsed.ingredients, catalogue);
       const draft: RecipeImportDraft = {
         parsed,
         lines,
-        sourceText: text,
-        ...(sourceUrl.trim() !== "" ? { sourceUrl: sourceUrl.trim() } : {}),
+        sourceText: usingLink ? "" : text,
+        ...(trimmedUrl !== "" ? { sourceUrl: trimmedUrl } : {}),
       };
       navigate("/recipes/new", { state: { importedDraft: draft } });
     } catch (err) {
@@ -104,7 +131,11 @@ export function RecipeImport() {
         <p className={styles.hint}>
           Paste the recipe&rsquo;s text below — the ingredients and steps, copied from the page. Feeder sends this
           text to the address you set up in Settings so it can turn it into a draft you review before anything is
-          saved. Nothing else about your kitchen is sent.
+          saved.
+          {settings.linkEnabled
+            ? " Or, further down, give it the page's address instead and it will open the page itself."
+            : ""}{" "}
+          Nothing else about your kitchen is sent.
         </p>
 
         {!configured ? (
@@ -128,18 +159,25 @@ export function RecipeImport() {
           />
         </div>
 
-        {settings.linkEnabled ? (
-          <div className={styles.field}>
-            <label htmlFor="recipe-import-source">Where did this come from? (optional)</label>
-            <input
-              id="recipe-import-source"
-              type="text"
-              value={sourceUrl}
-              onChange={(event) => setSourceUrl(event.target.value)}
-              placeholder="https://…"
-            />
-          </div>
-        ) : null}
+        <div className={styles.field}>
+          <label htmlFor="recipe-import-source">
+            {settings.linkEnabled ? "Or, the web address to read this recipe from" : "Where did this come from? (optional)"}
+          </label>
+          <input
+            id="recipe-import-source"
+            type="text"
+            value={sourceUrl}
+            onChange={(event) => setSourceUrl(event.target.value)}
+            placeholder="https://…"
+          />
+          <p className={styles.hint}>
+            {settings.linkEnabled
+              ? usingLink
+                ? "Feeder will open this page itself and read the recipe from it — the text pasted above won't be sent."
+                : "Fill this in instead of pasting, and Feeder opens the page itself and reads the recipe from it. Leave it blank to use what you pasted above."
+              : "Stored as a note with the recipe. Feeder does not open this address itself — paste the recipe's text above."}
+          </p>
+        </div>
 
         {!online ? (
           <p className={styles.hint} role="alert">
