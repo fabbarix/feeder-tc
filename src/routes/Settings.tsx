@@ -37,8 +37,7 @@ import forms from "./forms.module.css";
  * behaviour change: everywhere else that calls `store.settings.read()`
  * still gets today's "throw on a missing row" contract unchanged.
  */
-const NO_SETTINGS_ROW_ERROR =
-  'Settings sheet has no valid "general" row — the workbook was not bootstrapped correctly.';
+const NO_SETTINGS_ROW_ERROR = "This meal planner doesn't have any settings saved yet.";
 
 /**
  * Household settings (WP-22): meal-slot layout per day, household size, and

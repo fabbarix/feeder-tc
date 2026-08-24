@@ -51,6 +51,37 @@
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
+  /*
+   * WP-tokens regression fix (found from a screenshot review, then measured
+   * and root-caused, not a flex-shrink issue as first suspected — corrected
+   * here rather than left wrong): `repeat(auto-fit, minmax(72px, 1fr))` has
+   * no reliable intrinsic (shrink-to-fit) width of its own. Every consumer
+   * that ALREADY works today hands this grid a DEFINITE width some other
+   * way — Pantry's rail via `.fullWidthControl{width:100%}`, or a
+   * `flex-direction:column` field/section, where the browser's default
+   * `align-items:stretch` fills the column's own definite width. Plan.tsx's
+   * "Plan view" switcher does neither — it's a bare item in a
+   * `flex-direction:row` group (`align-items:center`, no stretch, no
+   * width) — so its width comes from `flex-basis:auto`'s intrinsic-size
+   * query, and Chromium answers that query for an `auto-fit` grid as if
+   * there is exactly ONE repetition, regardless of how many items actually
+   * need to fit: `72px` floor + this rule's own padding/border ≈ 78px,
+   * confirmed both with and without this WP's changes (checked against the
+   * pre-WP-tokens commit — the sibling "Generate week" button's width was
+   * NOT the cause, it measured identically at 78px either way). Two
+   * segments forced into that one 78px column wrap onto a second row,
+   * keeping the pill radius because nothing here ever knew it had wrapped.
+   *
+   * `--segment-count` (set inline by SegmentedControl.tsx) lets this rule
+   * state the REAL minimum width needed for one row directly, sidestepping
+   * the browser's wrong intrinsic-size answer instead of trying to detect
+   * wrap after the fact. Neutralised under `.wrap` below: that modifier's
+   * whole point is a control that's DELIBERATELY narrower than one row
+   * needs (Pantry's 250px rail against 4×72px+gaps ≈ 300px), and this
+   * min-width would defeat that on-purpose narrowing.
+   */
+  min-width: calc(72px * var(--segment-count, 1) + var(--space-hairline) * (var(--segment-count, 1) - 1) + 2 * var(--space-hairline) + 2px);
+  flex-shrink: 0;
 }
 
 .segment {
@@ -86,6 +117,12 @@
  * rail) — none of those wrap, so none of those give up the pill.
  */
 .group.wrap {
+  /* Cancels the base rule's `min-width` — this modifier means "I already
+     confirmed this container is deliberately narrower than one row needs,
+     and I want the rounded-rect wrap shape for it," so forcing a wider box
+     here would be fighting the one consumer that's supposed to be able to
+     wrap. */
+  min-width: 0;
   border-radius: var(--radius-md);
 }
 

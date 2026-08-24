@@ -8,8 +8,7 @@ import { WorkbookContext, type WorkbookContextValue } from "../workbook-context.
 import { createFakeOutbox, createFakeRng, createFakeWorkbookStore, createFixedClock } from "../domain/fakes/index.ts";
 import { makeIsoDate, makeIsoTimestamp, type Settings as SettingsRow, type WorkbookStore } from "../domain/index.ts";
 
-const NO_SETTINGS_ROW_ERROR =
-  'Settings sheet has no valid "general" row — the workbook was not bootstrapped correctly.';
+const NO_SETTINGS_ROW_ERROR = "This meal planner doesn't have any settings saved yet.";
 
 /** A store whose `settings.read()` throws exactly what `decodeSettings` throws for a workbook with no "general" row yet — everything else delegates to a normal in-memory fake. */
 function createStoreMissingSettingsRow(): WorkbookStore {
@@ -51,6 +50,13 @@ function renderSettings(store: WorkbookStore) {
  * that would only ever fail the same way again. This asserts the recovery
  * path instead: a real action that fixes it, wired to the same
  * `DEFAULT_SETTINGS` a brand-new workbook gets.
+ *
+ * WP-tokens follow-up (jargon sweep, third pass): the "sheet"/"row"/
+ * "bootstrapped" wording above described the ORIGINAL bug, not today's
+ * copy — `decodeSettings` itself now throws the same plain-language string
+ * this test asserts against, so a route that ever forgets to add its own
+ * recovery UI (the way Plan.tsx's ErrorState did) still shows something a
+ * user can read, not just this route.
  */
 describe("Settings — no Settings row yet (WP-31)", () => {
   it("offers 'Set up defaults' instead of a dead-end error, and it actually works", async () => {

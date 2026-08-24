@@ -261,7 +261,13 @@ export function createSheetsWorkbookStore(transport: SheetsTransport): WorkbookS
         const raw = await readDataRows(transport, "Meta", META_HEADER);
         const firstRow = raw.find((row) => !isBlankRow(row));
         if (!firstRow) {
-          throw new Error("Meta sheet has no data row — the workbook was not bootstrapped correctly.");
+          // Plain language on purpose (jargon sweep, WP-tokens follow-up):
+          // this string reaches users verbatim — every route's data hook
+          // (Pantry/Plan/Scan/Shopping all call `meta.read()`) passes its
+          // caught error straight into `ErrorState`'s `description` with no
+          // per-route rewording, same pattern as `decodeSettings`'s sibling
+          // in codecs/settings.ts.
+          throw new Error("This meal planner looks incomplete — it may not have finished being created.");
         }
         return decodeMeta(firstRow);
       },
