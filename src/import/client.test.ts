@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RecipeImportError, importRecipeFromLink, importRecipeFromText } from "./client.ts";
+import { RecipeImportError, importRecipeFromLink, importRecipeFromPhotos, importRecipeFromText } from "./client.ts";
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), { status: 200, ...init, headers: { "Content-Type": "application/json" } });
@@ -85,6 +85,86 @@ describe("importRecipeFromText", () => {
     expect(body.messages[1]!.content).toContain("https://example.com/recipe");
     // Only one request was ever made — the app never fetches the URL itself.
     expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});
+
+const PHOTO_PARAMS = {
+  baseUrl: "https://api.example.com/v1",
+  apiKey: "sk-test",
+  model: "gpt-4o-mini",
+  photos: ["data:image/jpeg;base64,AAA", "data:image/jpeg;base64,BBB"],
+};
+
+describe("importRecipeFromPhotos", () => {
+  it("posts to {baseUrl}/chat/completions with one image_url part per photo plus a text part, and validates the response", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: VALID_DRAFT_CONTENT } }] }));
+    const draft = await importRecipeFromPhotos(PHOTO_PARAMS, fetchImpl);
+    expect(draft.name).toBe("Garlic Rice");
+    const [url, init] = fetchImpl.mock.calls[0]!;
+    expect(url).toBe("https://api.example.com/v1/chat/completions");
+    expect((init as RequestInit).headers).toMatchObject({ Authorization: "Bearer sk-test" });
+    const body = JSON.parse((init as RequestInit).body as string) as {
+      messages: { role: string; content: unknown }[];
+      response_format: { type: string; json_schema: { strict: boolean } };
+    };
+    const userContent = body.messages[1]!.content as { type: string; text?: string; image_url?: { url: string; detail: string } }[];
+    expect(userContent[0]).toEqual({ type: "text", text: "Transcribe this recipe." });
+    expect(userContent.slice(1)).toEqual([
+      { type: "image_url", image_url: { url: "data:image/jpeg;base64,AAA", detail: "high" } },
+      { type: "image_url", image_url: { url: "data:image/jpeg;base64,BBB", detail: "high" } },
+    ]);
+    expect(body.response_format.type).toBe("json_schema");
+    expect(body.response_format.json_schema.strict).toBe(true);
+    // One request only, even with multiple photos — multi-page is several images in one request, not several requests.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("works with a single photo too", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: VALID_DRAFT_CONTENT } }] }));
+    await importRecipeFromPhotos({ ...PHOTO_PARAMS, photos: ["data:image/jpeg;base64,ONLY"] }, fetchImpl);
+    const [, init] = fetchImpl.mock.calls[0]!;
+    const body = JSON.parse((init as RequestInit).body as string) as { messages: { content: unknown }[] };
+    const userContent = body.messages[1]!.content as unknown[];
+    expect(userContent).toHaveLength(2); // one text part + one image part
+  });
+
+  it("throws unauthorized on a 401, same as the text path", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("", { status: 401 }));
+    await expect(importRecipeFromPhotos(PHOTO_PARAMS, fetchImpl)).rejects.toMatchObject({ reason: "unauthorized" });
+  });
+
+  it("throws rate-limited on a 429", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("", { status: 429 }));
+    await expect(importRecipeFromPhotos(PHOTO_PARAMS, fetchImpl)).rejects.toMatchObject({ reason: "rate-limited" });
+  });
+
+  it("throws network on a transport failure", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    await expect(importRecipeFromPhotos(PHOTO_PARAMS, fetchImpl)).rejects.toMatchObject({ reason: "network" });
+  });
+
+  it("throws invalid-response when the model's JSON fails schema validation", async () => {
+    const badContent = JSON.stringify({ isRecipe: true, name: "X", servings: null, prepMinutes: null, cookMinutes: null, ingredients: [{ name: "x", amount: "lots", unit: null, note: "" }], steps: [] });
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: badContent } }] }));
+    await expect(importRecipeFromPhotos(PHOTO_PARAMS, fetchImpl)).rejects.toMatchObject({ reason: "invalid-response" });
+  });
+
+  it("throws invalid-response when isRecipe is false — the photo wasn't a recipe", async () => {
+    const content = JSON.stringify({ isRecipe: false, name: "", servings: null, prepMinutes: null, cookMinutes: null, ingredients: [], steps: [] });
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content } }] }));
+    await expect(importRecipeFromPhotos(PHOTO_PARAMS, fetchImpl)).rejects.toMatchObject({
+      reason: "invalid-response",
+      message: expect.stringContaining("doesn't look like a recipe"),
+    });
+  });
+
+  it("never mentions jargon in its own error copy", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("", { status: 401 }));
+    await expect(importRecipeFromPhotos(PHOTO_PARAMS, fetchImpl)).rejects.toMatchObject({
+      message: expect.not.stringMatching(/endpoint|token|schema|vision|\bAPI\b/i),
+    });
   });
 });
 

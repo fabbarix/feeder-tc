@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
+import { TINY_PHOTO_PATH } from "./support/fixtures.ts";
 
 /**
  * Recipe import from pasted text (DESIGN_RECIPE_IMPORT.md). CI must never
@@ -281,4 +282,134 @@ test("a wrongly-filled-in tool-server address still surfaces the plain-language 
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
   await expect(page.getByText(/doesn't seem to support reading a recipe straight from a link/i)).toBeVisible();
+});
+
+/**
+ * Recipe import from a photo (DESIGN_RECIPE_IMPORT_PHOTO.md, "Decisions"
+ * appended to DESIGN_RECIPE_IMPORT.md). Faked the same way as the text/link
+ * paths above — an in-page `fetch` override — since a photo import also
+ * posts to `{baseUrl}/chat/completions`, `mockRecipeReaderFetch` above
+ * already answers it with the same Chat-Completions response shape.
+ */
+async function switchToPhotoMode(page: Page): Promise<void> {
+  await page.getByRole("radio", { name: "From a photo" }).click();
+}
+
+/** Captures the last request body sent to `{baseUrl}/chat/completions` — read back afterwards via `page.evaluate`, mirroring `mockRecipeReaderResponsesFetch`'s own `__lastResponsesRequestBody` pattern above. */
+async function mockRecipeReaderFetchCapturingBody(page: Page, status: number, body: unknown): Promise<void> {
+  await page.addInitScript(
+    ([baseUrl, responseStatus, responseBody]) => {
+      const realFetch = window.fetch.bind(window);
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.startsWith(baseUrl as string)) {
+          (window as unknown as { __lastChatRequestBody?: unknown }).__lastChatRequestBody = init?.body
+            ? JSON.parse(init.body as string)
+            : undefined;
+          return new Response(JSON.stringify(responseBody), {
+            status: responseStatus as number,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return realFetch(input, init);
+      };
+    },
+    [MOCK_BASE_URL, status, body],
+  );
+}
+
+test("the capture screen shows the handwriting expectation and names the configured address before any photo is added", async ({ page }) => {
+  await enterReadyShell(page);
+  await configureProvider(page);
+  await switchToPhotoMode(page);
+
+  await expect(page.getByText(/works best on printed recipes/i)).toBeVisible();
+  await expect(page.getByText(/can struggle with faded or cramped handwriting/i)).toBeVisible();
+  // The disclosure names the actual configured address, not an abstract description.
+  await expect(page.getByText(MOCK_BASE_URL)).toBeVisible();
+});
+
+test("adding two photos and reading the recipe sends both as separate image parts in one request, and the review screen shows the photo(s) beside the ingredients", async ({
+  page,
+}) => {
+  await mockRecipeReaderFetchCapturingBody(page, 200, VALID_RESPONSE_BODY);
+  await enterReadyShell(page);
+  await configureProvider(page);
+  await switchToPhotoMode(page);
+
+  const fileInput = page.locator('input[type="file"]');
+  await fileInput.setInputFiles(TINY_PHOTO_PATH);
+  await expect(page.getByRole("button", { name: "Remove page 1" })).toBeVisible();
+  await page.getByRole("button", { name: "+ Add another page" }).click();
+  await fileInput.setInputFiles(TINY_PHOTO_PATH);
+  await expect(page.getByRole("button", { name: "Remove page 2" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+  await expect(page.getByRole("heading", { name: "Add recipe" })).toBeVisible();
+  await expect(page.getByLabel("Name")).toHaveValue("Garlic Rice");
+  // The review screen's own photo gallery, right beside the ingredients.
+  await expect(page.getByText("Check the amounts below against the photo.")).toBeVisible();
+  await expect(page.getByText("Matched from import")).toBeVisible();
+
+  const sentBody = await page.evaluate(() => (window as unknown as { __lastChatRequestBody?: unknown }).__lastChatRequestBody);
+  const userContent = (
+    sentBody as { messages: { role: string; content: { type: string }[] }[] }
+  ).messages[1]!.content;
+  expect(userContent).toHaveLength(3); // one text part + two image parts, one request
+  expect(userContent.filter((part) => part.type === "image_url")).toHaveLength(2);
+});
+
+test("photos cap at 3 — the add button disables once a third page is added", async ({ page }) => {
+  await enterReadyShell(page);
+  await configureProvider(page);
+  await switchToPhotoMode(page);
+  const fileInput = page.locator('input[type="file"]');
+  for (let i = 0; i < 3; i += 1) {
+    await fileInput.setInputFiles(TINY_PHOTO_PATH);
+  }
+  await expect(page.getByRole("button", { name: "Remove page 3" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Up to 3 pages" })).toBeDisabled();
+});
+
+test("a poor-quality photo shows an inline advisory, but never blocks sending", async ({ page }) => {
+  await mockRecipeReaderFetch(page, 200, VALID_RESPONSE_BODY);
+  await enterReadyShell(page);
+  await configureProvider(page);
+  await switchToPhotoMode(page);
+
+  // The 1x1 fixture reads as flat/washed to the client-side heuristic —
+  // exactly the "never block sending" case the advisory is for.
+  await page.locator('input[type="file"]').setInputFiles(TINY_PHOTO_PATH);
+  await expect(page.getByText(/you can try again, or send it anyway/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Read this recipe" })).toBeEnabled();
+});
+
+test("a photo import made while offline queues instead of failing, then fires automatically once back online and lands on the review screen", async ({
+  page,
+  context,
+}) => {
+  await mockRecipeReaderFetch(page, 200, VALID_RESPONSE_BODY);
+  await enterReadyShell(page);
+  await configureProvider(page);
+  await switchToPhotoMode(page);
+  await page.locator('input[type="file"]').setInputFiles(TINY_PHOTO_PATH);
+
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+  await expect(page.getByText(/this will try again once you.re back online/i)).toBeVisible();
+
+  await context.setOffline(false);
+  await expect(page).toHaveURL(/\/recipes\/new$/, { timeout: 15_000 });
+  await expect(page.getByLabel("Name")).toHaveValue("Garlic Rice");
+});
+
+test("photo mode's own copy never uses jargon", async ({ page }) => {
+  await enterReadyShell(page);
+  await configureProvider(page);
+  await switchToPhotoMode(page);
+  for (const jargon of ["endpoint", "token", "schema", "API", "vision"]) {
+    await expect(page.getByText(jargon, { exact: false })).toHaveCount(0);
+  }
 });

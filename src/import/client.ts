@@ -215,6 +215,128 @@ export async function importRecipeFromText(
   return validation.draft;
 }
 
+/**
+ * Same instructions as the text path's system prompt, plus the
+ * photo-specific rules DESIGN_RECIPE_IMPORT_PHOTO.md §9 asks for: transcribe
+ * exactly what's on the page rather than inventing/completing/improving it,
+ * treat multiple images as one continuous recipe unless clearly unrelated,
+ * and give a literal best-reading rather than a plausible guess when
+ * something is unclear.
+ */
+export const RECIPE_IMPORT_PHOTO_SYSTEM_PROMPT =
+  "You are transcribing a recipe from one or more photographs of a cookbook page, recipe card, or clipping into " +
+  "structured data. Return only what the schema asks for. Use the ingredient's most common household name " +
+  '("garlic", not "garlic cloves, minced"). If an amount has no clear unit (e.g. "a pinch", "to taste"), set unit ' +
+  "to null and put the original words in note. If the photograph is not a recipe at all, set isRecipe to false and " +
+  "leave everything else empty. Never invent ingredients, steps, or amounts that are not shown in the photograph. " +
+  "If servings aren't stated, leave servings null rather than guessing. Transcribe exactly what is written — do " +
+  "not invent, complete, or improve the recipe. If a quantity or word is unclear or illegible, give your best " +
+  "literal reading anyway rather than a plausible-sounding guess; never silently substitute a value that merely " +
+  "sounds right for what is actually written. If multiple images are provided, treat them as one continuous " +
+  "recipe (for example, ingredients on one page and the method continued on another) unless they are clearly " +
+  "unrelated to each other.";
+
+export interface ImportRecipeFromPhotosParams {
+  readonly baseUrl: string;
+  readonly apiKey: string;
+  readonly model: string;
+  /** 1-3 already-encoded model-input photos (data URLs) — see `src/import/photo-encode.ts`. The UI caps this at 3; this function trusts its caller rather than re-validating the count itself. */
+  readonly photos: readonly string[];
+}
+
+function buildPhotoRequestBody(params: ImportRecipeFromPhotosParams): unknown {
+  return {
+    model: params.model.trim() === "" ? "gpt-4o-mini" : params.model,
+    messages: [
+      { role: "system", content: RECIPE_IMPORT_PHOTO_SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Transcribe this recipe." },
+          ...params.photos.map((url) => ({ type: "image_url", image_url: { url, detail: "high" } })),
+        ],
+      },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: "recipe_import", strict: true, schema: RECIPE_IMPORT_JSON_SCHEMA },
+    },
+  };
+}
+
+/**
+ * Sends the one photo-import request — up to 3 images, one `/chat/completions`
+ * call, same timeout/error-mapping/validation shape as `importRecipeFromText`
+ * (this is the Chat Completions endpoint, not the Responses API — no browser
+ * tool is involved in reading a photo). Returns a validated draft, or throws
+ * a `RecipeImportError`.
+ */
+export async function importRecipeFromPhotos(
+  params: ImportRecipeFromPhotosParams,
+  fetchImpl: typeof fetch = fetch,
+): Promise<ParsedRecipeDraft> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${params.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${params.apiKey}` },
+      body: JSON.stringify(buildPhotoRequestBody(params)),
+      signal: controller.signal,
+    });
+  } catch {
+    if (controller.signal.aborted) {
+      throw new RecipeImportError("timeout", "That took too long — try again, or check the address in Settings.");
+    }
+    throw new RecipeImportError(
+      "network",
+      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new RecipeImportError("unauthorized", "That password wasn't accepted — check it's typed correctly, or that it hasn't expired.");
+    }
+    if (response.status === 429) {
+      throw new RecipeImportError("rate-limited", "The service you're using to read recipes is busy right now — try again in a moment.");
+    }
+    throw new RecipeImportError(
+      "network",
+      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
+    );
+  }
+
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+  }
+
+  const content = extractMessageContent(json);
+  if (content === undefined) {
+    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+  }
+
+  const validation = validateRecipeImportResponse(parsed);
+  if (!validation.ok) {
+    throw new RecipeImportError("invalid-response", validation.reason);
+  }
+  return validation.draft;
+}
+
 export interface ImportRecipeFromLinkParams {
   readonly baseUrl: string;
   readonly apiKey: string;
