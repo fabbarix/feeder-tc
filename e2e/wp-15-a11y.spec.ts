@@ -17,6 +17,9 @@ const ROUTES = [
   "",
   "recipes",
   "recipes/new",
+  // WP-import-text: the paste-a-recipe screen — scanned unconfigured (no
+  // provider set up), the state every fresh household lands on first.
+  "recipes/import",
   "recipes/12",
   "recipes/12/edit",
   "recipes/ingredients",

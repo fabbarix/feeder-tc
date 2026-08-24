@@ -66,6 +66,7 @@ import { describeError as messageOf } from "./sheets/error-messages.ts";
 const Recipes = lazy(() => import("./routes/Recipes.tsx").then((m) => ({ default: m.Recipes })));
 const RecipeDetail = lazy(() => import("./routes/RecipeDetail.tsx").then((m) => ({ default: m.RecipeDetail })));
 const RecipeEditor = lazy(() => import("./routes/RecipeEditor.tsx").then((m) => ({ default: m.RecipeEditor })));
+const RecipeImport = lazy(() => import("./routes/RecipeImport.tsx").then((m) => ({ default: m.RecipeImport })));
 const Ingredients = lazy(() => import("./routes/Ingredients.tsx").then((m) => ({ default: m.Ingredients })));
 const IngredientEditor = lazy(() =>
   import("./routes/IngredientEditor.tsx").then((m) => ({ default: m.IngredientEditor })),
@@ -530,6 +531,7 @@ const router = createBrowserRouter(
             { path: "recipes/ingredients/new", element: lazyRoute(<IngredientEditor />) },
             { path: "recipes/ingredients/:ingredientId", element: lazyRoute(<IngredientEditor />) },
             { path: "recipes/new", element: lazyRoute(<RecipeEditor />) },
+            { path: "recipes/import", element: lazyRoute(<RecipeImport />) },
             { path: "recipes/:recipeId", element: lazyRoute(<RecipeDetail />) },
             { path: "recipes/:recipeId/edit", element: lazyRoute(<RecipeEditor />) },
             { path: "pantry", element: lazyRoute(<Pantry />) },

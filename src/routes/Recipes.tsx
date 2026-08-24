@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
 import { EmptyState, ErrorState, RouteTabs, SearchField, Skeleton } from "../ui/components";
 import { PhotoMedia } from "../ui/photo/index.ts";
-import { BookOpen, Clock, CookingPot, MagnifyingGlass, Plus, Users } from "../ui/icons";
+import { BookOpen, Clock, CookingPot, FileArrowUp, MagnifyingGlass, Plus, Users } from "../ui/icons";
 import type { MealTag, Recipe } from "../domain/index.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
 import { SECTION_TABS } from "./section-tabs.ts";
@@ -86,6 +86,10 @@ export function Recipes() {
           file); both are "Add recipe" now. */}
       {!loading && !error && recipes.length > 0 ? (
         <div className={forms.sectionHeaderRow}>
+          <Link to="/recipes/import" className={forms.addButton}>
+            <FileArrowUp size={18} aria-hidden="true" />
+            Add from a recipe you found online
+          </Link>
           <Link to="/recipes/new" className={forms.addButton}>
             <Plus size={18} aria-hidden="true" />
             Add recipe
@@ -121,10 +125,16 @@ export function Recipes() {
             title="No recipes yet"
             description="Add your first recipe — cooked or store-bought — to start building a rotation."
             action={
-              <Link to="/recipes/new" className={forms.addButton}>
-                <Plus size={18} aria-hidden="true" />
-                Add recipe
-              </Link>
+              <div className={forms.sectionHeaderRow}>
+                <Link to="/recipes/import" className={forms.addButton}>
+                  <FileArrowUp size={18} aria-hidden="true" />
+                  Add from a recipe you found online
+                </Link>
+                <Link to="/recipes/new" className={forms.addButton}>
+                  <Plus size={18} aria-hidden="true" />
+                  Add recipe
+                </Link>
+              </div>
             }
           />
         ) : null}
