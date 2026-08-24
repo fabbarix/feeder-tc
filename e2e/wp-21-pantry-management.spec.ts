@@ -18,7 +18,20 @@ async function openIngredientSheet(page: Page, name: string): Promise<void> {
   await page.getByRole("option", { name, exact: true }).click();
 }
 
-/** Clicks the day-of-month cell in the currently-open React Aria calendar, advancing months first if `target` isn't in the visible (current) month. */
+/**
+ * Clicks the day-of-month cell in the currently-open React Aria calendar,
+ * advancing months first if `target` isn't in the visible (current) month.
+ *
+ * React Aria's `useCalendarCell` gives every cell's button a full,
+ * unambiguous `aria-label` — e.g. "Wednesday, August 26, 2026" — including
+ * the (hidden, `aria-disabled`) spill-over cells that belong to the
+ * adjacent month but render in the visible grid's leading/trailing rows.
+ * Matching on the day number alone (`/\b26\b/`) is therefore only correct
+ * on dates where no such spill-over cell shares the target's day number;
+ * whenever one does, strict mode fails on two matches. Match the full
+ * label instead so exactly one cell — the target date, in the target
+ * month/year — ever matches, regardless of what's spilling over.
+ */
 async function pickCalendarDate(page: Page, target: Date): Promise<void> {
   const now = new Date();
   const monthsAhead =
@@ -26,7 +39,13 @@ async function pickCalendarDate(page: Page, target: Date): Promise<void> {
   for (let i = 0; i < monthsAhead; i += 1) {
     await page.getByRole("button", { name: "Next month" }).click();
   }
-  await page.getByRole("button", { name: new RegExp(`\\b${target.getDate()}\\b`) }).click();
+  const label = target.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  await page.getByRole("button", { name: label, exact: true }).click();
 }
 
 function addDays(days: number): Date {
