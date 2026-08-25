@@ -404,3 +404,126 @@ describe("RecipeImportError diagnostics", () => {
     expect(stages).toEqual(["sending", "waiting", "reading", "checking"]);
   });
 });
+
+/**
+ * Tolerant parsing (owner's 2026-08-25 report): the owner's own real
+ * OpenRouter reply — HTTP 200, `strict: true` requested and ignored — as a
+ * fixture, verbatim including the ```json fence, reproduced end to end
+ * through `importRecipeFromLink` (the path it actually came from) and
+ * `importRecipeFromText` (proving the fix isn't link-specific). Every
+ * divergence the owner named must survive independently, a genuinely
+ * non-recipe reply must still fail, a valid-but-empty reply must still
+ * fail, and every coercion made must be visible on `draft.coercions` —
+ * never silent.
+ */
+describe("tolerant parsing of a real, schema-diverging reply", () => {
+  // The owner's actual OpenRouter reply text, verbatim — fence and all.
+  const OWNER_REPLY_TEXT =
+    "```json\n" +
+    JSON.stringify(
+      {
+        isRecipe: true,
+        title: "Pasta alla Norma",
+        servings: 6,
+        ingredients: [
+          { name: "sedanini", amount: 500, unit: "g", note: null },
+          { name: "eggplant", amount: 1, unit: null, note: "violetta, di Vittoria" },
+          { name: "garlic", amount: 4, unit: "cloves", note: null },
+          { name: "basil", amount: 1, unit: "bunch", note: null },
+        ],
+        steps: ["Wash and dry the eggplant, cut it into slices…", "In the meantime, prepare the tomatoes…"],
+      },
+      null,
+      2,
+    ) +
+    "\n```";
+
+  it("imports successfully from the exact fenced OpenRouter reply via the link path, producing the sensible draft the owner asked for", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ status: "completed", output_text: OWNER_REPLY_TEXT }));
+    const draft = await importRecipeFromLink(LINK_PARAMS, fetchImpl);
+
+    expect(draft.name).toBe("Pasta alla Norma");
+    expect(draft.servings).toBe(6);
+    expect(draft.steps).toHaveLength(2);
+
+    const garlic = draft.ingredients.find((i) => i.name === "garlic");
+    expect(garlic).toBeDefined();
+    expect(garlic!.unit).toBeNull();
+    expect(garlic!.note).toBe("cloves"); // the word Feeder couldn't represent as a unit, kept rather than dropped.
+
+    const basil = draft.ingredients.find((i) => i.name === "basil");
+    expect(basil!.unit).toBeNull();
+    expect(basil!.note).toBe("bunch");
+
+    // Every coercion made is visible on the draft, never silent.
+    expect(draft.coercions.length).toBeGreaterThan(0);
+    expect(draft.coercions.some((c) => /code fence/i.test(c))).toBe(true);
+    expect(draft.coercions.some((c) => /title/i.test(c))).toBe(true);
+    expect(draft.coercions.some((c) => /plain lines of text/i.test(c))).toBe(true);
+    expect(draft.coercions.some((c) => /unit/i.test(c))).toBe(true);
+  });
+
+  it("imports the same reply from the text path too — tolerant parsing isn't link-specific", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: OWNER_REPLY_TEXT } }] }));
+    const draft = await importRecipeFromText(PARAMS, fetchImpl);
+    expect(draft.name).toBe("Pasta alla Norma");
+    expect(draft.ingredients.find((i) => i.name === "garlic")!.note).toBe("cloves");
+  });
+
+  it("each divergence is handled independently — fixing one doesn't require the others to be present", async () => {
+    // Only a fence, everything else already conformant.
+    const onlyFenced = "```json\n" + VALID_DRAFT_CONTENT + "\n```";
+    const fetchOnlyFence = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: onlyFenced } }] }));
+    const draft1 = await importRecipeFromText(PARAMS, fetchOnlyFence);
+    expect(draft1.name).toBe("Garlic Rice");
+    expect(draft1.coercions).toEqual(["The reply was wrapped in a code fence — read the JSON found inside it."]);
+
+    // Only a title alias, no fence, no other divergence.
+    const onlyTitle = JSON.stringify({
+      isRecipe: true,
+      title: "Garlic Rice",
+      servings: 4,
+      prepMinutes: 5,
+      cookMinutes: 20,
+      ingredients: [{ name: "garlic", amount: 2, unit: "piece", note: "" }],
+      steps: [{ description: "Cook it." }],
+    });
+    const fetchOnlyTitle = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: onlyTitle } }] }));
+    const draft2 = await importRecipeFromText(PARAMS, fetchOnlyTitle);
+    expect(draft2.name).toBe("Garlic Rice");
+    expect(draft2.coercions).toHaveLength(1);
+    expect(draft2.coercions[0]).toMatch(/title/i);
+  });
+
+  it("still throws invalid-response for a genuinely non-recipe reply, fence and all", async () => {
+    const notARecipe =
+      "```json\n" +
+      JSON.stringify({ isRecipe: false, name: "", servings: null, prepMinutes: null, cookMinutes: null, ingredients: [], steps: [] }) +
+      "\n```";
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: notARecipe } }] }));
+    await expect(importRecipeFromText(PARAMS, fetchImpl)).rejects.toMatchObject({
+      reason: "invalid-response",
+      message: expect.stringContaining("doesn't look like a recipe"),
+    });
+  });
+
+  it("still throws invalid-response for a valid, well-shaped, but empty-ingredients reply", async () => {
+    const emptyIngredients = JSON.stringify({
+      isRecipe: true,
+      name: "Garlic Rice",
+      servings: null,
+      prepMinutes: null,
+      cookMinutes: null,
+      ingredients: [],
+      steps: [{ description: "Cook it." }],
+    });
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: emptyIngredients } }] }));
+    await expect(importRecipeFromText(PARAMS, fetchImpl)).rejects.toMatchObject({ reason: "invalid-response" });
+  });
+
+  it("a clean, already-conformant reply carries no coercions at all", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: VALID_DRAFT_CONTENT } }] }));
+    const draft = await importRecipeFromText(PARAMS, fetchImpl);
+    expect(draft.coercions).toEqual([]);
+  });
+});

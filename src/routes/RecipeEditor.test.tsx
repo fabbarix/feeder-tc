@@ -16,8 +16,10 @@ import {
   type Recipe,
   type RecipeStep,
 } from "../domain/index.ts";
+import { resolveImportedLines, type ParsedRecipeDraft } from "../import/match.ts";
+import type { RecipeImportDraft } from "./RecipeImport.tsx";
 
-function renderEditor(contextValue: WorkbookContextValue, initialPath: string) {
+function renderEditor(contextValue: WorkbookContextValue, initialPath: string, state?: unknown) {
   const router = createMemoryRouter(
     [
       { path: "/recipes/new", element: <RecipeEditor /> },
@@ -25,7 +27,7 @@ function renderEditor(contextValue: WorkbookContextValue, initialPath: string) {
       { path: "/recipes", element: <p>Recipes list</p> },
       { path: "/recipes/:recipeId", element: <p>Recipe detail</p> },
     ],
-    { initialEntries: [initialPath] },
+    { initialEntries: state !== undefined ? [{ pathname: initialPath, state }] : [initialPath] },
   );
   return render(
     <WorkbookContext.Provider value={contextValue}>
@@ -292,5 +294,102 @@ describe("RecipeEditor — recipe entry units (DESIGN_PURCHASING.md §10)", () =
     // Onion only ever offers "piece" (§10.1 — no cross-dimension data set),
     // so there is nothing to pick — the unit chip doesn't even render.
     expect(screen.queryByRole("button", { name: /^unit$/i })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Tolerant parsing (owner's 2026-08-25 report): "every coercion must be
+ * visible in the review screen, not silent" — pins that `RecipeEditor`
+ * actually renders `ParsedRecipeDraft.coercions` when a `client.ts` normalize
+ * pass had something to report, says nothing extra for a clean import, and
+ * still shows the matched-ingredient badge/unmatched hint alongside it.
+ */
+describe("RecipeEditor — surfacing recipe-import coercions", () => {
+  function importedDraft(coercions: readonly string[]): RecipeImportDraft {
+    const parsed: ParsedRecipeDraft = {
+      isRecipe: true,
+      name: "Pasta alla Norma",
+      servings: 6,
+      prepMinutes: null,
+      cookMinutes: null,
+      ingredients: [{ name: "garlic", amount: 4, unit: null, note: "cloves" }],
+      steps: [{ description: "Cook it." }],
+      coercions,
+    };
+    return { parsed, lines: resolveImportedLines(parsed.ingredients, []), sourceText: "pasted text" };
+  }
+
+  it("shows every coercion the import made, plainly, on the review screen", async () => {
+    const store = createFakeWorkbookStore();
+    const draft = importedDraft([
+      "The reply was wrapped in a code fence — read the JSON found inside it.",
+      'Used the reply\'s "title" as the recipe name — the requested field was "name".',
+      "1 ingredient unit wasn't one Feeder recognises — kept the original word as a note instead of dropping it.",
+    ]);
+
+    renderEditor(contextValue(store), "/recipes/new", { importedDraft: draft });
+
+    await screen.findByRole("heading", { name: "Add recipe" });
+    expect(screen.getByText("Feeder had to fix up this reply")).toBeInTheDocument();
+    for (const coercion of draft.parsed.coercions) {
+      expect(screen.getByText(coercion)).toBeInTheDocument();
+    }
+
+    // Still shows the unmatched line's raw reading — the coercion panel is
+    // additive, not a replacement for the existing per-line surfacing.
+    expect(screen.getByText(/As read:.*garlic/)).toBeInTheDocument();
+  });
+
+  it("shows nothing extra when the import needed no coercions at all", async () => {
+    const store = createFakeWorkbookStore();
+    const draft = importedDraft([]);
+
+    renderEditor(contextValue(store), "/recipes/new", { importedDraft: draft });
+
+    await screen.findByRole("heading", { name: "Add recipe" });
+    expect(screen.queryByText("Feeder had to fix up this reply")).not.toBeInTheDocument();
+  });
+
+  it("never shows the coercion panel for a recipe started from scratch (no import at all)", async () => {
+    const store = createFakeWorkbookStore();
+    renderEditor(contextValue(store), "/recipes/new");
+    await screen.findByRole("heading", { name: "Add recipe" });
+    expect(screen.queryByText("Feeder had to fix up this reply")).not.toBeInTheDocument();
+  });
+
+  it("still shows a coerced unit's note even when the ingredient name matched confidently — a match must not hide the coercion", async () => {
+    const store = createFakeWorkbookStore();
+    const garlic: Ingredient = {
+      id: makeIngredientId("garlic"),
+      name: "garlic",
+      unit: "piece",
+      shelfLifeDays: 30,
+      openedShelfLifeDays: 10,
+      defaultLocation: "pantry",
+    };
+    await store.ingredients.upsert(garlic);
+
+    const parsed: ParsedRecipeDraft = {
+      isRecipe: true,
+      name: "Pasta alla Norma",
+      servings: 6,
+      prepMinutes: null,
+      cookMinutes: null,
+      ingredients: [{ name: "garlic", amount: 4, unit: null, note: "cloves" }],
+      steps: [{ description: "Cook it." }],
+      coercions: ["2 ingredient units weren't one Feeder recognises — kept the original words as a note instead of dropping them."],
+    };
+    const lines = resolveImportedLines(parsed.ingredients, [garlic]);
+    // Sanity check the fixture actually matched, so this test is exercising
+    // the matched branch, not accidentally falling back to the unmatched one.
+    expect(lines[0]?.ingredientId).toBe(garlic.id);
+    expect(lines[0]?.matched).toBe(true);
+
+    const draft: RecipeImportDraft = { parsed, lines, sourceText: "pasted text" };
+    renderEditor(contextValue(store), "/recipes/new", { importedDraft: draft });
+
+    await screen.findByRole("heading", { name: "Add recipe" });
+    expect(screen.getByText("Matched from import")).toBeInTheDocument();
+    expect(screen.getByText('Imported note: "cloves"')).toBeInTheDocument();
   });
 });

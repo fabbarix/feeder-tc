@@ -63,6 +63,15 @@ export interface ParsedRecipeDraft {
   readonly cookMinutes: number | null;
   readonly ingredients: readonly ParsedIngredientLine[];
   readonly steps: readonly ParsedRecipeStep[];
+  /**
+   * Plain-language notes of every shape-fix `normalize.ts` applied before
+   * this draft could validate (fence stripped, `title` read as the name, a
+   * unit outside our enum coerced to null, …) — always present, empty when
+   * the reply matched the schema exactly. `client.ts` attaches this after
+   * validation succeeds; `RecipeEditor.tsx` shows it on the review screen so
+   * a coercion is never invisible to the cook (owner's requirement).
+   */
+  readonly coercions: readonly string[];
 }
 
 export type RecipeImportValidation =
@@ -253,6 +262,11 @@ export function validateRecipeImportResponse(raw: unknown): RecipeImportValidati
       cookMinutes: value.cookMinutes,
       ingredients,
       steps,
+      // Filled in by `client.ts` with whatever `normalize.ts` actually did
+      // to this payload before it reached here — this function has no
+      // visibility into that itself, so it never claims a coercion
+      // happened.
+      coercions: [],
     },
   };
 }

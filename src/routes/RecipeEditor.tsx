@@ -216,11 +216,24 @@ export function RecipeEditor() {
   const [lines, setLines] = useState<readonly LineDraft[]>(() =>
     importDraft
       ? importDraft.lines.map((resolved): LineDraft => {
+          // Tolerant parsing (owner's 2026-08-25 report): a matched line
+          // still carries whatever `note` the model returned — including a
+          // unit word `normalize.ts` couldn't represent (e.g. "cloves")
+          // and folded into `rawNote` instead of dropping. An unmatched
+          // line already shows all of this via "As read" below; a MATCHED
+          // line otherwise shows nothing but the ingredient/amount picker,
+          // which would make that same coercion invisible the moment a
+          // name happens to match the catalogue — exactly the "silent"
+          // outcome the owner's brief rules out. Shown distinctly from "As
+          // read" (that phrase implies "this whole line is unresolved",
+          // which a matched line isn't).
           const importRawText =
             resolved.ingredientId === null
               ? (resolved.conversionNote ??
                 `As read: "${[resolved.amount, resolved.entryUnit, resolved.rawName].filter((part) => part !== null && part !== "").join(" ")}${resolved.rawNote ? ` (${resolved.rawNote})` : ""}"`)
-              : undefined;
+              : resolved.rawNote.trim() !== ""
+                ? `Imported note: "${resolved.rawNote}"`
+                : undefined;
           return {
             key: resolved.key,
             ingredientId: resolved.ingredientId,
@@ -751,6 +764,35 @@ export function RecipeEditor() {
                   )}
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {/* Tolerant parsing (owner's 2026-08-25 report): every shape-fix
+              `normalize.ts` applied before this draft could even validate —
+              a stripped code fence, a "title" read as the name, a unit
+              outside our enum kept as a note instead of dropped, a missing
+              note left blank — surfaces here, always open, never behind a
+              disclosure the way the diagnostic history is. "Every coercion
+              must be visible in the review screen, not silent" (owner's own
+              words): this is that visibility. Absent entirely when the
+              reply matched the schema exactly, so a clean import shows
+              nothing extra at all. */}
+          {importDraft && importDraft.parsed.coercions.length > 0 ? (
+            <div className={styles.sectionCard}>
+              <div className={styles.sectionCardHead}>Feeder had to fix up this reply</div>
+              <div className={styles.sectionCardBody}>
+                <p className={styles.hint}>
+                  The address you use didn&rsquo;t quite answer the way Feeder asked — nothing here was invented,
+                  only reshaped. Check it against the draft below.
+                </p>
+                <ul className={styles.importCoercionList}>
+                  {importDraft.parsed.coercions.map((coercion, index) => (
+                    <li key={index} className={styles.hint}>
+                      {coercion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           ) : null}
 

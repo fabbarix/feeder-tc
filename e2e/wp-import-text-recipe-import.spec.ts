@@ -239,6 +239,63 @@ test("a page that turns out not to be a recipe surfaces the same plain message a
   await expect(page.getByText(/doesn't look like a recipe/i)).toBeVisible();
 });
 
+/**
+ * Tolerant parsing (owner's 2026-08-25 report): a real, owner-run link
+ * import against OpenRouter (`gpt-4o-mini`, `/v1/responses`, `strict: true`
+ * requested and ignored) came back HTTP 200 with this exact reply — fenced
+ * in ```json, `title` instead of `name`, `steps` as plain strings, two units
+ * outside our enum, and a `null` note. Reproduced here verbatim (fence and
+ * all) as the review screen actually has to handle it: import succeeds,
+ * lands on a sensible draft, and every fix made is visible on screen rather
+ * than silent.
+ */
+const OWNER_OPENROUTER_REPLY_TEXT =
+  "```json\n" +
+  JSON.stringify(
+    {
+      isRecipe: true,
+      title: "Pasta alla Norma",
+      servings: 6,
+      ingredients: [
+        { name: "sedanini", amount: 500, unit: "g", note: null },
+        { name: "eggplant", amount: 1, unit: null, note: "violetta, di Vittoria" },
+        { name: "garlic", amount: 4, unit: "cloves", note: null },
+        { name: "basil", amount: 1, unit: "bunch", note: null },
+      ],
+      steps: ["Wash and dry the eggplant, cut it into slices…", "In the meantime, prepare the tomatoes…"],
+    },
+    null,
+    2,
+  ) +
+  "\n```";
+
+test("the owner's real fenced, schema-diverging OpenRouter reply still imports, landing on a sensible draft with every fix visible", async ({ page }) => {
+  await mockRecipeReaderResponsesFetch(page, 200, { status: "completed", output_text: OWNER_OPENROUTER_REPLY_TEXT });
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: true });
+
+  await page.getByLabel("Or, the web address to read this recipe from").fill("https://ricette.giallozafferano.it/Pasta-alla-Norma.html");
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+  await expect(page.getByRole("heading", { name: "Add recipe" })).toBeVisible();
+  await expect(page.getByLabel("Name")).toHaveValue("Pasta alla Norma");
+  await expect(page.getByRole("textbox", { name: "Servings" })).toHaveValue("6");
+
+  // Every coercion made is shown, plainly, never behind a disclosure.
+  await expect(page.getByText("Feeder had to fix up this reply")).toBeVisible();
+  await expect(page.getByText(/code fence/i)).toBeVisible();
+  await expect(page.getByText(/"title"/)).toBeVisible();
+  await expect(page.getByText(/plain lines of text/i)).toBeVisible();
+  // Two out-of-enum units in this reply ("cloves", "bunch") — plural phrasing.
+  await expect(page.getByText(/2 ingredient units weren.t one Feeder recognises/i)).toBeVisible();
+
+  // Garlic: the seeded catalogue already has a "garlic" ingredient, so this
+  // line matches confidently — but the unrepresentable unit ("cloves") must
+  // still be visible, not silently dropped just because the line matched.
+  await expect(page.getByText('Imported note: "cloves"')).toBeVisible();
+});
+
 test("the tool-server field is only offered once the link toggle is on, and stays out of sight otherwise", async ({ page }) => {
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: false });

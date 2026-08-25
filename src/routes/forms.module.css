@@ -400,6 +400,19 @@
    editable, not locked" pre-fill, never a silent write) — a small marker
    distinct from a line the cook picked themselves, per §4/§11's "never
    implying more certainty than it has". */
+/* Tolerant parsing (owner's 2026-08-25 report): the "Feeder had to fix up
+   this reply" card's bullet list of coercions — plain list styling, no
+   markers of its own borrowed from a browser default (a bare `<ul>` would
+   otherwise indent with the user-agent stylesheet's own bullet/spacing,
+   which doesn't match `.hint`'s spacing rhythm used for every line here). */
+.importCoercionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
 .importMatchedBadge {
   display: inline-block;
   padding: 0 var(--space-2);

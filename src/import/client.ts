@@ -68,8 +68,26 @@
  * either (`summarizeRequestBody` replaces each `data:image/...` part with a
  * size/dimensions summary) — see that module's own doc comment for the
  * invariant this file leans on.
+ *
+ * **Tolerant parsing (owner's 2026-08-25 report, real evidence):** an actual
+ * OpenRouter reply (`gpt-4o-mini`, `/responses`, `strict: true` requested)
+ * came back HTTP 200 wrapped in a ```json fence, with `title` instead of
+ * `name`, `steps` as plain strings, units outside our enum, and `note: null`
+ * — five schema divergences at once, from an endpoint that had been asked,
+ * strictly, not to do any of them. `strict` mode is best-effort at best (see
+ * `buildLinkRequestBody`'s own comment) against "any OpenAI-compatible
+ * endpoint," so every one of the three functions below runs its reply
+ * through `./normalize.ts` — fence-stripping, then a small conservative set
+ * of shape fixes — before `match.ts`'s existing strict validation ever sees
+ * it (`parseValidateAndCoerce`, shared by all three). Every fix normalize.ts
+ * makes is returned as a plain-language string on the resulting
+ * `ParsedRecipeDraft.coercions`, shown on the review screen
+ * (`RecipeEditor.tsx`) — never applied invisibly. `normalize.ts` fixes
+ * shape only; a reply that genuinely isn't a recipe, or is missing real
+ * content, still fails validation exactly as before.
  */
 import { validateRecipeImportResponse, type ParsedRecipeDraft } from "./match.ts";
+import { normalizeRecipeImportPayload, stripJsonFence } from "./normalize.ts";
 import {
   finalizeDiagnostic,
   redactHeaders,
@@ -143,14 +161,37 @@ const GENERIC_NETWORK_MESSAGE =
   "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.";
 const GENERIC_INVALID_RESPONSE_MESSAGE = "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.";
 
-/** DESIGN_RECIPE_IMPORT.md §6's system prompt, verbatim — the model's only instructions. */
+/**
+ * Hardening added on top of DESIGN_RECIPE_IMPORT.md §6's own words, per the
+ * owner's 2026-08-25 follow-up: real evidence (an OpenRouter reply, `strict:
+ * true` requested and ignored) shows a compliant-looking endpoint still
+ * fencing its JSON, renaming a key, and flattening a step to a plain
+ * string. Spelling out the fence ban, the exact keys, and a worked example
+ * costs nothing and measurably reduces how often `normalize.ts` has
+ * anything to fix — but it is not a substitute for that module, only a
+ * cheaper first line of defence. Shared verbatim by the text, photo, and
+ * link prompts below so the one hardening pass covers all three paths
+ * identically.
+ */
+const RECIPE_IMPORT_FORMAT_INSTRUCTION =
+  "Respond with a single JSON object and nothing else — no markdown code fences (no ``` anywhere in your reply), " +
+  "no commentary before or after it, no explanation. Use exactly these top-level keys: isRecipe, name, servings, " +
+  "prepMinutes, cookMinutes, ingredients, steps. Each item in ingredients is an object with exactly these keys: " +
+  "name, amount, unit, note. Each item in steps is an object with exactly this key: description — never a plain " +
+  'string. Example shape (the values are illustrative only, not a real recipe to copy): ' +
+  '{"isRecipe":true,"name":"Garlic Rice","servings":4,"prepMinutes":5,"cookMinutes":20,' +
+  '"ingredients":[{"name":"garlic","amount":2,"unit":"piece","note":""}],' +
+  '"steps":[{"description":"Cook the rice with garlic."}]}';
+
+/** DESIGN_RECIPE_IMPORT.md §6's system prompt, plus `RECIPE_IMPORT_FORMAT_INSTRUCTION`'s hardening above. */
 export const RECIPE_IMPORT_SYSTEM_PROMPT =
   "You are extracting a recipe from text a home cook pasted from a webpage. Return only what the schema asks for. " +
   'Use the ingredient\'s most common household name ("garlic", not "garlic cloves, minced"). If an amount has no ' +
   'clear unit (e.g. "a pinch", "to taste"), set unit to null and put the original words in note. If the pasted ' +
   "text is not a recipe at all (an article, an ad, an unrelated page), set isRecipe to false and leave everything " +
   "else empty. Never invent ingredients, steps, or amounts that are not in the text. If servings aren't stated, " +
-  "leave servings null rather than guessing.";
+  "leave servings null rather than guessing. " +
+  RECIPE_IMPORT_FORMAT_INSTRUCTION;
 
 /** DESIGN_RECIPE_IMPORT.md §6's schema, transcribed exactly — every field required, `additionalProperties: false`, optionality expressed as nullable. */
 export const RECIPE_IMPORT_JSON_SCHEMA = {
@@ -230,6 +271,64 @@ function extractMessageContent(json: unknown): string | undefined {
 
 function chatCompletionsRequestSummary(url: string, model: string, headers: Record<string, string>, body: unknown): ImportRequestSummary {
   return { url, method: "POST", model, headers: redactHeaders(headers), body: summarizeRequestBody(body) };
+}
+
+/**
+ * The shared tail of all three request functions below, from "we have the
+ * model's raw reply text" onward — `normalize.ts`'s two jobs (recover JSON
+ * out of a fenced/prose-wrapped reply, then reshape known schema
+ * divergences) followed by `match.ts`'s existing strict validation. One
+ * implementation rather than three near-identical copies, so a future fix
+ * here can't accidentally land on only one of the three request paths.
+ *
+ * `strict: true` on the request is not a guarantee — see this file's own
+ * doc comment and `buildLinkRequestBody`'s — so every one of the three
+ * callers reaches this exact code whether or not the endpoint claims to
+ * honour it.
+ */
+function parseValidateAndCoerce(
+  content: string,
+  startedAtMs: number,
+  request: ImportRequestSummary,
+  responseStatus: number,
+  bodyText: string,
+): ParsedRecipeDraft {
+  const { text: jsonText, fenceStripped } = stripJsonFence(content);
+
+  let rawParsed: unknown;
+  try {
+    rawParsed = JSON.parse(jsonText);
+  } catch {
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: responseStatus, responseBodyText: bodyText, cause: "content-not-json" }),
+    );
+  }
+
+  const { value: normalized, coercions: shapeCoercions } = normalizeRecipeImportPayload(rawParsed);
+  // Fence-stripping counts as its own visible coercion — "we changed what
+  // you asked for" applies just as much to reading JSON out of a fence as
+  // to reshaping a field inside it (owner's requirement: "every coercion
+  // must be visible in the review screen, not silent").
+  const coercions = fenceStripped
+    ? ["The reply was wrapped in a code fence — read the JSON found inside it.", ...shapeCoercions]
+    : shapeCoercions;
+
+  const validation = validateRecipeImportResponse(normalized);
+  if (!validation.ok) {
+    throw new RecipeImportError(
+      "invalid-response",
+      validation.reason,
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: responseStatus,
+        responseBodyText: bodyText,
+        cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
+        validation: validationDetail(validation),
+      }),
+    );
+  }
+  return { ...validation.draft, coercions };
 }
 
 /**
@@ -329,31 +428,7 @@ export async function importRecipeFromText(
   }
 
   reportProgress(onProgress, "checking", startedAtMs);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new RecipeImportError(
-      "invalid-response",
-      GENERIC_INVALID_RESPONSE_MESSAGE,
-      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "content-not-json" }),
-    );
-  }
-
-  const validation = validateRecipeImportResponse(parsed);
-  if (!validation.ok) {
-    throw new RecipeImportError(
-      "invalid-response",
-      validation.reason,
-      errorDiagnostic(startedAtMs, request, {
-        httpStatus: response.status,
-        responseBodyText: bodyText,
-        cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
-        validation: validationDetail(validation),
-      }),
-    );
-  }
-  return validation.draft;
+  return parseValidateAndCoerce(content, startedAtMs, request, response.status, bodyText);
 }
 
 /**
@@ -375,7 +450,8 @@ export const RECIPE_IMPORT_PHOTO_SYSTEM_PROMPT =
   "literal reading anyway rather than a plausible-sounding guess; never silently substitute a value that merely " +
   "sounds right for what is actually written. If multiple images are provided, treat them as one continuous " +
   "recipe (for example, ingredients on one page and the method continued on another) unless they are clearly " +
-  "unrelated to each other.";
+  "unrelated to each other. " +
+  RECIPE_IMPORT_FORMAT_INSTRUCTION;
 
 export interface ImportRecipeFromPhotosParams {
   readonly baseUrl: string;
@@ -507,31 +583,7 @@ export async function importRecipeFromPhotos(
   }
 
   reportProgress(onProgress, "checking", startedAtMs);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new RecipeImportError(
-      "invalid-response",
-      GENERIC_INVALID_RESPONSE_MESSAGE,
-      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "content-not-json" }),
-    );
-  }
-
-  const validation = validateRecipeImportResponse(parsed);
-  if (!validation.ok) {
-    throw new RecipeImportError(
-      "invalid-response",
-      validation.reason,
-      errorDiagnostic(startedAtMs, request, {
-        httpStatus: response.status,
-        responseBodyText: bodyText,
-        cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
-        validation: validationDetail(validation),
-      }),
-    );
-  }
-  return validation.draft;
+  return parseValidateAndCoerce(content, startedAtMs, request, response.status, bodyText);
 }
 
 export interface ImportRecipeFromLinkParams {
@@ -583,6 +635,26 @@ function buildLinkTools(toolServerUrl: string | undefined): unknown[] {
   return [{ type: "mcp", server_label: "web_search_preview", server_url: trimmed, allowed_tools: ["open"] }];
 }
 
+/**
+ * `text.format.json_schema` is `/responses`' own documented structured-output
+ * shape, but — per this file's top doc comment — it is best-effort, not a
+ * guarantee: OpenRouter's own docs describe `strict` mode as enforced only
+ * by "supported providers" on `/chat/completions`'s `response_format`, and
+ * say nothing about `/responses` honouring it at all. `normalize.ts` is the
+ * actual backstop; this field is just "ask nicely first."
+ *
+ * Deliberately NOT also sending `response_format` here as a second attempt
+ * at the same thing: checked, not guessed (owner's requirement) — OpenAI's
+ * own `/v1/responses` endpoint uses the same strict "reject anything it
+ * doesn't recognise" parameter validation reported all over their developer
+ * forum and support channels as "Unrecognized request argument supplied:
+ * response_format" for exactly this mistake (a Chat-Completions-only field
+ * sent to the Responses API). Since OpenAI itself is the reference
+ * implementation of this endpoint shape (`buildLinkTools`'s own doc comment
+ * — the no-`toolServerUrl` default), adding `response_format` here would
+ * turn "a provider that ignores `text.format`" into "a hard 400 on OpenAI
+ * itself, every time" — strictly worse than leaving it out.
+ */
 function buildLinkRequestBody(params: ImportRecipeFromLinkParams): unknown {
   return {
     model: params.model.trim() === "" ? "gpt-4o-mini" : params.model,
@@ -762,29 +834,5 @@ export async function importRecipeFromLink(
   }
 
   reportProgress(onProgress, "checking", startedAtMs);
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new RecipeImportError(
-      "invalid-response",
-      GENERIC_INVALID_RESPONSE_MESSAGE,
-      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "content-not-json" }),
-    );
-  }
-
-  const validation = validateRecipeImportResponse(parsed);
-  if (!validation.ok) {
-    throw new RecipeImportError(
-      "invalid-response",
-      validation.reason,
-      errorDiagnostic(startedAtMs, request, {
-        httpStatus: response.status,
-        responseBodyText: bodyText,
-        cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
-        validation: validationDetail(validation),
-      }),
-    );
-  }
-  return validation.draft;
+  return parseValidateAndCoerce(content, startedAtMs, request, response.status, bodyText);
 }
