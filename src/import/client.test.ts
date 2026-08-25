@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { RecipeImportError, importRecipeFromLink, importRecipeFromPhotos, importRecipeFromText } from "./client.ts";
+import type { ImportFailureCause, ImportProgressStage } from "./diagnostics.ts";
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), { status: 200, ...init, headers: { "Content-Type": "application/json" } });
@@ -266,5 +267,140 @@ describe("importRecipeFromLink", () => {
     await expect(importRecipeFromLink(LINK_PARAMS, unauthorized)).rejects.toMatchObject({ reason: "unauthorized" });
     const rateLimited = vi.fn<typeof fetch>(async () => new Response("", { status: 429 }));
     await expect(importRecipeFromLink(LINK_PARAMS, rateLimited)).rejects.toMatchObject({ reason: "rate-limited" });
+  });
+});
+
+/**
+ * Diagnostics (owner's 2026-08-25 report): the six previously-identical
+ * "couldn't make sense of what came back" throw sites must now each carry a
+ * distinguishable `diagnostic.cause`, the key must never appear in one under
+ * any failure path, and a photo import's diagnostic must never carry a raw
+ * base64 payload. These pin the invariants the owner's brief calls out by
+ * name, on top of the behavioural tests above.
+ */
+describe("RecipeImportError diagnostics", () => {
+  async function causeOf(promise: Promise<unknown>): Promise<ImportFailureCause | undefined> {
+    try {
+      await promise;
+      throw new Error("expected the import to reject");
+    } catch (err) {
+      expect(err).toBeInstanceOf(RecipeImportError);
+      return (err as RecipeImportError).diagnostic?.cause;
+    }
+  }
+
+  it("tells apart all six previously-collapsed causes", async () => {
+    const unparseableBody = vi.fn<typeof fetch>(async () => new Response("not json at all {{{", { status: 200, headers: { "Content-Type": "application/json" } }));
+    expect(await causeOf(importRecipeFromText(PARAMS, unparseableBody))).toBe("unparseable-body");
+
+    const missingContent = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [] }));
+    expect(await causeOf(importRecipeFromText(PARAMS, missingContent))).toBe("missing-content");
+
+    const contentNotJson = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: "Sorry, I can't help with that." } }] }));
+    expect(await causeOf(importRecipeFromText(PARAMS, contentNotJson))).toBe("content-not-json");
+
+    const schemaMismatchContent = JSON.stringify({
+      isRecipe: true,
+      name: "X",
+      servings: null,
+      prepMinutes: null,
+      cookMinutes: null,
+      ingredients: [{ name: "x", amount: "lots", unit: null, note: "" }],
+      steps: [],
+    });
+    const schemaMismatch = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: schemaMismatchContent } }] }));
+    expect(await causeOf(importRecipeFromText(PARAMS, schemaMismatch))).toBe("schema-mismatch");
+
+    const noIngredientsContent = JSON.stringify({
+      isRecipe: true,
+      name: "Garlic Rice",
+      servings: null,
+      prepMinutes: null,
+      cookMinutes: null,
+      ingredients: [],
+      steps: [{ description: "Cook it." }],
+    });
+    const noIngredients = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: noIngredientsContent } }] }));
+    expect(await causeOf(importRecipeFromText(PARAMS, noIngredients))).toBe("no-ingredients");
+
+    const badStatus = vi.fn<typeof fetch>(async () => new Response("internal error", { status: 500 }));
+    expect(await causeOf(importRecipeFromText(PARAMS, badStatus))).toBe("bad-status");
+  });
+
+  it("never leaks the API key into a diagnostic, on any failure path", async () => {
+    const secretParams = { ...PARAMS, apiKey: "sk-this-must-never-appear-anywhere" };
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("boom", { status: 500 }));
+    try {
+      await importRecipeFromText(secretParams, fetchImpl);
+      throw new Error("expected rejection");
+    } catch (err) {
+      const diagnostic = (err as RecipeImportError).diagnostic;
+      expect(diagnostic).toBeDefined();
+      const serialized = JSON.stringify(diagnostic);
+      expect(serialized).not.toContain("sk-this-must-never-appear-anywhere");
+      expect(diagnostic!.request.headers.Authorization).toBe("[redacted]");
+    }
+  });
+
+  it("attaches a diagnostic with the HTTP status, response body preview, and elapsed time for a bad-status failure", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("server on fire", { status: 500, statusText: "Internal Server Error" }));
+    try {
+      await importRecipeFromText(PARAMS, fetchImpl);
+      throw new Error("expected rejection");
+    } catch (err) {
+      const diagnostic = (err as RecipeImportError).diagnostic!;
+      expect(diagnostic.httpStatus).toBe(500);
+      expect(diagnostic.responseBodyPreview).toContain("server on fire");
+      expect(diagnostic.elapsedMs).toBeGreaterThanOrEqual(0);
+      expect(diagnostic.request.url).toBe("https://api.example.com/v1/chat/completions");
+      expect(diagnostic.request.model).toBe("gpt-4o-mini");
+    }
+  });
+
+  it("carries structured field/expected/received detail for a schema-mismatch failure", async () => {
+    const badContent = JSON.stringify({
+      isRecipe: true,
+      name: "X",
+      servings: "a lot",
+      prepMinutes: null,
+      cookMinutes: null,
+      ingredients: [{ name: "garlic", amount: 1, unit: "piece", note: "" }],
+      steps: [{ description: "Cook it." }],
+    });
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: badContent } }] }));
+    try {
+      await importRecipeFromText(PARAMS, fetchImpl);
+      throw new Error("expected rejection");
+    } catch (err) {
+      const diagnostic = (err as RecipeImportError).diagnostic!;
+      expect(diagnostic.validation).toMatchObject({ field: "servings", expected: expect.stringContaining("number"), received: expect.stringContaining("a lot") });
+    }
+  });
+
+  it("never carries a raw base64 image payload in a photo import's diagnostic, and stays a sane size", async () => {
+    const hugeFakeJpeg = `data:image/jpeg;base64,${"A".repeat(400_000)}`;
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response("nope", { status: 500 }));
+    try {
+      await importRecipeFromPhotos({ ...PHOTO_PARAMS, photos: [hugeFakeJpeg, hugeFakeJpeg, hugeFakeJpeg] }, fetchImpl);
+      throw new Error("expected rejection");
+    } catch (err) {
+      const diagnostic = (err as RecipeImportError).diagnostic!;
+      const serialized = JSON.stringify(diagnostic);
+      expect(serialized).not.toContain("A".repeat(1000));
+      // Three ~300KB photos would be roughly a megabyte raw; the diagnostic must stay tiny.
+      expect(serialized.length).toBeLessThan(5000);
+    }
+  });
+
+  it("reports sending/waiting/reading/checking progress, in order, with non-decreasing elapsed time", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => jsonResponse({ choices: [{ message: { content: VALID_DRAFT_CONTENT } }] }));
+    const stages: ImportProgressStage[] = [];
+    let lastElapsed = -1;
+    await importRecipeFromText(PARAMS, fetchImpl, (stage, elapsedMs) => {
+      stages.push(stage);
+      expect(elapsedMs).toBeGreaterThanOrEqual(lastElapsed);
+      lastElapsed = elapsedMs;
+    });
+    expect(stages).toEqual(["sending", "waiting", "reading", "checking"]);
   });
 });

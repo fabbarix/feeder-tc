@@ -413,3 +413,92 @@ test("photo mode's own copy never uses jargon", async ({ page }) => {
     await expect(page.getByText(jargon, { exact: false })).toHaveCount(0);
   }
 });
+
+/**
+ * Diagnostics (owner's 2026-08-25 report): progress while a request is in
+ * flight, and a "Show details" disclosure once a request fails — the plain
+ * headline stays the only thing visible by default, so the whole-page
+ * jargon sweeps above (lines ~223, ~412) still pass unmodified: the
+ * disclosure's own body simply never mounts until a household taps it open.
+ */
+async function mockRecipeReaderFetchDelayed(page: Page, status: number, body: unknown, delayMs: number): Promise<void> {
+  await page.addInitScript(
+    ([baseUrl, responseStatus, responseBody, delay]) => {
+      const realFetch = window.fetch.bind(window);
+      window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : input.toString();
+        if (url.startsWith(baseUrl as string)) {
+          await new Promise((resolve) => setTimeout(resolve, delay as number));
+          return new Response(JSON.stringify(responseBody), {
+            status: responseStatus as number,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return realFetch(input, init);
+      };
+    },
+    [MOCK_BASE_URL, status, body, delayMs],
+  );
+}
+
+test("shows live progress with an elapsed time while a request is in flight", async ({ page }) => {
+  await mockRecipeReaderFetchDelayed(page, 200, VALID_RESPONSE_BODY, 2000);
+  await enterReadyShell(page);
+  await configureProvider(page);
+
+  await page.getByLabel("Paste the recipe here").fill("Garlic Rice\n2 cloves garlic\nCook the rice with garlic.");
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page.getByText(/Waiting for a reply…/)).toBeVisible();
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+});
+
+test("a failure offers 'Show details', collapsed by default, revealing the address, status, cause and a copy action — never the password", async ({
+  page,
+}) => {
+  await mockRecipeReaderFetch(page, 500, "server exploded");
+  await enterReadyShell(page);
+  await configureProvider(page);
+
+  await page.getByLabel("Paste the recipe here").fill("Anything at all.");
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+  await expect(page.getByRole("button", { name: "Show details" })).toBeVisible();
+
+  // Collapsed by default — none of the diagnostic vocabulary is visible yet.
+  await expect(page.getByText(MOCK_BASE_URL)).toHaveCount(0);
+  await expect(page.getByText("test-key")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Show details" }).click();
+  await expect(page.getByText(MOCK_BASE_URL, { exact: false })).toBeVisible();
+  await expect(page.getByText(/status 500/i)).toBeVisible();
+  await expect(page.getByText(/unexpected status/i)).toBeVisible();
+  // The password/API key never appears anywhere on the page, expanded or not.
+  await expect(page.getByText("test-key")).toHaveCount(0);
+  await expect(page.getByText("[redacted]", { exact: false })).toBeVisible();
+
+  await expect(page.getByRole("button", { name: "Copy to clipboard" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clear this history" })).toBeVisible();
+});
+
+test("distinguishes a not-valid-JSON reply from a valid-but-empty-ingredients reply in the diagnostic panel", async ({ page }) => {
+  await mockRecipeReaderFetch(page, 200, { choices: [{ message: { content: "Sorry, I can't help with that." } }] });
+  await enterReadyShell(page);
+  await configureProvider(page);
+
+  await page.getByLabel("Paste the recipe here").fill("Something.");
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+  await page.getByRole("button", { name: "Show details" }).click();
+  await expect(page.getByText(/prose instead of the structured reply/i)).toBeVisible();
+});
+
+test("clearing the history removes the disclosure entirely", async ({ page }) => {
+  await mockRecipeReaderFetch(page, 500, "boom");
+  await enterReadyShell(page);
+  await configureProvider(page);
+
+  await page.getByLabel("Paste the recipe here").fill("Anything.");
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+  await page.getByRole("button", { name: "Show details" }).click();
+  await page.getByRole("button", { name: "Clear this history" }).click();
+  await expect(page.getByRole("button", { name: "Show details" })).toHaveCount(0);
+});

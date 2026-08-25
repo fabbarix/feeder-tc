@@ -34,8 +34,51 @@
  * plain-language sentence a cook actually reads (no "endpoint," "token,"
  * "model," "API," or "schema" — CLAUDE.md's jargon rule, `error-messages.ts`
  * pattern from `src/sheets`).
+ *
+ * **Diagnostics (owner's 2026-08-25 report):** every `RecipeImportError`
+ * also carries an optional `diagnostic` (`./diagnostics.ts`'s
+ * `RecipeImportDiagnostic`) — the plain-language `message` above stays the
+ * only thing a cook has to read, but a household debugging their own server
+ * gets the actual request/response underneath, one tap away
+ * (`RecipeImport.tsx`'s "Show details"). Six previously-identical
+ * "couldn't make sense of what came back" throw sites (one per request
+ * path × {response body wasn't JSON, no content field, content wasn't
+ * JSON} plus one shared schema-mismatch/no-ingredients pair from
+ * `match.ts`) are now told apart by `diagnostic.cause`
+ * (`ImportFailureCause`, `./diagnostics.ts`):
+ *
+ *  - `unparseable-body` — the HTTP response body itself wasn't valid JSON.
+ *  - `missing-content` — valid JSON, but no `choices[0].message.content`
+ *    (Chat Completions) / `output_text` (Responses) could be found in it.
+ *  - `content-not-json` — that content existed but wasn't itself valid
+ *    JSON ("the reply was prose, not the structured object asked for").
+ *  - `schema-mismatch` — valid JSON, but didn't match the requested shape
+ *    (`match.ts`'s `validateRecipeImportResponse`, now with structured
+ *    field/expected/received detail attached).
+ *  - `no-ingredients` — valid, correctly-shaped JSON with zero ingredient
+ *    lines (`match.ts`'s newest check — this used to fail silently into
+ *    the same bucket as every other schema problem).
+ *  - `bad-status` — reached the address, but got back a status this client
+ *    doesn't already have its own headline for (401/403/429/404 all keep
+ *    their own specific `reason`s; anything else lands here).
+ *
+ * A raw API key never reaches a diagnostic (`diagnostics.ts`'s
+ * `redactHeaders` strips it before a request summary is ever built) and a
+ * photo import's request body never carries its base64 payloads into one
+ * either (`summarizeRequestBody` replaces each `data:image/...` part with a
+ * size/dimensions summary) — see that module's own doc comment for the
+ * invariant this file leans on.
  */
 import { validateRecipeImportResponse, type ParsedRecipeDraft } from "./match.ts";
+import {
+  finalizeDiagnostic,
+  redactHeaders,
+  summarizeRequestBody,
+  type ImportFailureCause,
+  type ImportProgressStage,
+  type ImportRequestSummary,
+  type RecipeImportDiagnostic,
+} from "./diagnostics.ts";
 
 export type RecipeImportErrorReason =
   | "not-configured"
@@ -50,14 +93,55 @@ export type RecipeImportErrorReason =
 
 export class RecipeImportError extends Error {
   readonly reason: RecipeImportErrorReason;
-  constructor(reason: RecipeImportErrorReason, message: string) {
+  /** The debugging detail behind this failure — see this file's own doc comment. Absent only for `not-configured`/`offline`/`daily-limit`, which never reach the network at all. */
+  readonly diagnostic?: RecipeImportDiagnostic;
+  constructor(reason: RecipeImportErrorReason, message: string, diagnostic?: RecipeImportDiagnostic) {
     super(message);
     this.name = "RecipeImportError";
     this.reason = reason;
+    if (diagnostic !== undefined) this.diagnostic = diagnostic;
   }
 }
 
+/** Drops any `undefined` field rather than assigning it explicitly — required under `exactOptionalPropertyTypes`, and incidentally exactly right for the diagnostic anyway: a validation failure with no particular field (e.g. "not a recipe") should have no `validation` keys at all, not a `{field: undefined}` noise. */
+function validationDetail(validation: {
+  readonly field?: string;
+  readonly expected?: string;
+  readonly received?: string;
+}): { readonly field?: string; readonly expected?: string; readonly received?: string } {
+  return {
+    ...(validation.field !== undefined ? { field: validation.field } : {}),
+    ...(validation.expected !== undefined ? { expected: validation.expected } : {}),
+    ...(validation.received !== undefined ? { received: validation.received } : {}),
+  };
+}
+
 const REQUEST_TIMEOUT_MS = 30_000;
+
+/** Progress-callback shape shared by all three request functions — `RecipeImport.tsx` uses this to show "Sending your recipe… 3s" style copy while a request (which can easily run fifteen seconds or more) is in flight. */
+export type ImportProgressCallback = (stage: ImportProgressStage, elapsedMs: number) => void;
+
+function reportProgress(onProgress: ImportProgressCallback | undefined, stage: ImportProgressStage, startedAtMs: number): void {
+  onProgress?.(stage, Date.now() - startedAtMs);
+}
+
+function errorDiagnostic(
+  startedAtMs: number,
+  request: ImportRequestSummary,
+  extra: {
+    readonly httpStatus?: number;
+    readonly httpStatusText?: string;
+    readonly responseBodyText?: string;
+    readonly cause?: ImportFailureCause;
+    readonly validation?: { readonly field?: string; readonly expected?: string; readonly received?: string };
+  } = {},
+): RecipeImportDiagnostic {
+  return finalizeDiagnostic({ outcome: "error", startedAtMs, request, ...extra });
+}
+
+const GENERIC_NETWORK_MESSAGE =
+  "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.";
+const GENERIC_INVALID_RESPONSE_MESSAGE = "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.";
 
 /** DESIGN_RECIPE_IMPORT.md §6's system prompt, verbatim — the model's only instructions. */
 export const RECIPE_IMPORT_SYSTEM_PROMPT =
@@ -144,6 +228,10 @@ function extractMessageContent(json: unknown): string | undefined {
   return typeof content === "string" ? content : undefined;
 }
 
+function chatCompletionsRequestSummary(url: string, model: string, headers: Record<string, string>, body: unknown): ImportRequestSummary {
+  return { url, method: "POST", model, headers: redactHeaders(headers), body: summarizeRequestBody(body) };
+}
+
 /**
  * Sends the one import request and returns a validated draft, or throws a
  * `RecipeImportError`. Never writes anything, never retries on its own —
@@ -152,65 +240,118 @@ function extractMessageContent(json: unknown): string | undefined {
 export async function importRecipeFromText(
   params: ImportRecipeParams,
   fetchImpl: typeof fetch = fetch,
+  onProgress?: ImportProgressCallback,
 ): Promise<ParsedRecipeDraft> {
+  const startedAtMs = Date.now();
+  const url = `${params.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const model = params.model.trim() === "" ? "gpt-4o-mini" : params.model;
+  const requestBody = buildRequestBody(params);
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${params.apiKey}` };
+  const request = chatCompletionsRequestSummary(url, model, headers, requestBody);
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  reportProgress(onProgress, "sending", startedAtMs);
 
   let response: Response;
   try {
-    response = await fetchImpl(`${params.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${params.apiKey}` },
-      body: JSON.stringify(buildRequestBody(params)),
-      signal: controller.signal,
-    });
+    reportProgress(onProgress, "waiting", startedAtMs);
+    response = await fetchImpl(url, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
   } catch {
     if (controller.signal.aborted) {
-      throw new RecipeImportError("timeout", "That took too long — try again, or check the address in Settings.");
+      throw new RecipeImportError(
+        "timeout",
+        "That took too long — try again, or check the address in Settings.",
+        errorDiagnostic(startedAtMs, request),
+      );
     }
-    throw new RecipeImportError(
-      "network",
-      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
-    );
+    throw new RecipeImportError("network", GENERIC_NETWORK_MESSAGE, errorDiagnostic(startedAtMs, request));
   } finally {
     clearTimeout(timer);
   }
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new RecipeImportError("unauthorized", "That password wasn't accepted — check it's typed correctly, or that it hasn't expired.");
+      throw new RecipeImportError(
+        "unauthorized",
+        "That password wasn't accepted — check it's typed correctly, or that it hasn't expired.",
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText }),
+      );
     }
     if (response.status === 429) {
-      throw new RecipeImportError("rate-limited", "The service you're using to read recipes is busy right now — try again in a moment.");
+      throw new RecipeImportError(
+        "rate-limited",
+        "The service you're using to read recipes is busy right now — try again in a moment.",
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText }),
+      );
     }
+    const bodyText = await response.text().catch(() => "");
     throw new RecipeImportError(
       "network",
-      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
+      GENERIC_NETWORK_MESSAGE,
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: response.status,
+        httpStatusText: response.statusText,
+        responseBodyText: bodyText,
+        cause: "bad-status",
+      }),
+    );
+  }
+
+  reportProgress(onProgress, "reading", startedAtMs);
+  const bodyText = await response.text().catch(() => undefined);
+  if (bodyText === undefined) {
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, cause: "unparseable-body" }),
     );
   }
 
   let json: unknown;
   try {
-    json = await response.json();
+    json = JSON.parse(bodyText);
   } catch {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "unparseable-body" }),
+    );
   }
 
   const content = extractMessageContent(json);
   if (content === undefined) {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "missing-content" }),
+    );
   }
 
+  reportProgress(onProgress, "checking", startedAtMs);
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "content-not-json" }),
+    );
   }
 
   const validation = validateRecipeImportResponse(parsed);
   if (!validation.ok) {
-    throw new RecipeImportError("invalid-response", validation.reason);
+    throw new RecipeImportError(
+      "invalid-response",
+      validation.reason,
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: response.status,
+        responseBodyText: bodyText,
+        cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
+        validation: validationDetail(validation),
+      }),
+    );
   }
   return validation.draft;
 }
@@ -269,70 +410,126 @@ function buildPhotoRequestBody(params: ImportRecipeFromPhotosParams): unknown {
  * call, same timeout/error-mapping/validation shape as `importRecipeFromText`
  * (this is the Chat Completions endpoint, not the Responses API — no browser
  * tool is involved in reading a photo). Returns a validated draft, or throws
- * a `RecipeImportError`.
+ * a `RecipeImportError`. The photos never reach a diagnostic as themselves —
+ * `chatCompletionsRequestSummary` runs the same body through
+ * `summarizeRequestBody`, which replaces every `image_url.url` data URI with
+ * a size/dimensions summary before it is attached to anything.
  */
 export async function importRecipeFromPhotos(
   params: ImportRecipeFromPhotosParams,
   fetchImpl: typeof fetch = fetch,
+  onProgress?: ImportProgressCallback,
 ): Promise<ParsedRecipeDraft> {
+  const startedAtMs = Date.now();
+  const url = `${params.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const model = params.model.trim() === "" ? "gpt-4o-mini" : params.model;
+  const requestBody = buildPhotoRequestBody(params);
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${params.apiKey}` };
+  const request = chatCompletionsRequestSummary(url, model, headers, requestBody);
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  reportProgress(onProgress, "sending", startedAtMs);
 
   let response: Response;
   try {
-    response = await fetchImpl(`${params.baseUrl.replace(/\/+$/, "")}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${params.apiKey}` },
-      body: JSON.stringify(buildPhotoRequestBody(params)),
-      signal: controller.signal,
-    });
+    reportProgress(onProgress, "waiting", startedAtMs);
+    response = await fetchImpl(url, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
   } catch {
     if (controller.signal.aborted) {
-      throw new RecipeImportError("timeout", "That took too long — try again, or check the address in Settings.");
+      throw new RecipeImportError(
+        "timeout",
+        "That took too long — try again, or check the address in Settings.",
+        errorDiagnostic(startedAtMs, request),
+      );
     }
-    throw new RecipeImportError(
-      "network",
-      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
-    );
+    throw new RecipeImportError("network", GENERIC_NETWORK_MESSAGE, errorDiagnostic(startedAtMs, request));
   } finally {
     clearTimeout(timer);
   }
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new RecipeImportError("unauthorized", "That password wasn't accepted — check it's typed correctly, or that it hasn't expired.");
+      throw new RecipeImportError(
+        "unauthorized",
+        "That password wasn't accepted — check it's typed correctly, or that it hasn't expired.",
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText }),
+      );
     }
     if (response.status === 429) {
-      throw new RecipeImportError("rate-limited", "The service you're using to read recipes is busy right now — try again in a moment.");
+      throw new RecipeImportError(
+        "rate-limited",
+        "The service you're using to read recipes is busy right now — try again in a moment.",
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText }),
+      );
     }
+    const bodyText = await response.text().catch(() => "");
     throw new RecipeImportError(
       "network",
-      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
+      GENERIC_NETWORK_MESSAGE,
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: response.status,
+        httpStatusText: response.statusText,
+        responseBodyText: bodyText,
+        cause: "bad-status",
+      }),
+    );
+  }
+
+  reportProgress(onProgress, "reading", startedAtMs);
+  const bodyText = await response.text().catch(() => undefined);
+  if (bodyText === undefined) {
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, cause: "unparseable-body" }),
     );
   }
 
   let json: unknown;
   try {
-    json = await response.json();
+    json = JSON.parse(bodyText);
   } catch {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "unparseable-body" }),
+    );
   }
 
   const content = extractMessageContent(json);
   if (content === undefined) {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "missing-content" }),
+    );
   }
 
+  reportProgress(onProgress, "checking", startedAtMs);
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "content-not-json" }),
+    );
   }
 
   const validation = validateRecipeImportResponse(parsed);
   if (!validation.ok) {
-    throw new RecipeImportError("invalid-response", validation.reason);
+    throw new RecipeImportError(
+      "invalid-response",
+      validation.reason,
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: response.status,
+        responseBodyText: bodyText,
+        cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
+        validation: validationDetail(validation),
+      }),
+    );
   }
   return validation.draft;
 }
@@ -434,6 +631,9 @@ function extractResponsesErrorMessage(json: unknown): string | undefined {
   return typeof message === "string" ? message : undefined;
 }
 
+const TOOL_UNSUPPORTED_MESSAGE =
+  "This address doesn't seem to support reading a recipe straight from a link. Turn off “This address can open a web link” in Settings and paste the recipe's text instead, or use an address that supports it.";
+
 /**
  * Sends the one link-import request and returns a validated draft, or
  * throws a `RecipeImportError`. Reuses `validateRecipeImportResponse` from
@@ -443,66 +643,97 @@ function extractResponsesErrorMessage(json: unknown): string | undefined {
 export async function importRecipeFromLink(
   params: ImportRecipeFromLinkParams,
   fetchImpl: typeof fetch = fetch,
+  onProgress?: ImportProgressCallback,
 ): Promise<ParsedRecipeDraft> {
+  const startedAtMs = Date.now();
+  const url = `${params.baseUrl.replace(/\/+$/, "")}/responses`;
+  const model = params.model.trim() === "" ? "gpt-4o-mini" : params.model;
+  const requestBody = buildLinkRequestBody(params);
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${params.apiKey}` };
+  const request: ImportRequestSummary = { url, method: "POST", model, headers: redactHeaders(headers), body: summarizeRequestBody(requestBody) };
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  reportProgress(onProgress, "sending", startedAtMs);
 
   let response: Response;
   try {
-    response = await fetchImpl(`${params.baseUrl.replace(/\/+$/, "")}/responses`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${params.apiKey}` },
-      body: JSON.stringify(buildLinkRequestBody(params)),
-      signal: controller.signal,
-    });
+    reportProgress(onProgress, "waiting", startedAtMs);
+    response = await fetchImpl(url, { method: "POST", headers, body: JSON.stringify(requestBody), signal: controller.signal });
   } catch {
     if (controller.signal.aborted) {
-      throw new RecipeImportError("timeout", "That took too long — try again, or check the address in Settings.");
+      throw new RecipeImportError(
+        "timeout",
+        "That took too long — try again, or check the address in Settings.",
+        errorDiagnostic(startedAtMs, request),
+      );
     }
-    throw new RecipeImportError(
-      "network",
-      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
-    );
+    throw new RecipeImportError("network", GENERIC_NETWORK_MESSAGE, errorDiagnostic(startedAtMs, request));
   } finally {
     clearTimeout(timer);
   }
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new RecipeImportError("unauthorized", "That password wasn't accepted — check it's typed correctly, or that it hasn't expired.");
+      throw new RecipeImportError(
+        "unauthorized",
+        "That password wasn't accepted — check it's typed correctly, or that it hasn't expired.",
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText }),
+      );
     }
     if (response.status === 429) {
-      throw new RecipeImportError("rate-limited", "The service you're using to read recipes is busy right now — try again in a moment.");
+      throw new RecipeImportError(
+        "rate-limited",
+        "The service you're using to read recipes is busy right now — try again in a moment.",
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText }),
+      );
     }
     if (response.status === 404) {
       throw new RecipeImportError(
         "tool-unsupported",
-        "This address doesn't seem to support reading a recipe straight from a link. Turn off “This address can open a web link” in Settings and paste the recipe's text instead, or use an address that supports it.",
+        TOOL_UNSUPPORTED_MESSAGE,
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText }),
       );
     }
-    let bodyText = "";
-    try {
-      bodyText = await response.text();
-    } catch {
-      // Body unreadable — bodyText stays "", falls through to the generic network error below.
-    }
+    const bodyText = await response.text().catch(() => "");
     if (response.status === 400 && TOOL_UNSUPPORTED_HINT.test(bodyText)) {
       throw new RecipeImportError(
         "tool-unsupported",
-        "This address doesn't seem to support reading a recipe straight from a link. Turn off “This address can open a web link” in Settings and paste the recipe's text instead, or use an address that supports it.",
+        TOOL_UNSUPPORTED_MESSAGE,
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, httpStatusText: response.statusText, responseBodyText: bodyText }),
       );
     }
     throw new RecipeImportError(
       "network",
-      "Feeder couldn't reach that address from your browser. If this is your own server, check it's running and that it allows requests from this website.",
+      GENERIC_NETWORK_MESSAGE,
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: response.status,
+        httpStatusText: response.statusText,
+        responseBodyText: bodyText,
+        cause: "bad-status",
+      }),
+    );
+  }
+
+  reportProgress(onProgress, "reading", startedAtMs);
+  const bodyText = await response.text().catch(() => undefined);
+  if (bodyText === undefined) {
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, cause: "unparseable-body" }),
     );
   }
 
   let json: unknown;
   try {
-    json = await response.json();
+    json = JSON.parse(bodyText);
   } catch {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "unparseable-body" }),
+    );
   }
 
   const errorMessage = extractResponsesErrorMessage(json);
@@ -510,27 +741,50 @@ export async function importRecipeFromLink(
     if (TOOL_UNSUPPORTED_HINT.test(errorMessage)) {
       throw new RecipeImportError(
         "tool-unsupported",
-        "This address doesn't seem to support reading a recipe straight from a link. Turn off “This address can open a web link” in Settings and paste the recipe's text instead, or use an address that supports it.",
+        TOOL_UNSUPPORTED_MESSAGE,
+        errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText }),
       );
     }
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "missing-content" }),
+    );
   }
 
   const content = extractResponsesOutputText(json);
   if (content === undefined) {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "missing-content" }),
+    );
   }
 
+  reportProgress(onProgress, "checking", startedAtMs);
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
   } catch {
-    throw new RecipeImportError("invalid-response", "Feeder couldn't make sense of what came back. You can try again, or add this recipe by hand.");
+    throw new RecipeImportError(
+      "invalid-response",
+      GENERIC_INVALID_RESPONSE_MESSAGE,
+      errorDiagnostic(startedAtMs, request, { httpStatus: response.status, responseBodyText: bodyText, cause: "content-not-json" }),
+    );
   }
 
   const validation = validateRecipeImportResponse(parsed);
   if (!validation.ok) {
-    throw new RecipeImportError("invalid-response", validation.reason);
+    throw new RecipeImportError(
+      "invalid-response",
+      validation.reason,
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: response.status,
+        responseBodyText: bodyText,
+        cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
+        validation: validationDetail(validation),
+      }),
+    );
   }
   return validation.draft;
 }

@@ -67,7 +67,21 @@ export interface ParsedRecipeDraft {
 
 export type RecipeImportValidation =
   | { readonly ok: true; readonly draft: ParsedRecipeDraft }
-  | { readonly ok: false; readonly reason: string };
+  | {
+      readonly ok: false;
+      readonly reason: string;
+      /**
+       * Structured detail for the diagnostic panel
+       * (`diagnostics.ts`'s `ImportValidationDetail`) — "which field, what
+       * was expected, what arrived" (owner's requirement). Optional: the
+       * two branches with their own distinct headline (not-a-recipe, no
+       * ingredients) don't need a field/expected/received breakdown to be
+       * told apart, so they omit this rather than inventing one.
+       */
+      readonly field?: string;
+      readonly expected?: string;
+      readonly received?: string;
+    };
 
 function isEntryUnit(value: unknown): value is EntryUnit {
   return typeof value === "string" && RECIPE_IMPORT_ENTRY_UNITS.includes(value as EntryUnit);
@@ -75,6 +89,17 @@ function isEntryUnit(value: unknown): value is EntryUnit {
 
 function isFiniteOrNull(value: unknown): value is number | null {
   return value === null || (typeof value === "number" && Number.isFinite(value));
+}
+
+/** A short, safe-to-display description of whatever a field actually held — for the diagnostic panel's "what arrived" line. Never dumps an arbitrarily large object; a string/number/boolean shows its literal value, anything else shows only its shape. */
+function describeReceived(value: unknown): string {
+  if (value === undefined) return "(missing)";
+  if (value === null) return "null";
+  if (typeof value === "string") return value.length > 80 ? `"${value.slice(0, 80)}…"` : `"${value}"`;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return `an array of ${value.length}`;
+  if (typeof value === "object") return "an object";
+  return typeof value;
 }
 
 function validateIngredientLine(raw: unknown, index: number): ParsedIngredientLine | { reason: string } {
@@ -113,31 +138,108 @@ export function validateRecipeImportResponse(raw: unknown): RecipeImportValidati
   }
   const value = raw as Record<string, unknown>;
   if (typeof value.isRecipe !== "boolean") {
-    return { ok: false, reason: "The response was missing whether this was even a recipe." };
+    return {
+      ok: false,
+      reason: "The response was missing whether this was even a recipe.",
+      field: "isRecipe",
+      expected: "boolean",
+      received: describeReceived(value.isRecipe),
+    };
   }
   if (!value.isRecipe) {
     return { ok: false, reason: "That doesn't look like a recipe — try pasting just the ingredients and steps." };
   }
   if (typeof value.name !== "string" || value.name.trim() === "") {
-    return { ok: false, reason: "The response had no recipe name." };
+    return {
+      ok: false,
+      reason: "The response had no recipe name.",
+      field: "name",
+      expected: "a non-empty string",
+      received: describeReceived(value.name),
+    };
   }
-  if (!isFiniteOrNull(value.servings)) return { ok: false, reason: "The response had a servings value that wasn't a number." };
-  if (!isFiniteOrNull(value.prepMinutes)) return { ok: false, reason: "The response had a prep time that wasn't a number." };
-  if (!isFiniteOrNull(value.cookMinutes)) return { ok: false, reason: "The response had a cook time that wasn't a number." };
-  if (!Array.isArray(value.ingredients)) return { ok: false, reason: "The response had no ingredient list." };
-  if (!Array.isArray(value.steps)) return { ok: false, reason: "The response had no steps." };
+  if (!isFiniteOrNull(value.servings)) {
+    return {
+      ok: false,
+      reason: "The response had a servings value that wasn't a number.",
+      field: "servings",
+      expected: "a number or null",
+      received: describeReceived(value.servings),
+    };
+  }
+  if (!isFiniteOrNull(value.prepMinutes)) {
+    return {
+      ok: false,
+      reason: "The response had a prep time that wasn't a number.",
+      field: "prepMinutes",
+      expected: "a number or null",
+      received: describeReceived(value.prepMinutes),
+    };
+  }
+  if (!isFiniteOrNull(value.cookMinutes)) {
+    return {
+      ok: false,
+      reason: "The response had a cook time that wasn't a number.",
+      field: "cookMinutes",
+      expected: "a number or null",
+      received: describeReceived(value.cookMinutes),
+    };
+  }
+  if (!Array.isArray(value.ingredients)) {
+    return {
+      ok: false,
+      reason: "The response had no ingredient list.",
+      field: "ingredients",
+      expected: "an array",
+      received: describeReceived(value.ingredients),
+    };
+  }
+  if (!Array.isArray(value.steps)) {
+    return {
+      ok: false,
+      reason: "The response had no steps.",
+      field: "steps",
+      expected: "an array",
+      received: describeReceived(value.steps),
+    };
+  }
 
   const ingredients: ParsedIngredientLine[] = [];
   for (const [index, rawLine] of value.ingredients.entries()) {
     const result = validateIngredientLine(rawLine, index);
-    if ("reason" in result) return { ok: false, reason: `The response wasn't usable: ${result.reason}.` };
+    if ("reason" in result) {
+      return {
+        ok: false,
+        reason: `The response wasn't usable: ${result.reason}.`,
+        field: `ingredients[${index}]`,
+        received: describeReceived(rawLine),
+      };
+    }
     ingredients.push(result);
+  }
+
+  // A distinct cause from "malformed ingredient list" — the reply was
+  // shaped correctly, JSON-valid, and every line would have parsed fine,
+  // there just weren't any (the owner's report names this explicitly:
+  // "returned a recipe with no ingredients" is a different problem from
+  // any of the shape failures above, and must read as one on the
+  // diagnostic panel even though `error-messages.ts` gives it the same
+  // plain headline as any other invalid-response).
+  if (ingredients.length === 0) {
+    return { ok: false, reason: "The response listed no ingredients at all." };
   }
 
   const steps: ParsedRecipeStep[] = [];
   for (const [index, rawStep] of value.steps.entries()) {
     const result = validateStep(rawStep, index);
-    if ("reason" in result) return { ok: false, reason: `The response wasn't usable: ${result.reason}.` };
+    if ("reason" in result) {
+      return {
+        ok: false,
+        reason: `The response wasn't usable: ${result.reason}.`,
+        field: `steps[${index}]`,
+        received: describeReceived(rawStep),
+      };
+    }
     steps.push(result);
   }
 
