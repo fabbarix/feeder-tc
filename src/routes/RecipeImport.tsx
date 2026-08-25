@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { importRecipeFromLink, importRecipeFromPhotos, importRecipeFromText } from "../import/client.ts";
+import { RecipeImportError, importRecipeFromLink, importRecipeFromPhotos, importRecipeFromText } from "../import/client.ts";
 import { describeRecipeImportError } from "../import/error-messages.ts";
 import { getImportUsage, isRecipeImportConfigured, readRecipeImportSettings, recordImportUsed } from "../import/settings.ts";
 import { resolveImportedLines, type ParsedRecipeDraft, type ResolvedIngredientLine } from "../import/match.ts";
@@ -12,10 +12,31 @@ import {
   readPendingPhotoImport,
   type PendingPhotoImport,
 } from "../import/photo-queue.ts";
+import {
+  clearImportHistory,
+  formatDiagnosticForClipboard,
+  IMPORT_FAILURE_CAUSE_LABEL,
+  IMPORT_PROGRESS_LABEL,
+  readImportHistory,
+  recordImportAttempt,
+  type ImportProgressStage,
+  type RecipeImportDiagnostic,
+} from "../import/diagnostics.ts";
 import { createBrowserConnectivityMonitor } from "../sync/index.ts";
 import { SegmentedControl } from "../ui/components";
 import { Camera, Trash } from "../ui/icons";
 import styles from "./forms.module.css";
+
+/** "3s" / "42s" — the progress line's own elapsed-time readout. Not routed through `date-format.ts` (that module formats calendar dates, not a running stopwatch), and deliberately whole seconds only — a live request has nothing more precise worth showing. */
+function formatElapsedSeconds(elapsedMs: number): string {
+  return `${Math.max(0, Math.round(elapsedMs / 1000))}s`;
+}
+
+/** Records one failed attempt to the small capped history and re-reads it back — the diagnostic disclosure and the "recent attempts" list are the same data, so a failure just seen and a failure from ten minutes ago render identically. */
+function recordAndRefreshHistory(diagnostic: RecipeImportDiagnostic, setHistory: (history: readonly RecipeImportDiagnostic[]) => void): void {
+  recordImportAttempt(diagnostic);
+  setHistory(readImportHistory());
+}
 
 /** Handed to `RecipeEditor` via router `state` — never persisted, discarded the moment the editor unmounts or the household navigates away without saving. */
 export interface RecipeImportDraft {
@@ -76,6 +97,33 @@ export function RecipeImport() {
   const [error, setError] = useState<string | undefined>(undefined);
   const [online, setOnline] = useState(() => createBrowserConnectivityMonitor().isOnline());
 
+  // Progress (owner's 2026-08-25 report: "a person watching a spinner for
+  // twenty seconds with no idea whether it is stuck deserves better").
+  // `progressStage` moves through the same four steps `client.ts`'s
+  // `onProgress` reports; `nowMs` ticks independently so the elapsed-time
+  // readout keeps moving during the long "waiting for a reply" stretch,
+  // not just at the four stage transitions themselves.
+  const [progressStage, setProgressStage] = useState<ImportProgressStage | undefined>(undefined);
+  const [requestStartedAtMs, setRequestStartedAtMs] = useState<number | undefined>(undefined);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!loading) return;
+    const id = window.setInterval(() => setNowMs(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, [loading]);
+
+  const progressElapsedMs = requestStartedAtMs !== undefined ? nowMs - requestStartedAtMs : 0;
+
+  // Diagnostics, behind a disclosure (owner's 2026-08-25 report): the plain
+  // headline above stays the only thing a cook has to read, but a household
+  // debugging their own server gets the actual request/response one tap
+  // away. `history` IS the disclosure's content — the attempt that just
+  // failed is simply its newest entry, so there is only one list to build,
+  // not a "current failure" panel plus a separate "past failures" panel.
+  const [history, setHistory] = useState<readonly RecipeImportDiagnostic[]>(() => readImportHistory());
+  const [detailsOpen, setDetailsOpen] = useState(false);
+
   const [photos, setPhotos] = useState<readonly CapturedPhoto[]>([]);
   const [photoProcessing, setPhotoProcessing] = useState(false);
   const photoIdCounter = useRef(0);
@@ -102,14 +150,20 @@ export function RecipeImport() {
       if (cancelled) return;
       setPendingPhotoImport(pending);
       setLoading(true);
+      setRequestStartedAtMs(Date.now());
+      setProgressStage(undefined);
       try {
         const today = clock.today();
-        const parsed = await importRecipeFromPhotos({
-          baseUrl: pending.settings.baseUrl,
-          apiKey: pending.settings.apiKey,
-          model: pending.settings.model,
-          photos: pending.photos,
-        });
+        const parsed = await importRecipeFromPhotos(
+          {
+            baseUrl: pending.settings.baseUrl,
+            apiKey: pending.settings.apiKey,
+            model: pending.settings.model,
+            photos: pending.photos,
+          },
+          undefined,
+          setProgressStage,
+        );
         recordImportUsed(today);
         const { rows: catalogue } = await store.ingredients.readAll();
         const lines = resolveImportedLines(parsed.ingredients, catalogue);
@@ -119,11 +173,14 @@ export function RecipeImport() {
         navigate("/recipes/new", { state: { importedDraft: draft } });
       } catch (err) {
         clearPendingPhotoImport();
+        if (err instanceof RecipeImportError && err.diagnostic) recordAndRefreshHistory(err.diagnostic, setHistory);
         if (!cancelled) setError(describeRecipeImportError(err));
       } finally {
         if (!cancelled) {
           setLoading(false);
           setPendingPhotoImport(undefined);
+          setRequestStartedAtMs(undefined);
+          setProgressStage(undefined);
         }
       }
     })();
@@ -187,23 +244,33 @@ export function RecipeImport() {
     if (disabledReason !== undefined || loading) return;
     setLoading(true);
     setError(undefined);
+    setRequestStartedAtMs(Date.now());
+    setProgressStage(undefined);
     try {
       const today = clock.today();
       const parsed = usingLink
-        ? await importRecipeFromLink({
-            baseUrl: settings.baseUrl,
-            apiKey: settings.apiKey,
-            model: settings.model,
-            url: trimmedUrl,
-            ...(settings.toolServerUrl.trim() !== "" ? { toolServerUrl: settings.toolServerUrl.trim() } : {}),
-          })
-        : await importRecipeFromText({
-            baseUrl: settings.baseUrl,
-            apiKey: settings.apiKey,
-            model: settings.model,
-            pastedText: text,
-            ...(!settings.linkEnabled && trimmedUrl !== "" ? { sourceUrl: trimmedUrl } : {}),
-          });
+        ? await importRecipeFromLink(
+            {
+              baseUrl: settings.baseUrl,
+              apiKey: settings.apiKey,
+              model: settings.model,
+              url: trimmedUrl,
+              ...(settings.toolServerUrl.trim() !== "" ? { toolServerUrl: settings.toolServerUrl.trim() } : {}),
+            },
+            undefined,
+            setProgressStage,
+          )
+        : await importRecipeFromText(
+            {
+              baseUrl: settings.baseUrl,
+              apiKey: settings.apiKey,
+              model: settings.model,
+              pastedText: text,
+              ...(!settings.linkEnabled && trimmedUrl !== "" ? { sourceUrl: trimmedUrl } : {}),
+            },
+            undefined,
+            setProgressStage,
+          );
       recordImportUsed(today);
       const { rows: catalogue } = await store.ingredients.readAll();
       const lines = resolveImportedLines(parsed.ingredients, catalogue);
@@ -215,9 +282,12 @@ export function RecipeImport() {
       };
       navigate("/recipes/new", { state: { importedDraft: draft } });
     } catch (err) {
+      if (err instanceof RecipeImportError && err.diagnostic) recordAndRefreshHistory(err.diagnostic, setHistory);
       setError(describeRecipeImportError(err));
     } finally {
       setLoading(false);
+      setRequestStartedAtMs(undefined);
+      setProgressStage(undefined);
     }
   }
 
@@ -265,23 +335,32 @@ export function RecipeImport() {
     }
 
     setLoading(true);
+    setRequestStartedAtMs(Date.now());
+    setProgressStage(undefined);
     try {
       const today = clock.today();
-      const parsed = await importRecipeFromPhotos({
-        baseUrl: settings.baseUrl,
-        apiKey: settings.apiKey,
-        model: settings.model,
-        photos: photoUrls,
-      });
+      const parsed = await importRecipeFromPhotos(
+        {
+          baseUrl: settings.baseUrl,
+          apiKey: settings.apiKey,
+          model: settings.model,
+          photos: photoUrls,
+        },
+        undefined,
+        setProgressStage,
+      );
       recordImportUsed(today);
       const { rows: catalogue } = await store.ingredients.readAll();
       const lines = resolveImportedLines(parsed.ingredients, catalogue);
       const draft: RecipeImportDraft = { parsed, lines, sourceText: "", photos: photoUrls };
       navigate("/recipes/new", { state: { importedDraft: draft } });
     } catch (err) {
+      if (err instanceof RecipeImportError && err.diagnostic) recordAndRefreshHistory(err.diagnostic, setHistory);
       setError(describeRecipeImportError(err));
     } finally {
       setLoading(false);
+      setRequestStartedAtMs(undefined);
+      setProgressStage(undefined);
     }
   }
 
@@ -295,6 +374,100 @@ export function RecipeImport() {
       : loading
         ? "Reading the recipe…"
         : "Read this recipe";
+
+  // Sending/waiting/reading/checking, with a running elapsed time — a
+  // request here can easily take fifteen seconds, longer with photos, and a
+  // silent spinner leaves no way to tell "working" from "stuck".
+  const progressLine = loading ? (
+    <p className={styles.hint} role="status">
+      {IMPORT_PROGRESS_LABEL[progressStage ?? "sending"]} ({formatElapsedSeconds(progressElapsedMs)})
+    </p>
+  ) : null;
+
+  // Diagnostics, behind a disclosure (owner's 2026-08-25 report): the plain
+  // sentence above stays the headline; this is the "Show details" a
+  // household debugging their own server actually needs — which address
+  // and model, the HTTP status, the response body, which of the six causes
+  // this was, and (for a schema mismatch) which field/expected/received.
+  // Never the API key (`redactHeaders`, already applied before a
+  // diagnostic is ever built) and never a raw photo payload
+  // (`summarizeRequestBody`, same guarantee).
+  const diagnosticsPanel =
+    history.length > 0 ? (
+      <div className={styles.sectionCard}>
+        <button
+          type="button"
+          className={styles.importSourceToggle}
+          onClick={() => setDetailsOpen((open) => !open)}
+          aria-expanded={detailsOpen}
+        >
+          <span className={styles.sectionCardHead} style={{ borderBottom: "none" }}>
+            {detailsOpen ? "Hide details" : "Show details"}
+          </span>
+        </button>
+        {detailsOpen ? (
+          <div className={styles.sectionCardBody}>
+            <p className={styles.hint}>
+              What Feeder actually sent and got back, most recent first — never your password, never a photo&rsquo;s
+              raw data.
+            </p>
+            {history.map((entry, index) => (
+              <div key={`${entry.startedAt}-${index}`} className={styles.line} style={{ flexDirection: "column", alignItems: "stretch" }}>
+                <p className={styles.importSourceText} style={{ fontFamily: "var(--mono)", fontSize: "var(--fs-body-sm)" }}>
+                  {entry.request.method} {entry.request.url} — model {entry.request.model}
+                  <br />
+                  {entry.httpStatus !== undefined ? `Status ${entry.httpStatus}${entry.httpStatusText ? ` ${entry.httpStatusText}` : ""} — ` : ""}
+                  {entry.cause ? IMPORT_FAILURE_CAUSE_LABEL[entry.cause] : "No further detail recorded."}
+                  {entry.validation?.field ? (
+                    <>
+                      <br />
+                      Field: {entry.validation.field}
+                      {entry.validation.expected ? ` — expected ${entry.validation.expected}` : ""}
+                      {entry.validation.received ? `, received ${entry.validation.received}` : ""}
+                    </>
+                  ) : null}
+                  <br />
+                  Took {(entry.elapsedMs / 1000).toFixed(1)}s, at {entry.startedAt}
+                  <br />
+                  Authorization header: {entry.request.headers.Authorization ?? "(none sent)"}
+                </p>
+                <details>
+                  <summary className={styles.hint}>Request body</summary>
+                  <pre className={styles.importSourceText} style={{ fontFamily: "var(--mono)", fontSize: "var(--fs-body-sm)", overflowX: "auto" }}>
+                    {JSON.stringify(entry.request.body, null, 2)}
+                  </pre>
+                </details>
+                {entry.responseBodyPreview !== undefined ? (
+                  <details>
+                    <summary className={styles.hint}>Response body</summary>
+                    <pre className={styles.importSourceText} style={{ fontFamily: "var(--mono)", fontSize: "var(--fs-body-sm)", overflowX: "auto" }}>
+                      {entry.responseBodyPreview}
+                    </pre>
+                  </details>
+                ) : null}
+                <button
+                  type="button"
+                  className={styles.addButton}
+                  onClick={() => void navigator.clipboard.writeText(formatDiagnosticForClipboard(entry))}
+                >
+                  Copy to clipboard
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className={styles.cancelButton}
+              onClick={() => {
+                clearImportHistory();
+                setHistory([]);
+              }}
+            >
+              Clear this history
+            </button>
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
   return (
     <section>
@@ -390,6 +563,8 @@ export function RecipeImport() {
               {error}
             </p>
           ) : null}
+          {progressLine}
+          {diagnosticsPanel}
 
           <div className={styles.actions}>
             <button type="submit" className={styles.saveButton} disabled={disabledReason !== undefined || loading}>
@@ -501,6 +676,8 @@ export function RecipeImport() {
               {error}
             </p>
           ) : null}
+          {progressLine}
+          {diagnosticsPanel}
 
           <div className={styles.actions}>
             <button
