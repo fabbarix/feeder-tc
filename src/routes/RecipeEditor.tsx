@@ -44,6 +44,7 @@ import styles from "./forms.module.css";
 import detailStyles from "./recipe-detail.module.css";
 import stepStyles from "./recipe-steps.module.css";
 import { describeError as messageOf } from "../sheets/error-messages.ts";
+import { describeSourceVerificationForReview } from "../import/source-verification.ts";
 import type { RecipeImportDraft } from "./RecipeImport.tsx";
 
 /**
@@ -766,6 +767,38 @@ export function RecipeEditor() {
               ) : null}
             </div>
           ) : null}
+
+          {/* Make link import prove it read the page the cook asked for
+              (owner's 2026-08-25 report, real evidence: a link import
+              searched instead of opening the requested address, and only
+              happened to cite the right one). `client.ts`'s
+              `importRecipeFromLink` classifies what the reply itself
+              reported against the address typed in — this renders that
+              classification, proportionately: nothing at all when
+              confirmed (a warning on the normal case just trains people to
+              ignore warnings), a quiet note when the reply gave no way to
+              tell, and a plain, visible-but-not-alarming notice — never a
+              blocking dialog — naming both addresses when they genuinely
+              differ. Link imports only; the text/photo paths have nothing
+              to verify and `sourceVerification` is simply absent for them. */}
+          {importDraft?.parsed.sourceVerification && importDraft.sourceUrl
+            ? (() => {
+                const notice = describeSourceVerificationForReview(importDraft.parsed.sourceVerification, importDraft.sourceUrl);
+                if (!notice) return null;
+                return notice.tone === "warning" ? (
+                  <div className={styles.sectionCard}>
+                    <div className={styles.sectionCardHead}>Check where this came from</div>
+                    <div className={styles.sectionCardBody}>
+                      <p className={styles.sourceMismatch} role="alert">
+                        {notice.text}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className={styles.hint}>{notice.text}</p>
+                );
+              })()
+            : null}
 
           {/* Tolerant parsing (owner's 2026-08-25 report): every shape-fix
               `normalize.ts` applied before this draft could even validate —

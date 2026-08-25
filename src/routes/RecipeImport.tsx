@@ -272,6 +272,12 @@ export function RecipeImport() {
             setProgressStage,
           );
       recordImportUsed(today);
+      // Make link import prove it read the page the cook asked for
+      // (owner's 2026-08-25 report): a link import's own diagnostic is
+      // recorded here even on success — the mismatch this feature exists to
+      // catch is not a `RecipeImportError` (the draft still comes back
+      // usable), so it would otherwise never reach "Show details" at all.
+      if (parsed.diagnostic) recordAndRefreshHistory(parsed.diagnostic, setHistory);
       const { rows: catalogue } = await store.ingredients.readAll();
       const lines = resolveImportedLines(parsed.ingredients, catalogue);
       const draft: RecipeImportDraft = {
@@ -424,6 +430,25 @@ export function RecipeImport() {
                       Field: {entry.validation.field}
                       {entry.validation.expected ? ` — expected ${entry.validation.expected}` : ""}
                       {entry.validation.received ? `, received ${entry.validation.received}` : ""}
+                    </>
+                  ) : null}
+                  {entry.toolActions && entry.toolActions.length > 0 ? (
+                    <>
+                      <br />
+                      {entry.toolActions.map((action, actionIndex) => (
+                        <span key={actionIndex}>
+                          {actionIndex > 0 ? <br /> : null}
+                          Action: {action.type}
+                          {action.query ? ` — searched "${action.query}"` : ""}
+                          {action.sources && action.sources.length > 0 ? ` — ${action.sources.length} candidate page(s)` : ""}
+                        </span>
+                      ))}
+                    </>
+                  ) : null}
+                  {entry.citedUrls && entry.citedUrls.length > 0 ? (
+                    <>
+                      <br />
+                      Actually read: {entry.citedUrls.join(", ")}
                     </>
                   ) : null}
                   <br />

@@ -95,8 +95,10 @@ import {
   type ImportFailureCause,
   type ImportProgressStage,
   type ImportRequestSummary,
+  type ImportToolActionSummary,
   type RecipeImportDiagnostic,
 } from "./diagnostics.ts";
+import { classifySourceVerification, extractResponsesProvenance, type ResponsesProvenance } from "./source-verification.ts";
 
 export type RecipeImportErrorReason =
   | "not-configured"
@@ -152,6 +154,8 @@ function errorDiagnostic(
     readonly responseBodyText?: string;
     readonly cause?: ImportFailureCause;
     readonly validation?: { readonly field?: string; readonly expected?: string; readonly received?: string };
+    readonly toolActions?: readonly ImportToolActionSummary[];
+    readonly citedUrls?: readonly string[];
   } = {},
 ): RecipeImportDiagnostic {
   return finalizeDiagnostic({ outcome: "error", startedAtMs, request, ...extra });
@@ -286,12 +290,19 @@ function chatCompletionsRequestSummary(url: string, model: string, headers: Reco
  * callers reaches this exact code whether or not the endpoint claims to
  * honour it.
  */
+/** Link-import-only provenance to fold into a validation-failure diagnostic — absent for the text/photo paths, which never have any. */
+interface LinkProvenanceForDiagnostic {
+  readonly toolActions?: readonly ImportToolActionSummary[];
+  readonly citedUrls?: readonly string[];
+}
+
 function parseValidateAndCoerce(
   content: string,
   startedAtMs: number,
   request: ImportRequestSummary,
   responseStatus: number,
   bodyText: string,
+  linkProvenance: LinkProvenanceForDiagnostic = {},
 ): ParsedRecipeDraft {
   const { text: jsonText, fenceStripped } = stripJsonFence(content);
 
@@ -302,7 +313,12 @@ function parseValidateAndCoerce(
     throw new RecipeImportError(
       "invalid-response",
       GENERIC_INVALID_RESPONSE_MESSAGE,
-      errorDiagnostic(startedAtMs, request, { httpStatus: responseStatus, responseBodyText: bodyText, cause: "content-not-json" }),
+      errorDiagnostic(startedAtMs, request, {
+        httpStatus: responseStatus,
+        responseBodyText: bodyText,
+        cause: "content-not-json",
+        ...linkProvenance,
+      }),
     );
   }
 
@@ -325,6 +341,7 @@ function parseValidateAndCoerce(
         responseBodyText: bodyText,
         cause: validation.reason === "The response listed no ingredients at all." ? "no-ingredients" : "schema-mismatch",
         validation: validationDetail(validation),
+        ...linkProvenance,
       }),
     );
   }
@@ -603,10 +620,26 @@ export interface ImportRecipeFromLinkParams {
   readonly toolServerUrl?: string;
 }
 
-/** Same instructions as the text path, plus telling the model it has to fetch the page rather than being handed it. */
+/**
+ * Same instructions as the text path, plus telling the model it has to fetch
+ * the page rather than being handed it.
+ *
+ * Hardened per the owner's 2026-08-25 report: real evidence shows this
+ * request can come back having *searched* for the page instead of opening
+ * it directly — one search, five candidate pages, several sharing the same
+ * dish's name under a different recipe. It happened to open the right one
+ * that time, but nothing about a search step guarantees that. Spelling out
+ * "open this exact address, do not search for it" costs nothing and cannot
+ * by itself force the point — OpenAI's native `web_search_preview` tool
+ * gives the model that choice with no way for this client to take it away
+ * (`buildLinkTools`'s own doc comment) — which is exactly why
+ * `./source-verification.ts` exists to detect the outcome afterwards rather
+ * than trust the instruction was followed.
+ */
 const RECIPE_IMPORT_LINK_INSTRUCTION =
-  "Open the page at the given address and read the recipe from its content, then extract it exactly as instructed above. " +
-  "If the page doesn't load, or isn't a recipe once you've read it, set isRecipe to false.";
+  "Open this exact address and read the recipe from its content — do not search for it, and do not substitute a " +
+  "different page even if it looks like the same recipe. Then extract it exactly as instructed above. If the page " +
+  "doesn't load, or isn't a recipe once you've read it, set isRecipe to false.";
 
 /**
  * The one browsing tool this feature ever asks for, in whichever of the two
@@ -833,6 +866,30 @@ export async function importRecipeFromLink(
     );
   }
 
+  // Provenance (owner's 2026-08-25 report, "make link import prove it read
+  // the page the cook asked for"): whatever the reply itself says it did —
+  // a `web_search_call`'s action type/candidates, and any `url_citation`
+  // annotation naming the page it actually read. Folded into every
+  // remaining diagnostic below (success or a later validation failure
+  // alike), and — on success — turned into the plain classification
+  // `RecipeEditor.tsx` reads to decide whether the review screen needs to
+  // say anything (`./source-verification.ts`'s own doc comment).
+  const provenance: ResponsesProvenance = extractResponsesProvenance(json);
+  const linkProvenance: LinkProvenanceForDiagnostic = {
+    ...(provenance.toolActions.length > 0 ? { toolActions: provenance.toolActions } : {}),
+    ...(provenance.citedUrls.length > 0 ? { citedUrls: provenance.citedUrls } : {}),
+  };
+
   reportProgress(onProgress, "checking", startedAtMs);
-  return parseValidateAndCoerce(content, startedAtMs, request, response.status, bodyText);
+  const draft = parseValidateAndCoerce(content, startedAtMs, request, response.status, bodyText, linkProvenance);
+  const sourceVerification = classifySourceVerification(params.url, provenance);
+  const diagnostic = finalizeDiagnostic({
+    outcome: "ok",
+    startedAtMs,
+    request,
+    httpStatus: response.status,
+    responseBodyText: bodyText,
+    ...linkProvenance,
+  });
+  return { ...draft, sourceVerification, diagnostic };
 }

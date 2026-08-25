@@ -27,6 +27,8 @@
  */
 import { convertEntryToCanonical, type ConversionDensity } from "../domain/units.ts";
 import type { EntryUnit, Ingredient, IngredientId } from "../domain/types.ts";
+import type { SourceVerification } from "./source-verification.ts";
+import type { RecipeImportDiagnostic } from "./diagnostics.ts";
 
 /** The exact `EntryUnit` vocabulary the request schema constrains the model to (DESIGN_RECIPE_IMPORT.md §5/§6) — never widened ad hoc. */
 export const RECIPE_IMPORT_ENTRY_UNITS: readonly EntryUnit[] = [
@@ -72,6 +74,25 @@ export interface ParsedRecipeDraft {
    * a coercion is never invisible to the cook (owner's requirement).
    */
   readonly coercions: readonly string[];
+  /**
+   * Link imports only (`importRecipeFromLink`) — whether the reply's own
+   * account of what it read (`./source-verification.ts`) matches the
+   * address the cook actually gave. Absent for the text/photo paths, which
+   * have no fetched page to verify at all. `RecipeEditor.tsx` reads this to
+   * decide whether the review screen needs to say anything about it — see
+   * `SourceVerificationStatus`'s own doc comment for what each value means.
+   */
+  readonly sourceVerification?: SourceVerification;
+  /**
+   * Link imports only — a successful attempt's own diagnostic, in the exact
+   * shape a failed one already carries on `RecipeImportError`
+   * (`./diagnostics.ts`), including whatever `toolActions`/`citedUrls` the
+   * reply reported. `RecipeImport.tsx` records this into the same capped
+   * history a failure would, so a puzzling *successful* import (the mismatch
+   * this field's sibling `sourceVerification` flags) can still be explained
+   * afterwards from "Show details," not only an outright failure.
+   */
+  readonly diagnostic?: RecipeImportDiagnostic;
 }
 
 export type RecipeImportValidation =
