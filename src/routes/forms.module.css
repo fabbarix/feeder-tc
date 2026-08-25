@@ -490,6 +490,22 @@
   padding: var(--space-1) var(--space-2);
 }
 
+/* Make link import prove it read the page the cook asked for (owner's
+   2026-08-25 report): the review screen's "this wasn't the page you asked
+   for" notice — same warn tokens as `.photoAdvisory` (visible without being
+   alarming — no `--danger`, this is never a hard failure), but block-level
+   with its own padding/radius since it stands alone in a card rather than
+   sitting inline under a thumbnail. */
+.sourceMismatch {
+  font-size: var(--fs-body-sm);
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+}
+
 /* Review screen (RecipeEditor.tsx): the imported photo(s) shown beside the
    ingredient lines so quantities can be checked against the source image —
    DESIGN_RECIPE_IMPORT_PHOTO.md's single most important review-screen

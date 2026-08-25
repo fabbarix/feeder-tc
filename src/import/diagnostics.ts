@@ -75,6 +75,18 @@ export interface ImportValidationDetail {
   readonly received?: string;
 }
 
+/**
+ * Link imports only — one `web_search_call` the reply reported, reduced to
+ * diagnostic-panel vocabulary (`./source-verification.ts`'s own doc comment:
+ * "so a puzzling import can be explained afterwards"). Never redacted —
+ * these are page addresses and search queries, not credentials.
+ */
+export interface ImportToolActionSummary {
+  readonly type: string;
+  readonly query?: string;
+  readonly sources?: readonly string[];
+}
+
 export interface ImportRequestSummary {
   readonly url: string;
   readonly method: string;
@@ -96,6 +108,10 @@ export interface RecipeImportDiagnostic {
   readonly responseBodyPreview?: string;
   readonly cause?: ImportFailureCause;
   readonly validation?: ImportValidationDetail;
+  /** Link imports only — every `web_search_call` the reply reported, in order (`./source-verification.ts`). Absent (not empty) when the reply reported none at all, or for the text/photo paths, which never carry this. */
+  readonly toolActions?: readonly ImportToolActionSummary[];
+  /** Link imports only — every `url_citation` URL the reply's own annotations named, in order. This is what `sourceVerification` on the resulting draft is computed from — recorded here too so a puzzling import can be explained afterwards from the diagnostic panel alone, without re-deriving it. */
+  readonly citedUrls?: readonly string[];
 }
 
 const REDACTED = "[redacted]";
@@ -221,6 +237,8 @@ export function finalizeDiagnostic(input: {
   readonly responseBodyText?: string;
   readonly cause?: ImportFailureCause;
   readonly validation?: ImportValidationDetail;
+  readonly toolActions?: readonly ImportToolActionSummary[];
+  readonly citedUrls?: readonly string[];
   readonly now?: number;
 }): RecipeImportDiagnostic {
   const now = input.now ?? Date.now();
@@ -234,6 +252,8 @@ export function finalizeDiagnostic(input: {
     ...(input.responseBodyText !== undefined ? { responseBodyPreview: truncateForDiagnostic(input.responseBodyText) } : {}),
     ...(input.cause !== undefined ? { cause: input.cause } : {}),
     ...(input.validation !== undefined ? { validation: input.validation } : {}),
+    ...(input.toolActions !== undefined && input.toolActions.length > 0 ? { toolActions: input.toolActions } : {}),
+    ...(input.citedUrls !== undefined && input.citedUrls.length > 0 ? { citedUrls: input.citedUrls } : {}),
   };
 }
 
@@ -263,6 +283,17 @@ export function formatDiagnosticForClipboard(diagnostic: RecipeImportDiagnostic)
     if (field !== undefined) lines.push(`Field: ${field}`);
     if (expected !== undefined) lines.push(`Expected: ${expected}`);
     if (received !== undefined) lines.push(`Received: ${received}`);
+  }
+  if (diagnostic.toolActions && diagnostic.toolActions.length > 0) {
+    lines.push("Tool actions:");
+    for (const action of diagnostic.toolActions) {
+      const queryPart = action.query !== undefined ? ` — query: ${action.query}` : "";
+      const sourcesPart = action.sources !== undefined ? ` — sources: ${action.sources.join(", ")}` : "";
+      lines.push(`- ${action.type}${queryPart}${sourcesPart}`);
+    }
+  }
+  if (diagnostic.citedUrls && diagnostic.citedUrls.length > 0) {
+    lines.push(`Cited URL(s): ${diagnostic.citedUrls.join(", ")}`);
   }
   lines.push("");
   lines.push("Request headers:");

@@ -559,3 +559,173 @@ test("clearing the history removes the disclosure entirely", async ({ page }) =>
   await page.getByRole("button", { name: "Clear this history" }).click();
   await expect(page.getByRole("button", { name: "Show details" })).toHaveCount(0);
 });
+
+/**
+ * Make link import prove it read the page the cook asked for (owner's
+ * 2026-08-25 report, real evidence): the owner imported
+ * `.../Spaghetti-alla-Norma.html` and the endpoint searched instead of
+ * opening it — one `web_search_call` with five candidate pages, several
+ * sharing the dish's name under a different recipe — but its reply's own
+ * `url_citation` annotation named the exact page requested. This is the
+ * fixture that MUST classify as confirmed and show nothing extra: a false
+ * warning on the normal case is the exact noise problem the feature exists
+ * to avoid.
+ */
+const REQUESTED_URL = "https://ricette.giallozafferano.it/Spaghetti-alla-Norma.html";
+
+function responsesBodyWithProvenance(recipeJson: unknown, output: unknown[]): unknown {
+  return { status: "completed", output: [...output, { type: "message", role: "assistant", content: [] }], output_text: JSON.stringify(recipeJson) };
+}
+
+const NORMA_RECIPE_JSON = {
+  isRecipe: true,
+  name: "Spaghetti alla Norma",
+  servings: 4,
+  prepMinutes: 15,
+  cookMinutes: 25,
+  ingredients: [{ name: "spaghetti", amount: 400, unit: "g", note: "" }],
+  steps: [{ description: "Fry the eggplant, toss with tomato and ricotta salata." }],
+};
+
+const OWNER_EVIDENCE_RESPONSES_BODY = {
+  status: "completed",
+  output_text: JSON.stringify(NORMA_RECIPE_JSON),
+  output: [
+    {
+      type: "web_search_call",
+      id: "ws_1",
+      status: "completed",
+      action: {
+        type: "search",
+        query: "Spaghetti alla Norma recipe site:ricette.giallozafferano.it",
+        sources: [
+          { url: "https://ricette.giallozafferano.it/Spaghetti-alla-Norma.html" },
+          { url: "https://ricette.giallozafferano.it/Pasta-alla-Norma-in-bianco.html" },
+          { url: "https://ricette.giallozafferano.it/Pasta-alla-Norma-leggera.html" },
+        ],
+      },
+    },
+    {
+      type: "message",
+      role: "assistant",
+      content: [
+        {
+          type: "output_text",
+          text: JSON.stringify(NORMA_RECIPE_JSON),
+          annotations: [{ type: "url_citation", url: REQUESTED_URL, title: "Spaghetti alla Norma" }],
+        },
+      ],
+    },
+  ],
+};
+
+test("the owner's real search-then-cite evidence classifies as confirmed — no warning shown at all", async ({ page }) => {
+  await mockRecipeReaderResponsesFetch(page, 200, OWNER_EVIDENCE_RESPONSES_BODY);
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: true });
+
+  await page.getByLabel("Or, the web address to read this recipe from").fill(REQUESTED_URL);
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+  await expect(page.getByLabel("Name")).toHaveValue("Spaghetti alla Norma");
+
+  // Confirmed — nothing extra on the review screen at all.
+  await expect(page.getByText("Check where this came from")).toHaveCount(0);
+  await expect(page.getByText(/can't confirm exactly which page/i)).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+
+  // The diagnostic panel still records what actually happened, for a
+  // household that wants to check it later, even though nothing was wrong —
+  // back on the import screen itself (`RecipeImport.tsx`'s own "Show
+  // details" disclosure, not the review screen just left behind).
+  await goToImportScreen(page);
+  await page.getByRole("button", { name: "Show details" }).click();
+  await expect(page.getByText(/Action: search/)).toBeVisible();
+  await expect(page.getByText(/Actually read:.*Spaghetti-alla-Norma\.html/)).toBeVisible();
+});
+
+test("a link import that read a different page on the same site warns plainly, naming both addresses, without blocking saving", async ({
+  page,
+}) => {
+  const mismatchBody = responsesBodyWithProvenance(NORMA_RECIPE_JSON, [
+    {
+      type: "message",
+      role: "assistant",
+      content: [
+        {
+          type: "output_text",
+          text: JSON.stringify(NORMA_RECIPE_JSON),
+          annotations: [
+            { type: "url_citation", url: "https://ricette.giallozafferano.it/Pasta-alla-Norma-leggera.html", title: "Pasta alla Norma leggera" },
+          ],
+        },
+      ],
+    },
+  ]);
+  await mockRecipeReaderResponsesFetch(page, 200, mismatchBody);
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: true });
+
+  await page.getByLabel("Or, the web address to read this recipe from").fill(REQUESTED_URL);
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+  await expect(page.getByText("Check where this came from")).toBeVisible();
+  const banner = page.getByRole("alert");
+  await expect(banner).toContainText(REQUESTED_URL);
+  await expect(banner).toContainText("https://ricette.giallozafferano.it/Pasta-alla-Norma-leggera.html");
+  await expect(banner).toContainText(/different page on the same website/i);
+
+  // Never jargon on the plain review screen.
+  for (const jargon of ["url_citation", "web_search_call", "annotation"]) {
+    await expect(page.getByText(jargon, { exact: false })).toHaveCount(0);
+  }
+
+  // Not blocking — the recipe still saves normally.
+  await expect(page.getByRole("button", { name: "Save recipe" })).toBeEnabled();
+});
+
+test("a link import that read a page on a different website altogether warns, naming the different site", async ({ page }) => {
+  const mismatchBody = responsesBodyWithProvenance(NORMA_RECIPE_JSON, [
+    {
+      type: "message",
+      role: "assistant",
+      content: [
+        {
+          type: "output_text",
+          text: JSON.stringify(NORMA_RECIPE_JSON),
+          annotations: [{ type: "url_citation", url: "https://cookpad.com/us/recipes/12345", title: "Something else entirely" }],
+        },
+      ],
+    },
+  ]);
+  await mockRecipeReaderResponsesFetch(page, 200, mismatchBody);
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: true });
+
+  await page.getByLabel("Or, the web address to read this recipe from").fill(REQUESTED_URL);
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+  const banner = page.getByRole("alert");
+  await expect(banner).toContainText(/different website than the one you gave/i);
+  await expect(banner).toContainText("https://cookpad.com/us/recipes/12345");
+});
+
+test("a link import with no citation at all gets only a quiet note, never styled as a warning", async ({ page }) => {
+  // Same shape the other link-import tests in this file already use —
+  // top-level `output_text` only, no `output[]` at all — the common case on
+  // a provider that doesn't report any of this.
+  await mockRecipeReaderResponsesFetch(page, 200, { status: "completed", output_text: JSON.stringify(NORMA_RECIPE_JSON) });
+  await enterReadyShell(page);
+  await configureProvider(page, { linkEnabled: true });
+
+  await page.getByLabel("Or, the web address to read this recipe from").fill(REQUESTED_URL);
+  await page.getByRole("button", { name: "Read this recipe" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/new$/);
+  await expect(page.getByText(/can't confirm exactly which page/i)).toBeVisible();
+  // Quiet — never the boxed "Check where this came from" warning card.
+  await expect(page.getByText("Check where this came from")).toHaveCount(0);
+});
