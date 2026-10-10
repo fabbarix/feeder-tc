@@ -62,6 +62,16 @@ describe("withSlotAdded / withSlotRemoved", () => {
     expect(next.tuesday).toEqual([]);
   });
 
+  it("puts a slot back in meal order, not after dinner", () => {
+    const byDay = slotsByDay([{ day: "monday", slots: ["lunch", "dinner"] }]);
+    expect(withSlotAdded(byDay, "monday", "breakfast").monday).toEqual([
+      "breakfast",
+      "lunch",
+      "dinner",
+    ]);
+    expect(withSlotAdded(byDay, "monday", "snack").monday).toEqual(["lunch", "dinner", "snack"]);
+  });
+
   it("supports a day repeating the same tag (two snacks)", () => {
     const byDay = slotsByDay([{ day: "monday", slots: ["snack"] }]);
     const next = withSlotAdded(byDay, "monday", "snack");

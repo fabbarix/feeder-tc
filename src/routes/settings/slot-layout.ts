@@ -54,8 +54,16 @@ export function layoutFromSlotsByDay(byDay: SlotsByDay): readonly DaySlotLayout[
   return WEEKDAY_ORDER.map((day) => ({ day, slots: byDay[day] }));
 }
 
+/** Meal order within a day — a slot added back lands in its natural place, not after dinner. */
+const MEAL_ORDER: readonly MealTag[] = ["breakfast", "lunch", "dinner", "snack"];
+
+/** Adds `tag` to `day`, after every slot that comes before or alongside it in `MEAL_ORDER` (so a repeat lands next to its twin). */
 export function withSlotAdded(byDay: SlotsByDay, day: Weekday, tag: MealTag): SlotsByDay {
-  return { ...byDay, [day]: [...byDay[day], tag] };
+  const slots = byDay[day];
+  const rank = MEAL_ORDER.indexOf(tag);
+  const at = slots.findIndex((existing) => MEAL_ORDER.indexOf(existing) > rank);
+  const next = at === -1 ? [...slots, tag] : [...slots.slice(0, at), tag, ...slots.slice(at)];
+  return { ...byDay, [day]: next };
 }
 
 /** Removes the slot at `index` within `day`'s list (a day may repeat a tag — e.g. two snacks — so removal is positional, not by tag). */

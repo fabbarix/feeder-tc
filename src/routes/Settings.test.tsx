@@ -5,8 +5,18 @@ import { Settings } from "./Settings.tsx";
 import { ToastProvider } from "../ui/components/Toast/ToastProvider.tsx";
 import { ThemeProvider } from "../ui/theme/ThemeProvider.tsx";
 import { WorkbookContext, type WorkbookContextValue } from "../workbook-context.ts";
-import { createFakeOutbox, createFakeRng, createFakeWorkbookStore, createFixedClock } from "../domain/fakes/index.ts";
-import { makeIsoDate, makeIsoTimestamp, type Settings as SettingsRow, type WorkbookStore } from "../domain/index.ts";
+import {
+  createFakeOutbox,
+  createFakeRng,
+  createFakeWorkbookStore,
+  createFixedClock,
+} from "../domain/fakes/index.ts";
+import {
+  makeIsoDate,
+  makeIsoTimestamp,
+  type Settings as SettingsRow,
+  type WorkbookStore,
+} from "../domain/index.ts";
 
 const NO_SETTINGS_ROW_ERROR = "This meal planner doesn't have any settings saved yet.";
 
@@ -25,7 +35,10 @@ function createStoreMissingSettingsRow(): WorkbookStore {
 function renderSettings(store: WorkbookStore) {
   const contextValue: WorkbookContextValue = {
     store,
-    clock: createFixedClock(makeIsoTimestamp("2026-08-21T12:00:00.000Z"), makeIsoDate("2026-08-21")),
+    clock: createFixedClock(
+      makeIsoTimestamp("2026-08-21T12:00:00.000Z"),
+      makeIsoDate("2026-08-21"),
+    ),
     rng: createFakeRng(1),
     workbookId: "wb-1",
     outbox: createFakeOutbox(),
@@ -71,8 +84,8 @@ describe("Settings — no Settings row yet (WP-31)", () => {
     await user.click(screen.getByRole("button", { name: /set up defaults/i }));
 
     // The full editor mounts once defaults are written.
-    expect(await screen.findByText("Meal slots per day")).toBeInTheDocument();
-    expect(screen.getByLabelText("Fewer — Size")).toBeInTheDocument();
+    expect(await screen.findByText("Meals each day")).toBeInTheDocument();
+    expect(screen.getByLabelText("Fewer — Household size")).toBeInTheDocument();
     expect(screen.queryByText(/no settings saved yet/i)).not.toBeInTheDocument();
   });
 
@@ -115,7 +128,7 @@ describe("Settings — stale-save protection (refresh-before-edit merge)", () =>
     await store.settings.write(initial);
 
     renderSettings(store);
-    await screen.findByText("Meal slots per day");
+    await screen.findByText("Meals each day");
 
     // Another household member (or another tab) adds a Tuesday breakfast
     // slot AFTER this route loaded its own copy of `settings`.
@@ -125,7 +138,7 @@ describe("Settings — stale-save protection (refresh-before-edit merge)", () =>
     });
 
     const user = userEvent.setup();
-    await user.click(screen.getByLabelText("More — Size"));
+    await user.click(screen.getByLabelText("More — Household size"));
 
     await waitFor(async () => {
       const saved = await store.settings.read();

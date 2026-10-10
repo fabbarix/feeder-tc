@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
-import { addDinnerRecipe, bumpServings, dayCard, goToPlan, markSlotCooked, pickMealForEmptySlot } from "./support/plan.ts";
+import {
+  addDinnerRecipe,
+  bumpServings,
+  dayCard,
+  goToPlan,
+  markSlotCooked,
+  pickMealForEmptySlot,
+} from "./support/plan.ts";
 
 // Tablet round-2 review: the weekend band's 4th `.week4` cell (Mon-Thu is
 // full at four real days; Fri-Sun only has three, so the band needed a
@@ -43,7 +50,10 @@ test("weekend corner card shows a reassuring empty state, not a blank panel, and
   // pixel match: this just confirms the empty state doesn't itself balloon.
   const box = await card.boundingBox();
   expect(box).not.toBeNull();
-  expect(box!.height, "empty leftovers card should be short, matching a quiet day card").toBeLessThan(150);
+  expect(
+    box!.height,
+    "empty leftovers card should be short, matching a quiet day card",
+  ).toBeLessThan(150);
 });
 
 test("a fresh leftover from marking a meal cooked appears in the weekend corner card and links to its pantry detail", async ({
@@ -55,8 +65,8 @@ test("a fresh leftover from marking a meal cooked appears in the weekend corner 
   // Household of 4 (default is 2) so scaling up creates a surplus to save
   // as a leftover — same setup as e2e/wp-22-weekly-planning.spec.ts's own
   // "Mark cooked deducts pantry and creates leftovers" scenario.
-  await page.getByRole("button", { name: "More — Size" }).click();
-  await page.getByRole("button", { name: "More — Size" }).click();
+  await page.getByRole("button", { name: "More — Household size" }).click();
+  await page.getByRole("button", { name: "More — Household size" }).click();
   await expect(page.getByText("4 people")).toBeVisible();
 
   await addDinnerRecipe(page, "Chili");

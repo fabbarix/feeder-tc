@@ -3,6 +3,7 @@ import { EmptyState, ErrorState, Skeleton } from "../ui/components";
 import { ThemeControl } from "../ui/theme/ThemeControl";
 import { useSettings } from "./settings/useSettings.ts";
 import { DaySlotEditor } from "./settings/DaySlotEditor.tsx";
+import { SettingsGroup } from "./settings/SettingsGroup.tsx";
 import { RecipeImportSettings } from "./settings/RecipeImportSettings.tsx";
 import { Stepper } from "./Stepper.tsx";
 import {
@@ -68,7 +69,10 @@ export function Settings() {
 
   function updateRepeatExclusionWeeks(weeks: number): void {
     if (!settings) return;
-    void save((current) => ({ ...(current ?? settings), repeatExclusionWeeks: Math.max(0, weeks) }));
+    void save((current) => ({
+      ...(current ?? settings),
+      repeatExclusionWeeks: Math.max(0, weeks),
+    }));
   }
 
   /**
@@ -145,9 +149,51 @@ export function Settings() {
 
       {!loading && settings && byDay ? (
         <div className={styles.layout}>
-          <div className={styles.card}>
-            <div className={styles.cardHead}>Meal slots per day</div>
-            <div>
+          <div className={styles.stack}>
+            <SettingsGroup
+              title="Household"
+              note="Shared with everyone using this meal planner."
+              aside={saving ? <span className={styles.saving}>Saving…</span> : null}
+            >
+              <div className={styles.row}>
+                <Stepper
+                  layout="row"
+                  label="Household size"
+                  hint="Recipes are scaled to this"
+                  unit="people"
+                  unitOne="person"
+                  min={1}
+                  value={settings.householdSize}
+                  onChange={updateHouseholdSize}
+                />
+              </div>
+              <div className={styles.row}>
+                <Stepper
+                  layout="row"
+                  label="Don't repeat within"
+                  hint="Before a recipe comes round again"
+                  unit="weeks"
+                  unitOne="week"
+                  min={0}
+                  value={settings.repeatExclusionWeeks}
+                  onChange={updateRepeatExclusionWeeks}
+                />
+              </div>
+              <div className={styles.row}>
+                <Stepper
+                  layout="row"
+                  label="Wait before reusing leftovers"
+                  hint="Other meals in between"
+                  unit="meals"
+                  unitOne="meal"
+                  min={0}
+                  value={settings.reuseGapSlots ?? DEFAULT_REUSE_GAP_SLOTS}
+                  onChange={updateReuseGapSlots}
+                />
+              </div>
+            </SettingsGroup>
+
+            <SettingsGroup title="Meals each day" note="Which meals Plan fills in on each day.">
               {WEEKDAY_ORDER.map((day) => (
                 <DaySlotEditor
                   key={day}
@@ -157,47 +203,13 @@ export function Settings() {
                   onRemove={(index) => removeSlot(day, index)}
                 />
               ))}
-            </div>
+            </SettingsGroup>
           </div>
 
           <div className={styles.stack}>
-            <div className={styles.card}>
-              <div className={styles.cardHead}>Household</div>
-              <div className={styles.cardBody}>
-                <Stepper
-                  label="Size"
-                  unit="people"
-                  unitOne="person"
-                  min={1}
-                  value={settings.householdSize}
-                  onChange={updateHouseholdSize}
-                />
-                <Stepper
-                  label="Don't repeat within"
-                  unit="weeks"
-                  unitOne="week"
-                  min={0}
-                  value={settings.repeatExclusionWeeks}
-                  onChange={updateRepeatExclusionWeeks}
-                />
-                <Stepper
-                  label="Wait before reusing leftovers"
-                  unit="meals"
-                  unitOne="meal"
-                  min={0}
-                  value={settings.reuseGapSlots ?? DEFAULT_REUSE_GAP_SLOTS}
-                  onChange={updateReuseGapSlots}
-                />
-                {saving ? <p className={styles.fieldLabel}>Saving…</p> : null}
-              </div>
-            </div>
-
-            <div className={styles.card}>
-              <div className={styles.cardHead}>Appearance · this device only</div>
-              <div className={styles.cardBody}>
-                <ThemeControl />
-              </div>
-            </div>
+            <SettingsGroup title="This device">
+              <ThemeControl />
+            </SettingsGroup>
 
             <RecipeImportSettings />
           </div>

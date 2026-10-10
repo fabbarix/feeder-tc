@@ -49,9 +49,9 @@ async function dismissToasts(page: Page): Promise<void> {
 
 /** Removes one slot chip from the Settings slot-layout editor and waits for the removal to land before returning — DaySlotEditor.tsx's `removeSlot` is a real async write (WorkbookStore.settings.write), so two rapid removals without this would race against the same stale `settings` snapshot. */
 async function removeSlotChip(page: Page, day: string, tag: string): Promise<void> {
-  const button = page.getByRole("button", { name: `Remove ${tag} on ${day}` });
+  const button = page.getByRole("button", { name: `${tag} on ${day}`, exact: true });
   await button.click();
-  await expect(button).toHaveCount(0);
+  await expect(button).toHaveAttribute("aria-pressed", "false");
 }
 
 /** Trims the default breakfast/lunch/dinner-every-day layout down to dinner-only, for every day. */
@@ -164,8 +164,8 @@ test("Mark cooked deducts pantry and creates leftovers", async ({ page }) => {
   await enterReadyShell(page, "settings");
 
   // Household of 4 (default is 2 — HANDOVER.md/bootstrap.ts DEFAULT_SETTINGS).
-  await page.getByRole("button", { name: "More — Size" }).click();
-  await page.getByRole("button", { name: "More — Size" }).click();
+  await page.getByRole("button", { name: "More — Household size" }).click();
+  await page.getByRole("button", { name: "More — Household size" }).click();
   await expect(page.getByText("4 people")).toBeVisible();
 
   await addDinnerRecipe(page, "Chili", { ingredient: { name: "Ground beef", amount: "250" } });

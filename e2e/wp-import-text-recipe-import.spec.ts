@@ -64,7 +64,9 @@ async function goToImportScreen(page: Page): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Primary" });
   await nav.getByRole("link", { name: "Recipes", exact: true }).click();
   await page.getByRole("link", { name: "Add from a recipe you found online" }).click();
-  await expect(page.getByRole("heading", { name: "Add from a recipe you found online" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Add from a recipe you found online" }),
+  ).toBeVisible();
 }
 
 async function configureProvider(
@@ -73,13 +75,17 @@ async function configureProvider(
 ): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Primary" });
   await nav.getByRole("link", { name: "Settings" }).click();
+  // The recipe reader is folded behind its summary line on Settings.
+  await page.getByText("Recipe reader", { exact: true }).click();
   await page.getByLabel("The address to send recipes to").fill(MOCK_BASE_URL);
   await page.getByLabel("The password for that address").fill("test-key");
   if (linkEnabled) {
     await page.getByLabel("This address can open a web link, not just read pasted text").check();
   }
   if (toolServerUrl !== undefined) {
-    await page.getByLabel("The address of your own web-reading helper (optional)").fill(toolServerUrl);
+    await page
+      .getByLabel("The address of your own web-reading helper (optional)")
+      .fill(toolServerUrl);
   }
   await goToImportScreen(page);
 }
@@ -91,7 +97,11 @@ async function configureProvider(
  * `importRecipeFromLink`) a different canned answer than `/chat/completions`
  * (the text path) within the same page.
  */
-async function mockRecipeReaderResponsesFetch(page: Page, status: number, body: unknown): Promise<void> {
+async function mockRecipeReaderResponsesFetch(
+  page: Page,
+  status: number,
+  body: unknown,
+): Promise<void> {
   await page.addInitScript(
     ([baseUrl, responseStatus, responseBody]) => {
       const realFetch = window.fetch.bind(window);
@@ -101,9 +111,9 @@ async function mockRecipeReaderResponsesFetch(page: Page, status: number, body: 
           // Stashed for tests that need to see which tool shape was actually
           // sent (e.g. the MCP tool-server shape) — read back afterwards via
           // page.evaluate, never inspected mid-flight.
-          (window as unknown as { __lastResponsesRequestBody?: unknown }).__lastResponsesRequestBody = init?.body
-            ? JSON.parse(init.body as string)
-            : undefined;
+          (
+            window as unknown as { __lastResponsesRequestBody?: unknown }
+          ).__lastResponsesRequestBody = init?.body ? JSON.parse(init.body as string) : undefined;
           return new Response(JSON.stringify(responseBody), {
             status: responseStatus as number,
             headers: { "Content-Type": "application/json" },
@@ -157,10 +167,15 @@ test("importing pasted text prefills the recipe editor, marking a confident matc
   await expect(page.getByText(/As read:.*something rare/)).toBeVisible();
 });
 
-test("the disclosure is shown before any request, and nothing is sent while offline", async ({ page, context }) => {
+test("the disclosure is shown before any request, and nothing is sent while offline", async ({
+  page,
+  context,
+}) => {
   await enterReadyShell(page);
   await configureProvider(page);
-  await expect(page.getByText(/sends this text to the address you set up in settings/i)).toBeVisible();
+  await expect(
+    page.getByText(/sends this text to the address you set up in settings/i),
+  ).toBeVisible();
 
   await context.setOffline(true);
   await expect(page.getByText(/needs to be online/i)).toBeVisible();
@@ -168,7 +183,9 @@ test("the disclosure is shown before any request, and nothing is sent while offl
   await context.setOffline(false);
 });
 
-test("the import action is disabled with a plain explanation until a provider is configured", async ({ page }) => {
+test("the import action is disabled with a plain explanation until a provider is configured", async ({
+  page,
+}) => {
   await enterReadyShell(page);
   await goToImportScreen(page);
   await expect(page.getByText(/set up an address for reading recipes first/i)).toBeVisible();
@@ -177,19 +194,25 @@ test("the import action is disabled with a plain explanation until a provider is
   await expect(page).toHaveURL(/\/settings$/);
 });
 
-test("an unusable response surfaces a plain-language error, never a raw status", async ({ page }) => {
+test("an unusable response surfaces a plain-language error, never a raw status", async ({
+  page,
+}) => {
   await mockRecipeReaderFetch(page, 401, "");
   await enterReadyShell(page);
   await configureProvider(page);
 
-  await page.getByLabel("Paste the recipe here").fill("Anything at all, doesn't matter for this test.");
+  await page
+    .getByLabel("Paste the recipe here")
+    .fill("Anything at all, doesn't matter for this test.");
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
   await expect(page.getByText(/password wasn't accepted/i)).toBeVisible();
   await expect(page.getByText("401")).toHaveCount(0);
 });
 
-test("with the link toggle on, giving a web address instead of pasting reads the recipe straight from the link", async ({ page }) => {
+test("with the link toggle on, giving a web address instead of pasting reads the recipe straight from the link", async ({
+  page,
+}) => {
   await mockRecipeReaderResponsesFetch(page, 200, VALID_RESPONSES_BODY);
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: true });
@@ -197,7 +220,9 @@ test("with the link toggle on, giving a web address instead of pasting reads the
   // The floor is still there, untouched, and left empty for this test.
   await expect(page.getByLabel("Paste the recipe here")).toBeVisible();
 
-  await page.getByLabel("Or, the web address to read this recipe from").fill("https://example.com/garlic-rice");
+  await page
+    .getByLabel("Or, the web address to read this recipe from")
+    .fill("https://example.com/garlic-rice");
   await expect(page.getByText(/feeder will open this page itself/i)).toBeVisible();
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
@@ -211,29 +236,49 @@ test("with the link toggle on, giving a web address instead of pasting reads the
   await expect(page.getByText("Matched from import")).toBeVisible();
 });
 
-test("when the address doesn't actually support opening a link, the error names no protocol", async ({ page }) => {
-  await mockRecipeReaderResponsesFetch(page, 400, { error: { message: "Unknown tool type 'web_search_preview'" } });
+test("when the address doesn't actually support opening a link, the error names no protocol", async ({
+  page,
+}) => {
+  await mockRecipeReaderResponsesFetch(page, 400, {
+    error: { message: "Unknown tool type 'web_search_preview'" },
+  });
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: true });
 
-  await page.getByLabel("Or, the web address to read this recipe from").fill("https://example.com/garlic-rice");
+  await page
+    .getByLabel("Or, the web address to read this recipe from")
+    .fill("https://example.com/garlic-rice");
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
-  await expect(page.getByText(/doesn't seem to support reading a recipe straight from a link/i)).toBeVisible();
+  await expect(
+    page.getByText(/doesn't seem to support reading a recipe straight from a link/i),
+  ).toBeVisible();
   for (const jargon of ["endpoint", "token", "schema", "API", "400"]) {
     await expect(page.getByText(jargon, { exact: false })).toHaveCount(0);
   }
 });
 
-test("a page that turns out not to be a recipe surfaces the same plain message as the text path", async ({ page }) => {
+test("a page that turns out not to be a recipe surfaces the same plain message as the text path", async ({
+  page,
+}) => {
   await mockRecipeReaderResponsesFetch(page, 200, {
     status: "completed",
-    output_text: JSON.stringify({ isRecipe: false, name: "", servings: null, prepMinutes: null, cookMinutes: null, ingredients: [], steps: [] }),
+    output_text: JSON.stringify({
+      isRecipe: false,
+      name: "",
+      servings: null,
+      prepMinutes: null,
+      cookMinutes: null,
+      ingredients: [],
+      steps: [],
+    }),
   });
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: true });
 
-  await page.getByLabel("Or, the web address to read this recipe from").fill("https://example.com/not-a-recipe");
+  await page
+    .getByLabel("Or, the web address to read this recipe from")
+    .fill("https://example.com/not-a-recipe");
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
   await expect(page.getByText(/doesn't look like a recipe/i)).toBeVisible();
@@ -262,19 +307,29 @@ const OWNER_OPENROUTER_REPLY_TEXT =
         { name: "garlic", amount: 4, unit: "cloves", note: null },
         { name: "basil", amount: 1, unit: "bunch", note: null },
       ],
-      steps: ["Wash and dry the eggplant, cut it into slices…", "In the meantime, prepare the tomatoes…"],
+      steps: [
+        "Wash and dry the eggplant, cut it into slices…",
+        "In the meantime, prepare the tomatoes…",
+      ],
     },
     null,
     2,
   ) +
   "\n```";
 
-test("the owner's real fenced, schema-diverging OpenRouter reply still imports, landing on a sensible draft with every fix visible", async ({ page }) => {
-  await mockRecipeReaderResponsesFetch(page, 200, { status: "completed", output_text: OWNER_OPENROUTER_REPLY_TEXT });
+test("the owner's real fenced, schema-diverging OpenRouter reply still imports, landing on a sensible draft with every fix visible", async ({
+  page,
+}) => {
+  await mockRecipeReaderResponsesFetch(page, 200, {
+    status: "completed",
+    output_text: OWNER_OPENROUTER_REPLY_TEXT,
+  });
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: true });
 
-  await page.getByLabel("Or, the web address to read this recipe from").fill("https://ricette.giallozafferano.it/Pasta-alla-Norma.html");
+  await page
+    .getByLabel("Or, the web address to read this recipe from")
+    .fill("https://ricette.giallozafferano.it/Pasta-alla-Norma.html");
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
   await expect(page).toHaveURL(/\/recipes\/new$/);
@@ -296,28 +351,42 @@ test("the owner's real fenced, schema-diverging OpenRouter reply still imports, 
   await expect(page.getByText('Imported note: "cloves"')).toBeVisible();
 });
 
-test("the tool-server field is only offered once the link toggle is on, and stays out of sight otherwise", async ({ page }) => {
+test("the tool-server field is only offered once the link toggle is on, and stays out of sight otherwise", async ({
+  page,
+}) => {
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: false });
   const nav = page.getByRole("navigation", { name: "Primary" });
   await nav.getByRole("link", { name: "Settings" }).click();
-  await expect(page.getByLabel("The address of your own web-reading helper (optional)")).toHaveCount(0);
+  await expect(
+    page.getByLabel("The address of your own web-reading helper (optional)"),
+  ).toHaveCount(0);
 });
 
-test("filling in the tool-server address sends the MCP shape, requesting 'open' but never naming MCP on screen", async ({ page }) => {
+test("filling in the tool-server address sends the MCP shape, requesting 'open' but never naming MCP on screen", async ({
+  page,
+}) => {
   await mockRecipeReaderResponsesFetch(page, 200, VALID_RESPONSES_BODY);
   await enterReadyShell(page);
-  await configureProvider(page, { linkEnabled: true, toolServerUrl: "https://mock-tool-server.test/web" });
+  await configureProvider(page, {
+    linkEnabled: true,
+    toolServerUrl: "https://mock-tool-server.test/web",
+  });
 
   // The field's own label/hint never say "MCP" or "tool server" — a cook shouldn't have to know either term.
   await expect(page.getByText(/mcp/i)).toHaveCount(0);
   await expect(page.getByText(/tool server/i)).toHaveCount(0);
 
-  await page.getByLabel("Or, the web address to read this recipe from").fill("https://example.com/garlic-rice");
+  await page
+    .getByLabel("Or, the web address to read this recipe from")
+    .fill("https://example.com/garlic-rice");
   await page.getByRole("button", { name: "Read this recipe" }).click();
   await expect(page).toHaveURL(/\/recipes\/new$/);
 
-  const sentBody = await page.evaluate(() => (window as unknown as { __lastResponsesRequestBody?: unknown }).__lastResponsesRequestBody);
+  const sentBody = await page.evaluate(
+    () =>
+      (window as unknown as { __lastResponsesRequestBody?: unknown }).__lastResponsesRequestBody,
+  );
   expect(sentBody).toMatchObject({
     tools: [
       {
@@ -330,15 +399,23 @@ test("filling in the tool-server address sends the MCP shape, requesting 'open' 
   });
 });
 
-test("a wrongly-filled-in tool-server address still surfaces the plain-language tool-unsupported message", async ({ page }) => {
-  await mockRecipeReaderResponsesFetch(page, 400, { error: { message: "mcp server_url could not be reached" } });
+test("a wrongly-filled-in tool-server address still surfaces the plain-language tool-unsupported message", async ({
+  page,
+}) => {
+  await mockRecipeReaderResponsesFetch(page, 400, {
+    error: { message: "mcp server_url could not be reached" },
+  });
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: true, toolServerUrl: "https://wrong-address.test" });
 
-  await page.getByLabel("Or, the web address to read this recipe from").fill("https://example.com/garlic-rice");
+  await page
+    .getByLabel("Or, the web address to read this recipe from")
+    .fill("https://example.com/garlic-rice");
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
-  await expect(page.getByText(/doesn't seem to support reading a recipe straight from a link/i)).toBeVisible();
+  await expect(
+    page.getByText(/doesn't seem to support reading a recipe straight from a link/i),
+  ).toBeVisible();
 });
 
 /**
@@ -353,16 +430,19 @@ async function switchToPhotoMode(page: Page): Promise<void> {
 }
 
 /** Captures the last request body sent to `{baseUrl}/chat/completions` — read back afterwards via `page.evaluate`, mirroring `mockRecipeReaderResponsesFetch`'s own `__lastResponsesRequestBody` pattern above. */
-async function mockRecipeReaderFetchCapturingBody(page: Page, status: number, body: unknown): Promise<void> {
+async function mockRecipeReaderFetchCapturingBody(
+  page: Page,
+  status: number,
+  body: unknown,
+): Promise<void> {
   await page.addInitScript(
     ([baseUrl, responseStatus, responseBody]) => {
       const realFetch = window.fetch.bind(window);
       window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = typeof input === "string" ? input : input.toString();
         if (url.startsWith(baseUrl as string)) {
-          (window as unknown as { __lastChatRequestBody?: unknown }).__lastChatRequestBody = init?.body
-            ? JSON.parse(init.body as string)
-            : undefined;
+          (window as unknown as { __lastChatRequestBody?: unknown }).__lastChatRequestBody =
+            init?.body ? JSON.parse(init.body as string) : undefined;
           return new Response(JSON.stringify(responseBody), {
             status: responseStatus as number,
             headers: { "Content-Type": "application/json" },
@@ -375,7 +455,9 @@ async function mockRecipeReaderFetchCapturingBody(page: Page, status: number, bo
   );
 }
 
-test("the capture screen shows the handwriting expectation and names the configured address before any photo is added", async ({ page }) => {
+test("the capture screen shows the handwriting expectation and names the configured address before any photo is added", async ({
+  page,
+}) => {
   await enterReadyShell(page);
   await configureProvider(page);
   await switchToPhotoMode(page);
@@ -410,10 +492,11 @@ test("adding two photos and reading the recipe sends both as separate image part
   await expect(page.getByText("Check the amounts below against the photo.")).toBeVisible();
   await expect(page.getByText("Matched from import")).toBeVisible();
 
-  const sentBody = await page.evaluate(() => (window as unknown as { __lastChatRequestBody?: unknown }).__lastChatRequestBody);
-  const userContent = (
-    sentBody as { messages: { role: string; content: { type: string }[] }[] }
-  ).messages[1]!.content;
+  const sentBody = await page.evaluate(
+    () => (window as unknown as { __lastChatRequestBody?: unknown }).__lastChatRequestBody,
+  );
+  const userContent = (sentBody as { messages: { role: string; content: { type: string }[] }[] })
+    .messages[1]!.content;
   expect(userContent).toHaveLength(3); // one text part + two image parts, one request
   expect(userContent.filter((part) => part.type === "image_url")).toHaveLength(2);
 });
@@ -430,7 +513,9 @@ test("photos cap at 3 — the add button disables once a third page is added", a
   await expect(page.getByRole("button", { name: "Up to 3 pages" })).toBeDisabled();
 });
 
-test("a poor-quality photo shows an inline advisory, but never blocks sending", async ({ page }) => {
+test("a poor-quality photo shows an inline advisory, but never blocks sending", async ({
+  page,
+}) => {
   await mockRecipeReaderFetch(page, 200, VALID_RESPONSE_BODY);
   await enterReadyShell(page);
   await configureProvider(page);
@@ -478,7 +563,12 @@ test("photo mode's own copy never uses jargon", async ({ page }) => {
  * jargon sweeps above (lines ~223, ~412) still pass unmodified: the
  * disclosure's own body simply never mounts until a household taps it open.
  */
-async function mockRecipeReaderFetchDelayed(page: Page, status: number, body: unknown, delayMs: number): Promise<void> {
+async function mockRecipeReaderFetchDelayed(
+  page: Page,
+  status: number,
+  body: unknown,
+  delayMs: number,
+): Promise<void> {
   await page.addInitScript(
     ([baseUrl, responseStatus, responseBody, delay]) => {
       const realFetch = window.fetch.bind(window);
@@ -503,7 +593,9 @@ test("shows live progress with an elapsed time while a request is in flight", as
   await enterReadyShell(page);
   await configureProvider(page);
 
-  await page.getByLabel("Paste the recipe here").fill("Garlic Rice\n2 cloves garlic\nCook the rice with garlic.");
+  await page
+    .getByLabel("Paste the recipe here")
+    .fill("Garlic Rice\n2 cloves garlic\nCook the rice with garlic.");
   await page.getByRole("button", { name: "Read this recipe" }).click();
 
   await expect(page.getByText(/Waiting for a reply…/)).toBeVisible();
@@ -537,8 +629,12 @@ test("a failure offers 'Show details', collapsed by default, revealing the addre
   await expect(page.getByRole("button", { name: "Clear this history" })).toBeVisible();
 });
 
-test("distinguishes a not-valid-JSON reply from a valid-but-empty-ingredients reply in the diagnostic panel", async ({ page }) => {
-  await mockRecipeReaderFetch(page, 200, { choices: [{ message: { content: "Sorry, I can't help with that." } }] });
+test("distinguishes a not-valid-JSON reply from a valid-but-empty-ingredients reply in the diagnostic panel", async ({
+  page,
+}) => {
+  await mockRecipeReaderFetch(page, 200, {
+    choices: [{ message: { content: "Sorry, I can't help with that." } }],
+  });
   await enterReadyShell(page);
   await configureProvider(page);
 
@@ -574,7 +670,11 @@ test("clearing the history removes the disclosure entirely", async ({ page }) =>
 const REQUESTED_URL = "https://ricette.giallozafferano.it/Spaghetti-alla-Norma.html";
 
 function responsesBodyWithProvenance(recipeJson: unknown, output: unknown[]): unknown {
-  return { status: "completed", output: [...output, { type: "message", role: "assistant", content: [] }], output_text: JSON.stringify(recipeJson) };
+  return {
+    status: "completed",
+    output: [...output, { type: "message", role: "assistant", content: [] }],
+    output_text: JSON.stringify(recipeJson),
+  };
 }
 
 const NORMA_RECIPE_JSON = {
@@ -612,14 +712,18 @@ const OWNER_EVIDENCE_RESPONSES_BODY = {
         {
           type: "output_text",
           text: JSON.stringify(NORMA_RECIPE_JSON),
-          annotations: [{ type: "url_citation", url: REQUESTED_URL, title: "Spaghetti alla Norma" }],
+          annotations: [
+            { type: "url_citation", url: REQUESTED_URL, title: "Spaghetti alla Norma" },
+          ],
         },
       ],
     },
   ],
 };
 
-test("the owner's real search-then-cite evidence classifies as confirmed — no warning shown at all", async ({ page }) => {
+test("the owner's real search-then-cite evidence classifies as confirmed — no warning shown at all", async ({
+  page,
+}) => {
   await mockRecipeReaderResponsesFetch(page, 200, OWNER_EVIDENCE_RESPONSES_BODY);
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: true });
@@ -657,7 +761,11 @@ test("a link import that read a different page on the same site warns plainly, n
           type: "output_text",
           text: JSON.stringify(NORMA_RECIPE_JSON),
           annotations: [
-            { type: "url_citation", url: "https://ricette.giallozafferano.it/Pasta-alla-Norma-leggera.html", title: "Pasta alla Norma leggera" },
+            {
+              type: "url_citation",
+              url: "https://ricette.giallozafferano.it/Pasta-alla-Norma-leggera.html",
+              title: "Pasta alla Norma leggera",
+            },
           ],
         },
       ],
@@ -674,7 +782,9 @@ test("a link import that read a different page on the same site warns plainly, n
   await expect(page.getByText("Check where this came from")).toBeVisible();
   const banner = page.getByRole("alert");
   await expect(banner).toContainText(REQUESTED_URL);
-  await expect(banner).toContainText("https://ricette.giallozafferano.it/Pasta-alla-Norma-leggera.html");
+  await expect(banner).toContainText(
+    "https://ricette.giallozafferano.it/Pasta-alla-Norma-leggera.html",
+  );
   await expect(banner).toContainText(/different page on the same website/i);
 
   // Never jargon on the plain review screen.
@@ -686,7 +796,9 @@ test("a link import that read a different page on the same site warns plainly, n
   await expect(page.getByRole("button", { name: "Save recipe" })).toBeEnabled();
 });
 
-test("a link import that read a page on a different website altogether warns, naming the different site", async ({ page }) => {
+test("a link import that read a page on a different website altogether warns, naming the different site", async ({
+  page,
+}) => {
   const mismatchBody = responsesBodyWithProvenance(NORMA_RECIPE_JSON, [
     {
       type: "message",
@@ -695,7 +807,13 @@ test("a link import that read a page on a different website altogether warns, na
         {
           type: "output_text",
           text: JSON.stringify(NORMA_RECIPE_JSON),
-          annotations: [{ type: "url_citation", url: "https://cookpad.com/us/recipes/12345", title: "Something else entirely" }],
+          annotations: [
+            {
+              type: "url_citation",
+              url: "https://cookpad.com/us/recipes/12345",
+              title: "Something else entirely",
+            },
+          ],
         },
       ],
     },
@@ -713,11 +831,16 @@ test("a link import that read a page on a different website altogether warns, na
   await expect(banner).toContainText("https://cookpad.com/us/recipes/12345");
 });
 
-test("a link import with no citation at all gets only a quiet note, never styled as a warning", async ({ page }) => {
+test("a link import with no citation at all gets only a quiet note, never styled as a warning", async ({
+  page,
+}) => {
   // Same shape the other link-import tests in this file already use —
   // top-level `output_text` only, no `output[]` at all — the common case on
   // a provider that doesn't report any of this.
-  await mockRecipeReaderResponsesFetch(page, 200, { status: "completed", output_text: JSON.stringify(NORMA_RECIPE_JSON) });
+  await mockRecipeReaderResponsesFetch(page, 200, {
+    status: "completed",
+    output_text: JSON.stringify(NORMA_RECIPE_JSON),
+  });
   await enterReadyShell(page);
   await configureProvider(page, { linkEnabled: true });
 

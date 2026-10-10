@@ -1,11 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useWorkbookContext } from "../workbook-context.ts";
-import { RecipeImportError, importRecipeFromLink, importRecipeFromPhotos, importRecipeFromText } from "../import/client.ts";
+import {
+  RecipeImportError,
+  importRecipeFromLink,
+  importRecipeFromPhotos,
+  importRecipeFromText,
+} from "../import/client.ts";
 import { describeRecipeImportError } from "../import/error-messages.ts";
-import { getImportUsage, isRecipeImportConfigured, readRecipeImportSettings, recordImportUsed } from "../import/settings.ts";
-import { resolveImportedLines, type ParsedRecipeDraft, type ResolvedIngredientLine } from "../import/match.ts";
-import { assessPhotoQualityFromBlob, encodePhotoForModelDataUrl, type PhotoQualityAdvisory } from "../import/photo-encode.ts";
+import {
+  getImportUsage,
+  isRecipeImportConfigured,
+  readRecipeImportSettings,
+  recordImportUsed,
+} from "../import/settings.ts";
+import {
+  resolveImportedLines,
+  type ParsedRecipeDraft,
+  type ResolvedIngredientLine,
+} from "../import/match.ts";
+import {
+  assessPhotoQualityFromBlob,
+  encodePhotoForModelDataUrl,
+  type PhotoQualityAdvisory,
+} from "../import/photo-encode.ts";
 import {
   clearPendingPhotoImport,
   enqueuePendingPhotoImport,
@@ -33,7 +51,10 @@ function formatElapsedSeconds(elapsedMs: number): string {
 }
 
 /** Records one failed attempt to the small capped history and re-reads it back — the diagnostic disclosure and the "recent attempts" list are the same data, so a failure just seen and a failure from ten minutes ago render identically. */
-function recordAndRefreshHistory(diagnostic: RecipeImportDiagnostic, setHistory: (history: readonly RecipeImportDiagnostic[]) => void): void {
+function recordAndRefreshHistory(
+  diagnostic: RecipeImportDiagnostic,
+  setHistory: (history: readonly RecipeImportDiagnostic[]) => void,
+): void {
   recordImportAttempt(diagnostic);
   setHistory(readImportHistory());
 }
@@ -90,7 +111,9 @@ export function RecipeImport() {
   const { store, clock } = useWorkbookContext();
   const [settings] = useState(() => readRecipeImportSettings());
   const [searchParams] = useSearchParams();
-  const [mode, setMode] = useState<ImportMode>(() => (searchParams.get("mode") === "photo" ? "photo" : "paste"));
+  const [mode, setMode] = useState<ImportMode>(() =>
+    searchParams.get("mode") === "photo" ? "photo" : "paste",
+  );
   const [text, setText] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [loading, setLoading] = useState(false);
@@ -121,14 +144,18 @@ export function RecipeImport() {
   // away. `history` IS the disclosure's content — the attempt that just
   // failed is simply its newest entry, so there is only one list to build,
   // not a "current failure" panel plus a separate "past failures" panel.
-  const [history, setHistory] = useState<readonly RecipeImportDiagnostic[]>(() => readImportHistory());
+  const [history, setHistory] = useState<readonly RecipeImportDiagnostic[]>(() =>
+    readImportHistory(),
+  );
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const [photos, setPhotos] = useState<readonly CapturedPhoto[]>([]);
   const [photoProcessing, setPhotoProcessing] = useState(false);
   const photoIdCounter = useRef(0);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
-  const [pendingPhotoImport, setPendingPhotoImport] = useState<PendingPhotoImport | undefined>(() => readPendingPhotoImport());
+  const [pendingPhotoImport, setPendingPhotoImport] = useState<PendingPhotoImport | undefined>(() =>
+    readPendingPhotoImport(),
+  );
 
   useEffect(() => {
     const monitor = createBrowserConnectivityMonitor();
@@ -173,7 +200,8 @@ export function RecipeImport() {
         navigate("/recipes/new", { state: { importedDraft: draft } });
       } catch (err) {
         clearPendingPhotoImport();
-        if (err instanceof RecipeImportError && err.diagnostic) recordAndRefreshHistory(err.diagnostic, setHistory);
+        if (err instanceof RecipeImportError && err.diagnostic)
+          recordAndRefreshHistory(err.diagnostic, setHistory);
         if (!cancelled) setError(describeRecipeImportError(err));
       } finally {
         if (!cancelled) {
@@ -255,7 +283,9 @@ export function RecipeImport() {
               apiKey: settings.apiKey,
               model: settings.model,
               url: trimmedUrl,
-              ...(settings.toolServerUrl.trim() !== "" ? { toolServerUrl: settings.toolServerUrl.trim() } : {}),
+              ...(settings.toolServerUrl.trim() !== ""
+                ? { toolServerUrl: settings.toolServerUrl.trim() }
+                : {}),
             },
             undefined,
             setProgressStage,
@@ -288,7 +318,8 @@ export function RecipeImport() {
       };
       navigate("/recipes/new", { state: { importedDraft: draft } });
     } catch (err) {
-      if (err instanceof RecipeImportError && err.diagnostic) recordAndRefreshHistory(err.diagnostic, setHistory);
+      if (err instanceof RecipeImportError && err.diagnostic)
+        recordAndRefreshHistory(err.diagnostic, setHistory);
       setError(describeRecipeImportError(err));
     } finally {
       setLoading(false);
@@ -307,7 +338,10 @@ export function RecipeImport() {
         assessPhotoQualityFromBlob(file),
       ]);
       photoIdCounter.current += 1;
-      setPhotos((current) => [...current, { id: `photo-${photoIdCounter.current}`, dataUrl, advisory }]);
+      setPhotos((current) => [
+        ...current,
+        { id: `photo-${photoIdCounter.current}`, dataUrl, advisory },
+      ]);
     } catch (err) {
       setError(describeRecipeImportError(err));
     } finally {
@@ -361,7 +395,8 @@ export function RecipeImport() {
       const draft: RecipeImportDraft = { parsed, lines, sourceText: "", photos: photoUrls };
       navigate("/recipes/new", { state: { importedDraft: draft } });
     } catch (err) {
-      if (err instanceof RecipeImportError && err.diagnostic) recordAndRefreshHistory(err.diagnostic, setHistory);
+      if (err instanceof RecipeImportError && err.diagnostic)
+        recordAndRefreshHistory(err.diagnostic, setHistory);
       setError(describeRecipeImportError(err));
     } finally {
       setLoading(false);
@@ -386,7 +421,8 @@ export function RecipeImport() {
   // silent spinner leaves no way to tell "working" from "stuck".
   const progressLine = loading ? (
     <p className={styles.hint} role="status">
-      {IMPORT_PROGRESS_LABEL[progressStage ?? "sending"]} ({formatElapsedSeconds(progressElapsedMs)})
+      {IMPORT_PROGRESS_LABEL[progressStage ?? "sending"]} ({formatElapsedSeconds(progressElapsedMs)}
+      )
     </p>
   ) : null;
 
@@ -414,16 +450,27 @@ export function RecipeImport() {
         {detailsOpen ? (
           <div className={styles.sectionCardBody}>
             <p className={styles.hint}>
-              What Feeder actually sent and got back, most recent first — never your password, never a photo&rsquo;s
-              raw data.
+              What Feeder actually sent and got back, most recent first — never your password, never
+              a photo&rsquo;s raw data.
             </p>
             {history.map((entry, index) => (
-              <div key={`${entry.startedAt}-${index}`} className={styles.line} style={{ flexDirection: "column", alignItems: "stretch" }}>
-                <p className={styles.importSourceText} style={{ fontFamily: "var(--mono)", fontSize: "var(--fs-body-sm)" }}>
+              <div
+                key={`${entry.startedAt}-${index}`}
+                className={styles.line}
+                style={{ flexDirection: "column", alignItems: "stretch" }}
+              >
+                <p
+                  className={styles.importSourceText}
+                  style={{ fontFamily: "var(--mono)", fontSize: "var(--fs-body-sm)" }}
+                >
                   {entry.request.method} {entry.request.url} — model {entry.request.model}
                   <br />
-                  {entry.httpStatus !== undefined ? `Status ${entry.httpStatus}${entry.httpStatusText ? ` ${entry.httpStatusText}` : ""} — ` : ""}
-                  {entry.cause ? IMPORT_FAILURE_CAUSE_LABEL[entry.cause] : "No further detail recorded."}
+                  {entry.httpStatus !== undefined
+                    ? `Status ${entry.httpStatus}${entry.httpStatusText ? ` ${entry.httpStatusText}` : ""} — `
+                    : ""}
+                  {entry.cause
+                    ? IMPORT_FAILURE_CAUSE_LABEL[entry.cause]
+                    : "No further detail recorded."}
                   {entry.validation?.field ? (
                     <>
                       <br />
@@ -440,7 +487,9 @@ export function RecipeImport() {
                           {actionIndex > 0 ? <br /> : null}
                           Action: {action.type}
                           {action.query ? ` — searched "${action.query}"` : ""}
-                          {action.sources && action.sources.length > 0 ? ` — ${action.sources.length} candidate page(s)` : ""}
+                          {action.sources && action.sources.length > 0
+                            ? ` — ${action.sources.length} candidate page(s)`
+                            : ""}
                         </span>
                       ))}
                     </>
@@ -458,14 +507,28 @@ export function RecipeImport() {
                 </p>
                 <details>
                   <summary className={styles.hint}>Request body</summary>
-                  <pre className={styles.importSourceText} style={{ fontFamily: "var(--mono)", fontSize: "var(--fs-body-sm)", overflowX: "auto" }}>
+                  <pre
+                    className={styles.importSourceText}
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: "var(--fs-body-sm)",
+                      overflowX: "auto",
+                    }}
+                  >
                     {JSON.stringify(entry.request.body, null, 2)}
                   </pre>
                 </details>
                 {entry.responseBodyPreview !== undefined ? (
                   <details>
                     <summary className={styles.hint}>Response body</summary>
-                    <pre className={styles.importSourceText} style={{ fontFamily: "var(--mono)", fontSize: "var(--fs-body-sm)", overflowX: "auto" }}>
+                    <pre
+                      className={styles.importSourceText}
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: "var(--fs-body-sm)",
+                        overflowX: "auto",
+                      }}
+                    >
                       {entry.responseBodyPreview}
                     </pre>
                   </details>
@@ -473,7 +536,9 @@ export function RecipeImport() {
                 <button
                   type="button"
                   className={styles.addButton}
-                  onClick={() => void navigator.clipboard.writeText(formatDiagnosticForClipboard(entry))}
+                  onClick={() =>
+                    void navigator.clipboard.writeText(formatDiagnosticForClipboard(entry))
+                  }
                 >
                   Copy to clipboard
                 </button>
@@ -522,9 +587,9 @@ export function RecipeImport() {
           }}
         >
           <p className={styles.hint}>
-            Paste the recipe&rsquo;s text below — the ingredients and steps, copied from the page. Feeder sends this
-            text to the address you set up in Settings so it can turn it into a draft you review before anything is
-            saved.
+            Paste the recipe&rsquo;s text below — the ingredients and steps, copied from the page.
+            Feeder sends this text to the address you set up in Settings so it can turn it into a
+            draft you review before anything is saved.
             {settings.linkEnabled
               ? " Or, further down, give it the page's address instead and it will open the page itself."
               : ""}{" "}
@@ -534,7 +599,7 @@ export function RecipeImport() {
           {!configured ? (
             <p className={styles.hint} role="alert">
               You&rsquo;ll need to set up an address for reading recipes first — see{" "}
-              <Link to="/settings" className={styles.itemLink}>
+              <Link to="/settings#recipe-reader" className={styles.itemLink}>
                 Settings
               </Link>
               .
@@ -554,7 +619,9 @@ export function RecipeImport() {
 
           <div className={styles.field}>
             <label htmlFor="recipe-import-source">
-              {settings.linkEnabled ? "Or, the web address to read this recipe from" : "Where did this come from? (optional)"}
+              {settings.linkEnabled
+                ? "Or, the web address to read this recipe from"
+                : "Where did this come from? (optional)"}
             </label>
             <input
               id="recipe-import-source"
@@ -574,13 +641,14 @@ export function RecipeImport() {
 
           {!online ? (
             <p className={styles.hint} role="alert">
-              Feeder needs to be online to read a recipe this way — try again once you&rsquo;re connected.
+              Feeder needs to be online to read a recipe this way — try again once you&rsquo;re
+              connected.
             </p>
           ) : null}
           {online && usage.atLimit ? (
             <p className={styles.hint} role="alert">
-              You&rsquo;ve read {usage.limit} recipe{usage.limit === 1 ? "" : "s"} today, which is today&rsquo;s limit
-              — this resets at midnight, or you can raise the limit in Settings.
+              You&rsquo;ve read {usage.limit} recipe{usage.limit === 1 ? "" : "s"} today, which is
+              today&rsquo;s limit — this resets at midnight, or you can raise the limit in Settings.
             </p>
           ) : null}
           {error ? (
@@ -592,7 +660,11 @@ export function RecipeImport() {
           {diagnosticsPanel}
 
           <div className={styles.actions}>
-            <button type="submit" className={styles.saveButton} disabled={disabledReason !== undefined || loading}>
+            <button
+              type="submit"
+              className={styles.saveButton}
+              disabled={disabledReason !== undefined || loading}
+            >
               {submitLabel}
             </button>
           </div>
@@ -606,20 +678,21 @@ export function RecipeImport() {
           }}
         >
           <p className={styles.hint}>
-            Works best on printed recipes. For handwriting, it does a reasonable job with clear writing but can
-            struggle with faded or cramped handwriting — always check the numbers before saving.
+            Works best on printed recipes. For handwriting, it does a reasonable job with clear
+            writing but can struggle with faded or cramped handwriting — always check the numbers
+            before saving.
           </p>
           <p className={styles.hint}>
-            Feeder will send your photo{photos.length === 1 ? "" : "s"} to the address you set up in Settings
-            (currently: {configured ? settings.baseUrl : "not set up yet"}) so it can be read into a recipe you
-            review before anything is saved. If this is a photo of a family recipe card, that&rsquo;s still what
-            happens — nothing else about your kitchen is sent.
+            Feeder will send your photo{photos.length === 1 ? "" : "s"} to the address you set up in
+            Settings (currently: {configured ? settings.baseUrl : "not set up yet"}) so it can be
+            read into a recipe you review before anything is saved. If this is a photo of a family
+            recipe card, that&rsquo;s still what happens — nothing else about your kitchen is sent.
           </p>
 
           {!configured ? (
             <p className={styles.hint} role="alert">
               You&rsquo;ll need to set up an address for reading recipes first — see{" "}
-              <Link to="/settings" className={styles.itemLink}>
+              <Link to="/settings#recipe-reader" className={styles.itemLink}>
                 Settings
               </Link>
               .
@@ -648,7 +721,11 @@ export function RecipeImport() {
               {photos.map((photo, index) => (
                 <div key={photo.id} className={styles.photoThumb}>
                   <div className={styles.photoThumbImgWrap}>
-                    <img src={photo.dataUrl} alt={`Page ${index + 1} of the recipe`} className={styles.photoThumbImg} />
+                    <img
+                      src={photo.dataUrl}
+                      alt={`Page ${index + 1} of the recipe`}
+                      className={styles.photoThumbImg}
+                    />
                     <button
                       type="button"
                       className={styles.photoThumbRemove}
@@ -687,13 +764,14 @@ export function RecipeImport() {
 
           {pendingPhotoImport !== undefined ? (
             <p className={styles.hint} role="status">
-              Waiting to reach the address you set up — this will try again once you&rsquo;re back online.
+              Waiting to reach the address you set up — this will try again once you&rsquo;re back
+              online.
             </p>
           ) : null}
           {online && usage.atLimit ? (
             <p className={styles.hint} role="alert">
-              You&rsquo;ve read {usage.limit} recipe{usage.limit === 1 ? "" : "s"} today, which is today&rsquo;s limit
-              — this resets at midnight, or you can raise the limit in Settings.
+              You&rsquo;ve read {usage.limit} recipe{usage.limit === 1 ? "" : "s"} today, which is
+              today&rsquo;s limit — this resets at midnight, or you can raise the limit in Settings.
             </p>
           ) : null}
           {error ? (
