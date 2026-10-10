@@ -176,7 +176,8 @@ test("the import action is disabled with a plain explanation until a provider is
   await expect(page.getByText(/set up an address for reading recipes first/i)).toBeVisible();
   await expect(page.getByRole("button", { name: "Read this recipe" })).toBeDisabled();
   await page.getByRole("main").getByRole("link", { name: "Settings" }).click();
-  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page).toHaveURL(/\/settings#recipe-reader$/);
+  await expect(page.getByLabel("The address to send recipes to")).toBeVisible();
 });
 
 test("an unusable response surfaces a plain-language error, never a raw status", async ({ page }) => {

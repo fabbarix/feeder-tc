@@ -34,9 +34,9 @@ test("generating a week with zero dinner recipes says how many slots filled and 
   await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
   for (const day of ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]) {
     for (const tag of ["Breakfast", "Lunch"]) {
-      const button = page.getByRole("button", { name: `Remove ${tag} on ${day}` });
+      const button = page.getByRole("button", { name: `${tag} on ${day}`, exact: true });
       await button.click();
-      await expect(button).toHaveCount(0);
+      await expect(button).toHaveAttribute("aria-pressed", "false");
     }
   }
 
