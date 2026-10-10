@@ -105,6 +105,7 @@ function fakePickerScript(pickedId: string, pickedName: string): string {
           return {
             addView: function () { return this; },
             setOAuthToken: function () { return this; },
+            setAppId: function () { return this; },
             setDeveloperKey: function () { return this; },
             setCallback: function (fn) { onPicked = fn; return this; },
             build: function () {
