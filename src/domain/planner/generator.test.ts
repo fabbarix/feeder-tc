@@ -799,3 +799,80 @@ describe("setSlotPinned", () => {
     expect(setSlotPinned(slot, true).id).toBe(slot.id);
   });
 });
+
+describe("generateWeek — custom meal types", () => {
+  const catSettings: Settings = {
+    householdSize: 4,
+    repeatExclusionWeeks: 0,
+    reuseGapSlots: 0,
+    slotLayout: [
+      { day: "monday", slots: ["cats-breakfast", "dinner"] },
+      { day: "tuesday", slots: ["cats-breakfast", "dinner"] },
+      { day: "wednesday", slots: ["cats-breakfast", "dinner"] },
+    ],
+    mealTypes: [
+      { id: "dinner", name: "Dinner" },
+      { id: "cats-breakfast", name: "Cat's breakfast", servings: 1 },
+    ],
+  };
+  const chili = recipe("chili", ["dinner"], "in-rotation");
+  const kibble = recipe("kibble", ["cats-breakfast"], "staple", 1);
+  const wetFood = recipe("wet-food", ["cats-breakfast"], "in-rotation", 1);
+
+  function lot(id: string, ingredient: string) {
+    return {
+      id: makeLotId(id),
+      ingredientId: makeIngredientId(ingredient),
+      quantity: makeQuantity(3, "portion" as const),
+      purchaseDate: makeIsoDate("2026-08-17"), // Monday — a day with slots, so its source position is known
+      location: "fridge" as const,
+      expiry: makeIsoDate("2026-09-01"),
+      expiryOverridden: true,
+    };
+  }
+
+  it("fills a custom meal type's slots only with recipes tagged for it, and rotates its staples", () => {
+    const result = generateWeek({
+      settings: catSettings,
+      weekStart: WEEK_START,
+      recipes: [chili, kibble, wetFood],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      rng: createFakeRng(5),
+    });
+
+    const catIds = recipeFillingIds(result.slots.filter((s) => s.slotType === "cats-breakfast"));
+    const dinnerIds = recipeFillingIds(result.slots.filter((s) => s.slotType === "dinner"));
+    expect(catIds).toContain("kibble");
+    expect(catIds.every((id) => id === "kibble" || id === "wet-food")).toBe(true);
+    expect(dinnerIds.every((id) => id === "chili")).toBe(true);
+    expect(result.staplePlanState["cats-breakfast"]).toBeDefined();
+  });
+
+  it("never moves a leftover between the household's meals and a meal type with its own servings", () => {
+    const chiliLot = lot("chili-lot", "leftover-chili");
+    const kibbleLot = lot("kibble-lot", "leftover-kibble");
+
+    const result = generateWeek({
+      settings: catSettings,
+      weekStart: WEEK_START,
+      recipes: [chili, kibble],
+      recipeIngredients: [],
+      pastPlanSlots: [],
+      expiringIngredientIds: new Set(),
+      leftoverLotsByRecipeId: new Map([
+        [chili.id, [chiliLot]],
+        [kibble.id, [kibbleLot]],
+      ]),
+      rng: createFakeRng(5),
+    });
+
+    for (const slot of result.slots) {
+      if (slot.filling.kind !== "leftover") continue;
+      const expected = slot.slotType === "dinner" ? chiliLot.id : kibbleLot.id;
+      expect(slot.filling.lotId, `${slot.date} ${slot.slotType}`).toBe(expected);
+    }
+    expect(result.slots.some((s) => s.filling.kind === "leftover")).toBe(true);
+  });
+});

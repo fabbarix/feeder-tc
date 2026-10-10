@@ -1,5 +1,5 @@
 /** Shared option lists for the recipe list card and editor (WP-20) — the fixed, small enums `SegmentedControl`/`ToggleChips` render inline (UI_DESIGN.md §5). */
-import type { MealTag, RecipeKind, RecipeStatus } from "../domain/index.ts";
+import type { MealTag, MealType, RecipeKind, RecipeStatus } from "../domain/index.ts";
 
 // Labels match the approved mock exactly (design/mock-screens.html #recipe's
 // `.seg` control: "Staple" / "Rotation" / "Retired") — "Rotation", not "In
@@ -28,12 +28,22 @@ export const KIND_OPTIONS: readonly { value: RecipeKind; label: string }[] = [
   { value: "bought", label: "Bought" },
 ];
 
-export const MEAL_TAG_OPTIONS: readonly { value: MealTag; label: string }[] = [
-  { value: "breakfast", label: "Breakfast" },
-  { value: "lunch", label: "Lunch" },
-  { value: "dinner", label: "Dinner" },
-  { value: "snack", label: "Snack" },
-];
+/**
+ * Tag-picker options for the household's meal types (custom meal types,
+ * 2026-10-10), in their own order. `alsoKeep` — a recipe's current tags —
+ * adds any tag whose type has since been removed, so the recipe can still
+ * show it and drop it rather than silently losing it from view.
+ */
+export function mealTagOptions(
+  mealTypes: readonly MealType[],
+  alsoKeep: readonly MealTag[] = [],
+): readonly { value: MealTag; label: string }[] {
+  const options = mealTypes.map((type) => ({ value: type.id, label: type.name }));
+  for (const tag of alsoKeep) {
+    if (!options.some((option) => option.value === tag)) options.push({ value: tag, label: tag });
+  }
+  return options;
+}
 
 /**
  * "Can't be split" (WP-purchasing-editor — DESIGN_PURCHASING.md §4/§8),

@@ -28,7 +28,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkbookContext } from "../../workbook-context.ts";
 import { useToast } from "../../ui/components/Toast/useToast.ts";
-import { MEAL_TAG_OPTIONS } from "../recipe-options.ts";
 import {
   addDays,
   buildUseEvent,
@@ -39,7 +38,9 @@ import {
   initialStaplePlanState,
   makeQuantity,
   resolveTargetServings,
+  mealTypeName,
   rerollSlot,
+  servingsFor,
   scaledRecipeIngredients,
   setSlotPinned,
 } from "../../domain/index.ts";
@@ -586,9 +587,7 @@ export function usePlanWeek(): UsePlanWeekResult {
         // shows it — but a PARTIAL or empty result now says so, and names
         // the concrete fix (tag more recipes for the starved meal(s)).
         if (result.emptyCount > 0) {
-          const starvedLabels = result.starvedMealTags.map(
-            (tag) => MEAL_TAG_OPTIONS.find((o) => o.value === tag)?.label ?? tag,
-          );
+          const starvedLabels = result.starvedMealTags.map((tag) => mealTypeName(settings, tag));
           const totalOpen = result.filledCount + result.emptyCount;
           const fillSummary = `Filled ${result.filledCount} of ${totalOpen} empty slot${totalOpen === 1 ? "" : "s"} this time.`;
           const suggestion =
@@ -808,7 +807,8 @@ export function usePlanWeek(): UsePlanWeekResult {
       if (!slot || slot.filling.kind !== "recipe" || !settings) return;
       const recipe = recipesById.get(slot.filling.recipeId);
       if (!recipe) return;
-      const targetServings = resolveTargetServings(settings, slot.filling) ?? settings.householdSize;
+      const targetServings =
+        resolveTargetServings(settings, slot.filling, slot.slotType) ?? servingsFor(settings, slot.slotType);
       const scaledLines = scaledRecipeIngredients(recipe, recipeIngredients, targetServings);
       const lines: MarkCookedLineDraft[] = scaledLines.map((line) => ({
         ingredientId: line.ingredientId,
@@ -816,7 +816,7 @@ export function usePlanWeek(): UsePlanWeekResult {
         unit: line.quantity.unit,
         suggestedAmount: line.quantity.amount,
       }));
-      const surplusServings = Math.max(0, targetServings - settings.householdSize);
+      const surplusServings = Math.max(0, targetServings - servingsFor(settings, slot.slotType));
       setMarkCookedDraft({ slotId, recipeName: recipe.name, targetServings, lines, surplusServings });
     },
     [findSlot, settings, recipesById, recipeIngredients, ingredientsById],

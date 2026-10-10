@@ -177,8 +177,8 @@ export function ShoppingRow({
             `needs ${formatAmountForUnit(line.neededQuantity, ingredient)}`
           ) : (
             <>
-              <span className={styles.provenanceShort}>{buildProvenanceText(line.sources, "short")}</span>
-              <span className={styles.provenanceLong}>{buildProvenanceText(line.sources, "long")}</span>
+              <span className={styles.provenanceShort}>{buildProvenanceText(line.sources, "short", provenanceContext.settings)}</span>
+              <span className={styles.provenanceLong}>{buildProvenanceText(line.sources, "long", provenanceContext.settings)}</span>
             </>
           ))}
       </>

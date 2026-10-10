@@ -8,6 +8,7 @@
  * the BDD scenario "Creating a fresh workbook"
  * (features/wp-11-workbook-bootstrap.feature).
  */
+import { DEFAULT_MEAL_TYPES } from "../domain/meal-types.ts";
 import type { CellRow, SheetsTransport, WorkbookStore } from "../domain/contracts.ts";
 import type { Settings, WorkbookSheetName } from "../domain/types.ts";
 import { DEFAULT_REUSE_GAP_SLOTS } from "../domain/planner/leftover-projection.ts";
@@ -70,6 +71,9 @@ export const DEFAULT_SETTINGS: Settings = {
   repeatExclusionWeeks: 3,
   currency: DEFAULT_CURRENCY,
   reuseGapSlots: DEFAULT_REUSE_GAP_SLOTS,
+  // Written out explicitly so a new workbook's Settings sheet lists its meal
+  // types from day one, rather than relying on "no rows means the defaults".
+  mealTypes: DEFAULT_MEAL_TYPES,
 };
 
 /**

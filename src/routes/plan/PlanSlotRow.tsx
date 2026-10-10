@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { useButton } from "react-aria";
-import { resolveTargetServings } from "../../domain/index.ts";
+import { resolveTargetServings, servingsFor } from "../../domain/index.ts";
 import type { PlanSlotId, Settings } from "../../domain/index.ts";
 import { Tooltip } from "../../ui/components";
 import { ArrowsClockwise, CookingPot, Minus, Plus, PushPin, PushPinSlash, Trash, type IconComponent } from "../../ui/icons.ts";
@@ -100,7 +100,7 @@ export function PlanSlotRow({
   onRemove,
 }: PlanSlotRowProps) {
   const { slot } = view;
-  const tagLabel = mealTagLabel(slot.slotType);
+  const tagLabel = mealTagLabel(slot.slotType, settings);
 
   if (slot.filling.kind === "empty") {
     return (
@@ -168,7 +168,7 @@ export function PlanSlotRow({
   }
 
   // filling.kind === "recipe"
-  const targetServings = resolveTargetServings(settings, slot.filling) ?? settings.householdSize;
+  const targetServings = resolveTargetServings(settings, slot.filling, slot.slotType) ?? servingsFor(settings, slot.slotType);
   const isOverridden = slot.filling.scaleServings !== undefined;
   const badgeText = `${tagLabel}${slot.pinned ? " · pinned" : ""}${view.isToday ? " · tonight" : ""}`;
   // WP-PURCHASING (DESIGN_PURCHASING.md §4/§6 last bullet): an indivisible

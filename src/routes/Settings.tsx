@@ -1,19 +1,32 @@
+import { useState } from "react";
 import { GearSix } from "../ui/icons.ts";
 import { EmptyState, ErrorState, Skeleton } from "../ui/components";
 import { ThemeControl } from "../ui/theme/ThemeControl";
 import { useSettings } from "./settings/useSettings.ts";
-import { DaySlotEditor } from "./settings/DaySlotEditor.tsx";
+import { MAX_PER_DAY, MealsEditor } from "./settings/MealsEditor.tsx";
+import { MealTypeDialog, type MealTypeUsage } from "./settings/MealTypeDialog.tsx";
 import { SettingsGroup } from "./settings/SettingsGroup.tsx";
 import { RecipeImportSettings } from "./settings/RecipeImportSettings.tsx";
 import { Stepper } from "./Stepper.tsx";
 import {
-  WEEKDAY_ORDER,
+  inMealTypeOrder,
   layoutFromSlotsByDay,
   slotsByDay,
-  withSlotAdded,
-  withSlotRemoved,
+  withDayToggled,
+  withMealTypeAdded,
+  withMealTypeRemoved,
+  withPerDayCount,
+  type SlotsByDay,
 } from "./settings/slot-layout.ts";
-import type { MealTag, Weekday } from "../domain/index.ts";
+import {
+  mealTypesOf,
+  newMealTypeId,
+  type MealTag,
+  type MealType,
+  type Settings as SettingsRow,
+  type Weekday,
+} from "../domain/index.ts";
+import { useWorkbookContext } from "../workbook-context.ts";
 // Deliberately `bootstrap.ts` directly, not the `sheets/index.ts` barrel:
 // this lazy route (App.tsx) importing the SAME barrel App.tsx already
 // imports eagerly made Rollup fold several otherwise route-lazy chunks
@@ -51,6 +64,9 @@ const NO_SETTINGS_ROW_ERROR = "This meal planner doesn't have any settings saved
  */
 export function Settings() {
   const { loading, error, settings, saving, retry, save } = useSettings();
+  const { store, clock } = useWorkbookContext();
+  // Which meal type the add/edit dialog is open for — `id: undefined` adds a new one.
+  const [dialog, setDialog] = useState<{ readonly id: MealTag | undefined } | undefined>(undefined);
   const missingSettingsRow = error === NO_SETTINGS_ROW_ERROR;
 
   // Each of these builds its next `Settings` from `current` — the freshest
@@ -86,22 +102,83 @@ export function Settings() {
     void save((current) => ({ ...(current ?? settings), reuseGapSlots: Math.max(0, gap) }));
   }
 
-  function addSlot(day: Weekday, tag: MealTag): void {
+  /**
+   * Every meal-layout edit (custom meal types, 2026-10-10) rebuilds the
+   * layout and/or the meal-type list from `current`, same refresh-before-
+   * edit pattern as the fields above.
+   */
+  function editMeals(edit: (base: SettingsRow, byDay: SlotsByDay, types: readonly MealType[]) => SettingsRow): void {
     if (!settings) return;
     void save((current) => {
       const base = current ?? settings;
-      const byDay = withSlotAdded(slotsByDay(base.slotLayout), day, tag);
-      return { ...base, slotLayout: layoutFromSlotsByDay(byDay) };
+      return edit(base, slotsByDay(base.slotLayout), mealTypesOf(base));
     });
   }
 
-  function removeSlot(day: Weekday, index: number): void {
-    if (!settings) return;
-    void save((current) => {
-      const base = current ?? settings;
-      const byDay = withSlotRemoved(slotsByDay(base.slotLayout), day, index);
-      return { ...base, slotLayout: layoutFromSlotsByDay(byDay) };
+  function toggleDay(tag: MealTag, day: Weekday): void {
+    editMeals((base, byDay, types) => ({
+      ...base,
+      slotLayout: layoutFromSlotsByDay(withDayToggled(byDay, types, tag, day)),
+    }));
+  }
+
+  function setPerDay(tag: MealTag, count: number): void {
+    editMeals((base, byDay, types) => ({
+      ...base,
+      slotLayout: layoutFromSlotsByDay(withPerDayCount(byDay, types, tag, Math.min(MAX_PER_DAY, count))),
+    }));
+  }
+
+  function saveMealType(id: MealTag | undefined, fields: { readonly name: string; readonly servings: number | undefined }): void {
+    editMeals((base, byDay, types) => {
+      if (id === undefined) {
+        const type = withServings({ id: newMealTypeId(fields.name, types), name: fields.name }, fields.servings);
+        const nextTypes = [...types, type];
+        return {
+          ...base,
+          mealTypes: nextTypes,
+          slotLayout: layoutFromSlotsByDay(withMealTypeAdded(byDay, nextTypes, type.id)),
+        };
+      }
+      return {
+        ...base,
+        mealTypes: types.map((type) => (type.id === id ? withServings({ id, name: fields.name }, fields.servings) : type)),
+      };
     });
+    setDialog(undefined);
+  }
+
+  function moveMealType(id: MealTag, direction: -1 | 1): void {
+    editMeals((base, byDay, types) => {
+      const from = types.findIndex((type) => type.id === id);
+      const to = from + direction;
+      if (from === -1 || to < 0 || to >= types.length) return base;
+      const nextTypes = [...types];
+      [nextTypes[from], nextTypes[to]] = [nextTypes[to]!, nextTypes[from]!];
+      return { ...base, mealTypes: nextTypes, slotLayout: layoutFromSlotsByDay(inMealTypeOrder(byDay, nextTypes)) };
+    });
+  }
+
+  function removeMealType(id: MealTag): void {
+    editMeals((base, byDay, types) => ({
+      ...base,
+      mealTypes: types.filter((type) => type.id !== id),
+      slotLayout: layoutFromSlotsByDay(withMealTypeRemoved(byDay, id)),
+    }));
+    setDialog(undefined);
+  }
+
+  /** What still uses a meal type: recipes tagged with it, and upcoming meals planned for it. */
+  async function mealTypeUsage(id: MealTag): Promise<MealTypeUsage> {
+    const [recipes, planSlots] = await Promise.all([store.recipes.readAll(), store.planSlots.readAll()]);
+    const today = clock.today();
+    return {
+      recipes: recipes.rows.filter((recipe) => recipe.mealTags.includes(id)).length,
+      upcomingMeals: planSlots.rows.filter(
+        (slot) =>
+          slot.slotType === id && slot.state === "planned" && slot.filling.kind !== "empty" && slot.date >= today,
+      ).length,
+    };
   }
 
   /**
@@ -116,6 +193,8 @@ export function Settings() {
   }
 
   const byDay = settings ? slotsByDay(settings.slotLayout) : undefined;
+  const dialogIndex = settings && dialog?.id !== undefined ? mealTypesOf(settings).findIndex((t) => t.id === dialog.id) : -1;
+  const dialogType = settings && dialogIndex >= 0 ? mealTypesOf(settings)[dialogIndex] : undefined;
 
   return (
     <section>
@@ -193,16 +272,15 @@ export function Settings() {
               </div>
             </SettingsGroup>
 
-            <SettingsGroup title="Meals each day" note="Which meals Plan fills in on each day.">
-              {WEEKDAY_ORDER.map((day) => (
-                <DaySlotEditor
-                  key={day}
-                  day={day}
-                  slots={byDay[day]}
-                  onAdd={(tag) => addSlot(day, tag)}
-                  onRemove={(index) => removeSlot(day, index)}
-                />
-              ))}
+            <SettingsGroup title="Meals" note="Which meals Plan fills in, how many a day, and on which days.">
+              <MealsEditor
+                settings={settings}
+                byDay={byDay}
+                onToggleDay={toggleDay}
+                onPerDayCount={setPerDay}
+                onEdit={(type) => setDialog({ id: type.id })}
+                onAdd={() => setDialog({ id: undefined })}
+              />
             </SettingsGroup>
           </div>
 
@@ -215,6 +293,28 @@ export function Settings() {
           </div>
         </div>
       ) : null}
+
+      {settings && dialog ? (
+        <MealTypeDialog
+          key={dialog.id ?? "new"}
+          editing={dialogType}
+          householdSize={settings.householdSize}
+          {...(dialogType
+            ? {
+                position: { index: dialogIndex, count: mealTypesOf(settings).length },
+                onMove: (direction: -1 | 1) => moveMealType(dialogType.id, direction),
+                usage: () => mealTypeUsage(dialogType.id),
+                onRemove: () => removeMealType(dialogType.id),
+              }
+            : {})}
+          onSave={(fields) => saveMealType(dialog.id, fields)}
+          onClose={() => setDialog(undefined)}
+        />
+      ) : null}
     </section>
   );
+}
+
+function withServings(type: MealType, servings: number | undefined): MealType {
+  return servings === undefined ? { id: type.id, name: type.name } : { id: type.id, name: type.name, servings };
 }

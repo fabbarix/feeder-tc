@@ -61,6 +61,7 @@
  */
 import { addDays, isOnOrAfter } from "../dates.ts";
 import { newPlanSlotId } from "../ids.ts";
+import { mealTypesOf, servingsFor } from "../meal-types.ts";
 import type { Rng } from "../contracts.ts";
 import type {
   IngredientId,
@@ -95,7 +96,6 @@ import {
 } from "./staples.ts";
 import { recipeWeight, weightedPick } from "./weights.ts";
 
-const ALL_MEAL_TAGS: readonly MealTag[] = ["breakfast", "lunch", "dinner", "snack"];
 const EMPTY_INGREDIENT_SET: ReadonlySet<IngredientId> = new Set();
 
 /**
@@ -127,7 +127,12 @@ function specKey(date: IsoDate, slotType: MealTag, slotIndex: number): string {
   return `${date}|${slotType}|${slotIndex}`;
 }
 
-export type StaplePlanState = Readonly<Record<MealTag, StapleRotationState>>;
+/**
+ * Round-robin staple state per meal type. Keyed by whatever meal types the
+ * household has (custom meal types, 2026-10-10), so a key may be missing —
+ * that type simply starts from `initialStapleRotationState`.
+ */
+export type StaplePlanState = Readonly<Partial<Record<MealTag, StapleRotationState>>>;
 
 /** The state to pass in for a week that has never been generated before. */
 export const initialStaplePlanState: StaplePlanState = {
@@ -180,6 +185,22 @@ function resolvePendingFilling(pending: PendingFilling, ids: readonly PlanSlotId
   }
 }
 
+/**
+ * Whether a leftover of `recipe` may fill a slot of `slotType` (custom meal
+ * types, 2026-10-10). Leftovers move freely between meal types that feed
+ * the household — dinner's chili for tomorrow's lunch — but a meal type
+ * with its own serving count (a cat's breakfast) only takes leftovers of
+ * recipes tagged for it, and its own leftovers never reach the household's
+ * table. An unknown recipe keeps the pre-existing "any slot" behaviour.
+ */
+function leftoverFitsSlot(settings: Settings, recipe: Recipe | undefined, slotType: MealTag): boolean {
+  if (!recipe || recipe.mealTags.includes(slotType)) return true;
+  const ownServings = (tag: MealTag): boolean =>
+    mealTypesOf(settings).find((type) => type.id === tag)?.servings !== undefined;
+  if (ownServings(slotType)) return false;
+  return recipe.mealTags.length === 0 || recipe.mealTags.some((tag) => !ownServings(tag));
+}
+
 /** Flattens `leftoverLotsByRecipeId` into one array, each entry remembering which recipe it came from (unused today but keeps the shape honest for future callers). */
 function flattenRealLots(
   byRecipe: ReadonlyMap<RecipeId, readonly Lot[]> | undefined,
@@ -212,10 +233,12 @@ function pickRealLeftover(
   settings: Settings,
   seq: SlotSequence,
   gapSlots: number,
+  fits: (lot: Lot) => boolean,
 ): Lot | undefined {
   let best: Lot | undefined;
   for (const lot of lots) {
     if (claimed.has(`lot:${lot.id}`)) continue;
+    if (!fits(lot)) continue;
     if (!isOnOrAfter(lot.expiry, targetPosition.date)) continue; // would already be past its use-by on this date
     if (lot.quantity.unit === "portion") {
       const sourcePosition = conservativeSourcePosition(settings, lot.purchaseDate);
@@ -240,10 +263,12 @@ function pickProjectedLeftover(
   seq: SlotSequence,
   targetPosition: SlotPosition,
   gapSlots: number,
+  fits: (recipeId: RecipeId) => boolean,
 ): ProjectedSource | undefined {
   let best: ProjectedSource | undefined;
   for (const candidate of sources) {
     if (claimed.has(candidate.claimKey)) continue;
+    if (!fits(candidate.recipeId)) continue;
     if (!isOnOrAfter(candidate.expiry, targetPosition.date)) continue;
     if (!reuseGapSatisfied(seq, candidate.position, targetPosition, gapSlots)) continue;
     if (
@@ -431,6 +456,10 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
   // slots this week) so this generation never double-books a lot or a
   // not-yet-cooked meal's surplus. ---
   const realLots = flattenRealLots(input.leftoverLotsByRecipeId);
+  const recipeIdByLotId = new Map<string, RecipeId>();
+  for (const [recipeId, lots] of input.leftoverLotsByRecipeId ?? []) {
+    for (const lot of lots) recipeIdByLotId.set(lot.id, recipeId);
+  }
 
   const claimed = new Set<string>();
   for (const slot of input.pastPlanSlots) {
@@ -471,8 +500,9 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
     if (claimed.has(`src:${slot.id}`)) return;
     const recipe = recipesById.get(slot.filling.recipeId);
     if (!recipe) return;
-    const targetServings = slot.filling.scaleServings ?? input.settings.householdSize;
-    const surplus = expectedSurplusServings(recipe, targetServings, input.settings.householdSize);
+    const eating = servingsFor(input.settings, slot.slotType);
+    const targetServings = slot.filling.scaleServings ?? eating;
+    const surplus = expectedSurplusServings(recipe, targetServings, eating);
     if (surplus <= 0) return;
     const expiry = projectedLeftoverExpiry(slot.date, shelfLifeDays);
     if (!isOnOrAfter(expiry, input.weekStart)) return; // would already be past use-by before this week starts
@@ -527,13 +557,14 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
   // (see file header) — this keeps `StaplePlanState` behaviour unchanged
   // for every existing scenario with no leftover data. ---
   const stapleAssignmentByIndex = new Map<number, RecipeId>();
-  const nextStaplePlanState: Record<MealTag, StapleRotationState> = {
-    breakfast: input.staplePlanState?.breakfast ?? initialStapleRotationState,
-    lunch: input.staplePlanState?.lunch ?? initialStapleRotationState,
-    dinner: input.staplePlanState?.dinner ?? initialStapleRotationState,
-    snack: input.staplePlanState?.snack ?? initialStapleRotationState,
+  const nextStaplePlanState: Partial<Record<MealTag, StapleRotationState>> = {
+    ...initialStaplePlanState,
+    ...input.staplePlanState,
   };
-  for (const tag of ALL_MEAL_TAGS) {
+  // Every meal type this week actually has a slot of, in first-seen order —
+  // the household's own types, not a fixed four.
+  const weekMealTags = [...new Set(specs.flatMap((spec) => (spec === undefined ? [] : [spec.slotType])))];
+  for (const tag of weekMealTags) {
     const openIndexesForTag: number[] = [];
     for (let i = 0; i < specs.length; i += 1) {
       const spec = specs[i];
@@ -544,7 +575,11 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
     }
     const staples = candidatesForSlot(input.recipes, tag, ["staple"]);
     const stapleIds = staples.map((r) => r.id);
-    const batch = advanceStaples(stapleIds, nextStaplePlanState[tag], openIndexesForTag.length);
+    const batch = advanceStaples(
+      stapleIds,
+      nextStaplePlanState[tag] ?? initialStapleRotationState,
+      openIndexesForTag.length,
+    );
     nextStaplePlanState[tag] = batch.nextState;
     batch.placed.forEach((recipeId, placedIndex) => {
       const slotIndex = openIndexesForTag[placedIndex];
@@ -567,10 +602,11 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
     lastUsedDate.set(recipeId, date);
     const recipe = recipesById.get(recipeId);
     if (!recipe) return;
-    const surplus = expectedSurplusServings(recipe, input.settings.householdSize, input.settings.householdSize);
-    if (surplus <= 0) return;
     const spec = specs[specIndex];
     if (spec === undefined) return;
+    const eating = servingsFor(input.settings, spec.slotType);
+    const surplus = expectedSurplusServings(recipe, eating, eating);
+    if (surplus <= 0) return;
     withinWeekSources.push({
       source: { kind: "pending", specIndex },
       position: { date: spec.date, slotIndex: spec.slotIndex },
@@ -587,7 +623,11 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
 
     const targetPosition: SlotPosition = { date: spec.date, slotIndex: spec.slotIndex };
 
-    const realLot = pickRealLeftover(realLots, claimed, targetPosition, input.settings, seq, reuseGapSlots);
+    const fitsRecipe = (recipeId: RecipeId | undefined): boolean =>
+      leftoverFitsSlot(input.settings, recipeId === undefined ? undefined : recipesById.get(recipeId), spec.slotType);
+    const realLot = pickRealLeftover(realLots, claimed, targetPosition, input.settings, seq, reuseGapSlots, (lot) =>
+      fitsRecipe(recipeIdByLotId.get(lot.id)),
+    );
     if (realLot) {
       pendingFillings[i] = { kind: "leftover", lotId: realLot.id };
       claimed.add(`lot:${realLot.id}`);
@@ -596,7 +636,14 @@ export function generateWeek(input: GenerateWeekInput): GenerateWeekResult {
     }
 
     const allProjectedSources = crossWeekSources.concat(withinWeekSources);
-    const projected = pickProjectedLeftover(allProjectedSources, claimed, seq, targetPosition, reuseGapSlots);
+    const projected = pickProjectedLeftover(
+      allProjectedSources,
+      claimed,
+      seq,
+      targetPosition,
+      reuseGapSlots,
+      fitsRecipe,
+    );
     if (projected) {
       pendingFillings[i] = { kind: "leftover-projected", source: projected.source, recipeId: projected.recipeId };
       claimed.add(projected.claimKey);

@@ -5,7 +5,8 @@
  * Pure: no I/O, no Clock/Rng needed (dates come from the range/PlanSlots
  * themselves, not the wall clock).
  */
-import type { PlanSlot, Recipe, RecipeId, RecipeIngredient, Settings } from "./types.ts";
+import type { MealTag, PlanSlot, Recipe, RecipeId, RecipeIngredient, Settings } from "./types.ts";
+import { servingsFor } from "./meal-types.ts";
 import { makeQuantity } from "./types.ts";
 import { isOnOrAfter } from "./dates.ts";
 import { isIndivisible, scaleIndivisible } from "./purchasing.ts";
@@ -29,11 +30,16 @@ function withinRange(date: PlanSlot["date"], range: DateRange): boolean {
  * ingredient already comes out as a whole, purchasable amount before it
  * ever reaches the shopping engine's general rounding stage.
  */
-function scaleFactor(recipe: Recipe, scaleServings: number | undefined, settings: Settings): number {
+function scaleFactor(
+  recipe: Recipe,
+  scaleServings: number | undefined,
+  settings: Settings,
+  slotType: MealTag,
+): number {
   if (recipe.baseServings <= 0) {
     throw new Error(`Recipe ${recipe.id} has non-positive baseServings (${recipe.baseServings})`);
   }
-  const targetServings = scaleServings ?? settings.householdSize;
+  const targetServings = scaleServings ?? servingsFor(settings, slotType);
   if (isIndivisible(recipe)) {
     return scaleIndivisible(recipe, targetServings).units;
   }
@@ -99,7 +105,7 @@ export function computeNeeds(
         if (!recipe) {
           throw new Error(`PlanSlot ${slot.id} references unknown recipe ${recipeId}`);
         }
-        const factor = scaleFactor(recipe, slot.filling.scaleServings, settings);
+        const factor = scaleFactor(recipe, slot.filling.scaleServings, settings, slot.slotType);
         const lines = linesByRecipe.get(recipeId) ?? [];
         for (const line of lines) {
           needs.push({

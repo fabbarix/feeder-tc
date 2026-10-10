@@ -9,8 +9,10 @@
  * a factor; the unit is untouched.
  */
 import { makeQuantity } from "../types.ts";
+import { servingsFor } from "../meal-types.ts";
 import type {
   IngredientId,
+  MealTag,
   PlanSlotFilling,
   Quantity,
   Recipe,
@@ -36,17 +38,20 @@ export function scaleQuantity(quantity: Quantity, factor: number): Quantity {
 
 /**
  * The servings target a filled slot should scale to: its own
- * `scaleServings` override if set, otherwise the household size. `undefined`
- * for a `leftover`/`empty` filling — those aren't scaled recipes.
+ * `scaleServings` override if set, otherwise its meal type's servings
+ * (`servingsFor` — the household size unless the type sets its own, like a
+ * cat's breakfast). `undefined` for a `leftover`/`empty` filling — those
+ * aren't scaled recipes.
  */
 export function resolveTargetServings(
   settings: Settings,
   filling: PlanSlotFilling,
+  slotType: MealTag,
 ): number | undefined {
   if (filling.kind !== "recipe") {
     return undefined;
   }
-  return filling.scaleServings ?? settings.householdSize;
+  return filling.scaleServings ?? servingsFor(settings, slotType);
 }
 
 export interface ScaledIngredientLine {

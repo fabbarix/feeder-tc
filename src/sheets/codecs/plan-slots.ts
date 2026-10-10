@@ -25,7 +25,7 @@ import {
   type PlanSlotFilling,
 } from "../../domain/types.ts";
 import { cellBoolean, cellEnum, cellNumber, cellOptionalNumber, cellString } from "./common.ts";
-import { FILLING_KINDS, MEAL_TAGS, PLAN_SLOT_STATES } from "./enums.ts";
+import { FILLING_KINDS, isMealTag, PLAN_SLOT_STATES } from "./enums.ts";
 
 export const PLAN_SLOTS_HEADER: CellRow = [
   "id",
@@ -76,7 +76,10 @@ export function encodePlanSlot(slot: PlanSlot): CellRow {
 export function decodePlanSlot(row: CellRow): PlanSlot {
   const id = makePlanSlotId(cellString(row, 0, "id"));
   const date = makeIsoDate(cellString(row, 1, "date"));
-  const slotType = cellEnum(row, 2, "slot_type", MEAL_TAGS);
+  const slotType = cellString(row, 2, "slot_type");
+  if (!isMealTag(slotType)) {
+    throw new Error(`slot_type must be a meal type id, got ${JSON.stringify(slotType)}`);
+  }
   const slotIndex = cellNumber(row, 3, "slot_index");
   const fillingKind = cellEnum(row, 4, "filling_kind", FILLING_KINDS);
 

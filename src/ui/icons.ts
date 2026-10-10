@@ -46,6 +46,10 @@ export {
   MagnifyingGlass,
   Plus,
   Minus,
+  // Settings' meal types (custom meal types, 2026-10-10): edit a type, move it up/down the list.
+  PencilSimple,
+  ArrowUp,
+  ArrowDown,
   WarningCircle,
   CheckCircle,
   Info,
