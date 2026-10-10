@@ -118,11 +118,14 @@ const NAV_ITEMS: readonly NavItem[] = [
 // (see ProductsList.tsx's own `layout="grid"` usage) — it needs the same
 // room to actually show more than one column that every other browse route
 // here already gets.
+// "/plan/month" is the same screen as "/plan" in its other view: switching
+// Week/Month must not change the page's width.
 const WIDE_ROUTES: ReadonlySet<string> = new Set([
   "/recipes",
   "/recipes/ingredients",
   "/pantry",
   "/plan",
+  "/plan/month",
   "/shopping",
   "/products",
 ]);

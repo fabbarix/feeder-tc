@@ -369,6 +369,17 @@ test.describe("Plan and Shopping — full-width layout (design/mock-reference.cs
     expect(box!.width).toBeGreaterThan(1200);
   });
 
+  test("the Plan month view is as wide as the week view", async ({ page }) => {
+    await enterReadyShell(page, "plan");
+    const measure = page.locator("main > div").first();
+    const week = await measure.boundingBox();
+    expect(week).not.toBeNull();
+    await page.getByRole("radio", { name: "Month" }).click();
+    await expect(page).toHaveURL(/\/plan\/month$/);
+    await expect(page.getByRole("heading", { name: "Quarter" })).toBeVisible();
+    await expect.poll(async () => (await measure.boundingBox())?.width).toBe(week!.width);
+  });
+
   test("the Shopping route is not capped at the 840px reading measure", async ({ page }) => {
     await enterReadyShell(page, "shopping");
     const measure = page.locator("main > div").first();
