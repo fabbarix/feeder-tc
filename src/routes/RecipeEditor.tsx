@@ -38,7 +38,8 @@ import { getPhotoDataUrl } from "../photos/index.ts";
 import { applyPhotoDraft } from "./photo-save.ts";
 import { ENTRY_UNIT_LABELS, gramsPreview, recipeEntryUnitsFor } from "./entry-units.ts";
 import { TextField } from "./fields.tsx";
-import { KIND_OPTIONS, MEAL_TAG_OPTIONS, SPLIT_OPTIONS, STATUS_OPTIONS, type SplitChoice } from "./recipe-options.ts";
+import { KIND_OPTIONS, mealTagOptions, SPLIT_OPTIONS, STATUS_OPTIONS, type SplitChoice } from "./recipe-options.ts";
+import { useMealTypes } from "./useMealTypes.ts";
 import { uniqueSlug } from "./slug.ts";
 import styles from "./forms.module.css";
 import detailStyles from "./recipe-detail.module.css";
@@ -199,6 +200,7 @@ export function RecipeEditor() {
   const [prepMinutes, setPrepMinutes] = useState<number | null>(() => importDraft?.parsed.prepMinutes ?? 15);
   const [cookMinutes, setCookMinutes] = useState<number | null>(() => importDraft?.parsed.cookMinutes ?? 30);
   const [mealTags, setMealTags] = useState<readonly MealTag[]>([]);
+  const mealTypes = useMealTypes();
   // "Can't be split" (DESIGN_PURCHASING.md §4/§8) — pre-checked for Bought,
   // matching `Recipe.indivisible`'s own default (`kind === "bought"`).
   // `null` means "still following Kind" (never touched this session, or
@@ -868,7 +870,7 @@ export function RecipeEditor() {
                     <span className={styles.fieldLabel}>Meal tags</span>
                     <ToggleChips<MealTag>
                       aria-label="Meal tags"
-                      options={MEAL_TAG_OPTIONS}
+                      options={mealTagOptions(mealTypes, mealTags)}
                       value={mealTags}
                       onChange={setMealTags}
                     />

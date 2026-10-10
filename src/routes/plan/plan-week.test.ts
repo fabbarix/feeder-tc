@@ -48,8 +48,10 @@ describe("formatDayLabel", () => {
 
 describe("mealTagLabel", () => {
   it("title-cases known meal tags", () => {
-    expect(mealTagLabel("breakfast")).toBe("Breakfast");
-    expect(mealTagLabel("dinner")).toBe("Dinner");
+    expect(mealTagLabel("breakfast", undefined)).toBe("Breakfast");
+    expect(mealTagLabel("dinner", undefined)).toBe("Dinner");
+    const settings = { mealTypes: [{ id: "cats-breakfast", name: "Cat's breakfast" }] };
+    expect(mealTagLabel("cats-breakfast", settings)).toBe("Cat's breakfast");
   });
 });
 

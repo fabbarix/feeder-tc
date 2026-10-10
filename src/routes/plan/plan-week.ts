@@ -9,7 +9,7 @@
  * (`generator.test.ts`'s `WEEK_START`) and `expandWeekSlots`, which just
  * walks 7 days forward from whatever `weekStart` it's given.
  */
-import { addDays, isoDateWeekday, type IsoDate } from "../../domain/index.ts";
+import { addDays, isoDateWeekday, mealTypeName, type IsoDate, type Settings } from "../../domain/index.ts";
 
 const WEEKDAY_OFFSET: Record<string, number> = {
   monday: 0,
@@ -93,15 +93,9 @@ export function formatDayLabel(date: IsoDate): string {
   return `${DAY_SHORT[index]} ${d}`;
 }
 
-const MEAL_TAG_LABELS: Record<string, string> = {
-  breakfast: "Breakfast",
-  lunch: "Lunch",
-  dinner: "Dinner",
-  snack: "Snack",
-};
-
-export function mealTagLabel(tag: string): string {
-  return MEAL_TAG_LABELS[tag] ?? tag;
+/** A slot type's display name — the household's own name for it (custom meal types, 2026-10-10). */
+export function mealTagLabel(tag: string, settings: Pick<Settings, "mealTypes"> | undefined): string {
+  return mealTypeName(settings, tag);
 }
 
 /** "Monday" — the full weekday name, for the remove-slot confirm copy ("Remove Chili — Monday dinner?"), where the 3-letter `formatDayLabel` abbreviation reads too tersely for a sentence. */

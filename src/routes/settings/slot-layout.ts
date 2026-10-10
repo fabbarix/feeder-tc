@@ -7,8 +7,12 @@
  * model instead and normalises back to the canonical shape on save, so the
  * UI never has to reason about "which of the two Monday entries did this
  * chip come from".
+ *
+ * Since custom meal types (2026-10-10) the editor is a grid — one row per
+ * meal type, a toggle per weekday, and a per-day count — and every edit
+ * rebuilds the days in the household's meal-type order.
  */
-import type { DaySlotLayout, MealTag, Weekday } from "../../domain/index.ts";
+import type { DaySlotLayout, MealTag, MealType, Weekday } from "../../domain/index.ts";
 
 export const WEEKDAY_ORDER: readonly Weekday[] = [
   "monday",
@@ -54,21 +58,86 @@ export function layoutFromSlotsByDay(byDay: SlotsByDay): readonly DaySlotLayout[
   return WEEKDAY_ORDER.map((day) => ({ day, slots: byDay[day] }));
 }
 
-/** Meal order within a day — a slot added back lands in its natural place, not after dinner. */
-const MEAL_ORDER: readonly MealTag[] = ["breakfast", "lunch", "dinner", "snack"];
+/** How many slots of `tag` each day has. */
+export type DayCounts = Readonly<Record<Weekday, number>>;
 
-/** Adds `tag` to `day`, after every slot that comes before or alongside it in `MEAL_ORDER` (so a repeat lands next to its twin). */
-export function withSlotAdded(byDay: SlotsByDay, day: Weekday, tag: MealTag): SlotsByDay {
-  const slots = byDay[day];
-  const rank = MEAL_ORDER.indexOf(tag);
-  const at = slots.findIndex((existing) => MEAL_ORDER.indexOf(existing) > rank);
-  const next = at === -1 ? [...slots, tag] : [...slots.slice(0, at), tag, ...slots.slice(at)];
-  return { ...byDay, [day]: next };
+export function dayCounts(byDay: SlotsByDay, tag: MealTag): DayCounts {
+  const counts = {} as Record<Weekday, number>;
+  for (const day of WEEKDAY_ORDER) counts[day] = byDay[day].filter((slot) => slot === tag).length;
+  return counts;
 }
 
-/** Removes the slot at `index` within `day`'s list (a day may repeat a tag — e.g. two snacks — so removal is positional, not by tag). */
-export function withSlotRemoved(byDay: SlotsByDay, day: Weekday, index: number): SlotsByDay {
-  return { ...byDay, [day]: byDay[day].filter((_, i) => i !== index) };
+/** The row's "per day" count: the most slots of `tag` any one day has (0 when it's on no day). */
+export function perDayCount(counts: DayCounts): number {
+  return Math.max(0, ...WEEKDAY_ORDER.map((day) => counts[day]));
+}
+
+/**
+ * Rebuilds every day in the household's meal-type order, from `byDay`'s
+ * current counts with `changed`'s counts for one type swapped in. Slots of a
+ * type the household no longer lists stay where they were, after the rest —
+ * never silently dropped.
+ */
+function rebuilt(
+  byDay: SlotsByDay,
+  mealTypes: readonly MealType[],
+  changed?: { readonly tag: MealTag; readonly counts: DayCounts },
+): SlotsByDay {
+  const known = new Set(mealTypes.map((type) => type.id));
+  const next = {} as Record<Weekday, MealTag[]>;
+  for (const day of WEEKDAY_ORDER) {
+    const slots: MealTag[] = [];
+    for (const type of mealTypes) {
+      const count = changed?.tag === type.id ? changed.counts[day] : dayCounts(byDay, type.id)[day];
+      for (let n = 0; n < count; n += 1) slots.push(type.id);
+    }
+    next[day] = [...slots, ...byDay[day].filter((slot) => !known.has(slot))];
+  }
+  return next;
+}
+
+/** Puts every day back in meal-type order — after the household reorders or adds a type. */
+export function inMealTypeOrder(byDay: SlotsByDay, mealTypes: readonly MealType[]): SlotsByDay {
+  return rebuilt(byDay, mealTypes);
+}
+
+/** Turns `tag` on or off for one day. On means the row's per-day count (at least 1). */
+export function withDayToggled(
+  byDay: SlotsByDay,
+  mealTypes: readonly MealType[],
+  tag: MealTag,
+  day: Weekday,
+): SlotsByDay {
+  const counts = dayCounts(byDay, tag);
+  const next = { ...counts, [day]: counts[day] > 0 ? 0 : Math.max(1, perDayCount(counts)) };
+  return rebuilt(byDay, mealTypes, { tag, counts: next });
+}
+
+/** Sets how many slots of `tag` every day it's on has (two snacks a day). */
+export function withPerDayCount(
+  byDay: SlotsByDay,
+  mealTypes: readonly MealType[],
+  tag: MealTag,
+  count: number,
+): SlotsByDay {
+  const counts = dayCounts(byDay, tag);
+  const next = {} as Record<Weekday, number>;
+  for (const day of WEEKDAY_ORDER) next[day] = counts[day] > 0 ? Math.max(1, count) : 0;
+  return rebuilt(byDay, mealTypes, { tag, counts: next });
+}
+
+/** A newly added meal type starts once a day, every day — the household then trims it. */
+export function withMealTypeAdded(byDay: SlotsByDay, mealTypes: readonly MealType[], tag: MealTag): SlotsByDay {
+  const counts = {} as Record<Weekday, number>;
+  for (const day of WEEKDAY_ORDER) counts[day] = 1;
+  return rebuilt(byDay, mealTypes, { tag, counts });
+}
+
+/** Takes every slot of `tag` off every day — the meal type is being removed. */
+export function withMealTypeRemoved(byDay: SlotsByDay, tag: MealTag): SlotsByDay {
+  const next = {} as Record<Weekday, MealTag[]>;
+  for (const day of WEEKDAY_ORDER) next[day] = byDay[day].filter((slot) => slot !== tag);
+  return next;
 }
 
 export { EMPTY_WEEK };

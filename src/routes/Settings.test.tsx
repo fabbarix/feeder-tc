@@ -6,7 +6,7 @@ import { ToastProvider } from "../ui/components/Toast/ToastProvider.tsx";
 import { ThemeProvider } from "../ui/theme/ThemeProvider.tsx";
 import { WorkbookContext, type WorkbookContextValue } from "../workbook-context.ts";
 import { createFakeOutbox, createFakeRng, createFakeWorkbookStore, createFixedClock } from "../domain/fakes/index.ts";
-import { makeIsoDate, makeIsoTimestamp, type Settings as SettingsRow, type WorkbookStore } from "../domain/index.ts";
+import { makeIsoDate, makeIsoTimestamp, makeRecipeId, type Settings as SettingsRow, type WorkbookStore } from "../domain/index.ts";
 
 const NO_SETTINGS_ROW_ERROR = "This meal planner doesn't have any settings saved yet.";
 
@@ -71,7 +71,7 @@ describe("Settings — no Settings row yet (WP-31)", () => {
     await user.click(screen.getByRole("button", { name: /set up defaults/i }));
 
     // The full editor mounts once defaults are written.
-    expect(await screen.findByText("Meals each day")).toBeInTheDocument();
+    expect(await screen.findByText("Meals")).toBeInTheDocument();
     expect(screen.getByLabelText("Fewer — Household size")).toBeInTheDocument();
     expect(screen.queryByText(/no settings saved yet/i)).not.toBeInTheDocument();
   });
@@ -115,7 +115,7 @@ describe("Settings — stale-save protection (refresh-before-edit merge)", () =>
     await store.settings.write(initial);
 
     renderSettings(store);
-    await screen.findByText("Meals each day");
+    await screen.findByText("Meals");
 
     // Another household member (or another tab) adds a Tuesday breakfast
     // slot AFTER this route loaded its own copy of `settings`.
@@ -138,5 +138,103 @@ describe("Settings — stale-save protection (refresh-before-edit merge)", () =>
     const saved = await store.settings.read();
     expect(saved.slotLayout).toHaveLength(2);
     expect(saved.slotLayout.some((d) => d.day === "tuesday")).toBe(true);
+  });
+});
+
+describe("Settings — meal types (custom meal types)", () => {
+  async function setUp(): Promise<WorkbookStore> {
+    const store = createFakeWorkbookStore();
+    await store.settings.write({
+      householdSize: 4,
+      slotLayout: [
+        { day: "monday", slots: ["breakfast", "dinner"] },
+        { day: "tuesday", slots: ["dinner"] },
+      ],
+      repeatExclusionWeeks: 3,
+      currency: "$",
+    });
+    renderSettings(store);
+    await screen.findByText("Meals");
+    return store;
+  }
+
+  it("adds a meal type with its own servings, on every day once", async () => {
+    const store = await setUp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Add a meal type" }));
+    await user.type(screen.getByLabelText("Name"), "Cat's breakfast");
+    await user.click(screen.getByLabelText(/Feeds the household/));
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(async () => {
+      const saved = await store.settings.read();
+      expect(saved.mealTypes?.at(-1)).toEqual({ id: "cats-breakfast", name: "Cat's breakfast", servings: 1 });
+      expect(saved.slotLayout.find((d) => d.day === "sunday")?.slots).toEqual(["cats-breakfast"]);
+      expect(saved.slotLayout.find((d) => d.day === "monday")?.slots).toEqual(["breakfast", "dinner", "cats-breakfast"]);
+    });
+    expect(await screen.findByText("serves 1")).toBeInTheDocument();
+  });
+
+  it("gives a day two of the same meal from the row's per-day count", async () => {
+    const store = await setUp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "More Dinner per day" }));
+
+    await waitFor(async () => {
+      const saved = await store.settings.read();
+      expect(saved.slotLayout.find((d) => d.day === "monday")?.slots).toEqual(["breakfast", "dinner", "dinner"]);
+      expect(saved.slotLayout.find((d) => d.day === "tuesday")?.slots).toEqual(["dinner", "dinner"]);
+    });
+  });
+
+  it("toggles a meal on for a day", async () => {
+    const store = await setUp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Breakfast on Tue" }));
+
+    await waitFor(async () => {
+      const saved = await store.settings.read();
+      expect(saved.slotLayout.find((d) => d.day === "tuesday")?.slots).toEqual(["breakfast", "dinner"]);
+    });
+  });
+
+  it("won't remove a meal type a recipe is still tagged with, and says why", async () => {
+    const store = await setUp();
+    await store.recipes.upsert({
+      id: makeRecipeId("porridge"),
+      name: "Porridge",
+      kind: "cooked",
+      baseServings: 2,
+      prepMinutes: 5,
+      cookMinutes: 10,
+      mealTags: ["breakfast"],
+      status: "in-rotation",
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Edit Breakfast" }));
+    await user.click(screen.getByRole("button", { name: /Remove this meal type/ }));
+
+    expect(await screen.findByText(/1 recipe is tagged with it/)).toBeInTheDocument();
+    expect((await store.settings.read()).mealTypes).toBeUndefined();
+  });
+
+  it("renames a meal type without changing its id", async () => {
+    const store = await setUp();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Edit Dinner" }));
+    const name = screen.getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "Supper");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(async () => {
+      const saved = await store.settings.read();
+      expect(saved.mealTypes?.find((type) => type.id === "dinner")?.name).toBe("Supper");
+    });
   });
 });

@@ -4,7 +4,8 @@ import { useWorkbookContext } from "../workbook-context.ts";
 import { EmptyState, ErrorState, RouteTabs, SearchField, Skeleton } from "../ui/components";
 import { PhotoMedia } from "../ui/photo/index.ts";
 import { BookOpen, Clock, CookingPot, FileArrowUp, MagnifyingGlass, Plus, Users } from "../ui/icons";
-import type { MealTag, Recipe } from "../domain/index.ts";
+import { mealTypeName, type MealType, type Recipe } from "../domain/index.ts";
+import { useMealTypes } from "./useMealTypes.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
 import { SECTION_TABS } from "./section-tabs.ts";
 import { useRecipesData } from "./useRecipesData.ts";
@@ -17,13 +18,14 @@ interface FilterDef {
   readonly test: (recipe: Recipe) => boolean;
 }
 
-const MEAL_TAG_FILTERS: readonly FilterDef[] = (
-  ["breakfast", "lunch", "dinner", "snack"] as const satisfies readonly MealTag[]
-).map((tag) => ({
-  key: tag,
-  label: tag[0]!.toUpperCase() + tag.slice(1),
-  test: (recipe: Recipe) => recipe.mealTags.includes(tag),
-}));
+/** One filter per household meal type, in its own order (custom meal types, 2026-10-10). Keys are prefixed so a type id can never collide with "staples"/"bought"/"retired". */
+function mealTagFilters(mealTypes: readonly MealType[]): readonly FilterDef[] {
+  return mealTypes.map((type) => ({
+    key: `meal:${type.id}`,
+    label: type.name,
+    test: (recipe: Recipe) => recipe.mealTags.includes(type.id),
+  }));
+}
 
 const OTHER_FILTERS: readonly FilterDef[] = [
   { key: "staples", label: "Staples", test: (r) => r.status === "staple" },
@@ -31,11 +33,8 @@ const OTHER_FILTERS: readonly FilterDef[] = [
   { key: "retired", label: "Retired", test: (r) => r.status === "retired" },
 ];
 
-// Order matches the approved mockup's filter row exactly: meal tags first, then the status/kind facets.
-const FILTERS: readonly FilterDef[] = [...MEAL_TAG_FILTERS, ...OTHER_FILTERS];
-
-function tagPills(recipe: Recipe): readonly string[] {
-  const pills = recipe.mealTags.map((tag) => tag[0]!.toUpperCase() + tag.slice(1));
+function tagPills(recipe: Recipe, mealTypes: readonly MealType[]): readonly string[] {
+  const pills = recipe.mealTags.map((tag) => mealTypeName({ mealTypes }, tag));
   const withKind: string[] = recipe.kind === "bought" ? [...pills, "Bought"] : [...pills];
   if (recipe.status === "staple") withKind.push("Staple");
   if (recipe.status === "retired") withKind.push("Retired");
@@ -54,6 +53,9 @@ export function Recipes() {
   const { loading, error, recipes, retry } = useRecipesData();
   const [query, setQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const mealTypes = useMealTypes();
+  // Order matches the approved mockup's filter row: meal tags first, then the status/kind facets.
+  const FILTERS = useMemo(() => [...mealTagFilters(mealTypes), ...OTHER_FILTERS], [mealTypes]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -63,7 +65,7 @@ export function Recipes() {
       if (activeTest && !activeTest(recipe)) return false;
       return true;
     });
-  }, [recipes, query, activeFilter]);
+  }, [recipes, query, activeFilter, FILTERS]);
 
   const staplesCount = recipes.filter((r) => r.status === "staple").length;
   const retiredCount = recipes.filter((r) => r.status === "retired").length;
@@ -220,7 +222,7 @@ export function Recipes() {
                         </span>
                       </div>
                       <div className={styles.tagRow}>
-                        {tagPills(recipe).map((tag) => (
+                        {tagPills(recipe, mealTypes).map((tag) => (
                           <span key={tag} className={styles.tagPill}>
                             {tag}
                           </span>

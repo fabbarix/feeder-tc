@@ -28,7 +28,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWorkbookContext } from "../../workbook-context.ts";
 import { useToast } from "../../ui/components/Toast/useToast.ts";
-import { MEAL_TAG_OPTIONS } from "../recipe-options.ts";
 import {
   addDays,
   buildUseEvent,
@@ -39,6 +38,7 @@ import {
   initialStaplePlanState,
   makeQuantity,
   resolveTargetServings,
+  mealTypeName,
   rerollSlot,
   servingsFor,
   scaledRecipeIngredients,
@@ -587,9 +587,7 @@ export function usePlanWeek(): UsePlanWeekResult {
         // shows it — but a PARTIAL or empty result now says so, and names
         // the concrete fix (tag more recipes for the starved meal(s)).
         if (result.emptyCount > 0) {
-          const starvedLabels = result.starvedMealTags.map(
-            (tag) => MEAL_TAG_OPTIONS.find((o) => o.value === tag)?.label ?? tag,
-          );
+          const starvedLabels = result.starvedMealTags.map((tag) => mealTypeName(settings, tag));
           const totalOpen = result.filledCount + result.emptyCount;
           const fillSummary = `Filled ${result.filledCount} of ${totalOpen} empty slot${totalOpen === 1 ? "" : "s"} this time.`;
           const suggestion =

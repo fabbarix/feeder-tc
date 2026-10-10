@@ -26,7 +26,10 @@ const VIEW_OPTIONS = [
 ] as const;
 
 /** "Remove Chili — Monday dinner?" plus the two-variant body (design/mock-responsive.html § "Removing a plan entry — corrects the record, never erases it silently"). */
-function removeConfirmCopy(view: PlanSlotView): { readonly title: string; readonly description: ReactNode } {
+function removeConfirmCopy(
+  view: PlanSlotView,
+  settings: Settings | undefined,
+): { readonly title: string; readonly description: ReactNode } {
   const { slot } = view;
   const entryName =
     slot.filling.kind === "recipe"
@@ -37,7 +40,7 @@ function removeConfirmCopy(view: PlanSlotView): { readonly title: string; readon
           ? (view.projectedRecipe ? `Leftover: ${view.projectedRecipe.name}` : "Leftover")
           : "";
   const weekday = formatWeekdayName(slot.date);
-  const title = `Remove ${entryName} — ${weekday} ${mealTagLabel(slot.slotType).toLowerCase()}?`;
+  const title = `Remove ${entryName} — ${weekday} ${mealTagLabel(slot.slotType, settings).toLowerCase()}?`;
 
   // Invariant 1 (HANDOVER.md): a `"cooked"` slot's usage/leftover events are
   // already-recorded `InventoryEvent` rows and stay exactly as they are —
@@ -335,7 +338,7 @@ export function Plan() {
       {picker ? (
         <RecipePickerDialog
           open
-          title={`Pick a meal for ${mealTagLabel(picker.mealTag)}`}
+          title={`Pick a meal for ${mealTagLabel(picker.mealTag, settings)}`}
           recipes={plan.pickableRecipes(picker.mealTag)}
           onPick={(recipeId) => void plan.pickRecipe(picker.slotId, recipeId)}
           onClose={() => setPicker(undefined)}
@@ -353,8 +356,8 @@ export function Plan() {
 
       <ConfirmDialog
         open={removeView !== undefined}
-        title={removeView ? removeConfirmCopy(removeView).title : ""}
-        description={removeView ? removeConfirmCopy(removeView).description : undefined}
+        title={removeView ? removeConfirmCopy(removeView, settings).title : ""}
+        description={removeView ? removeConfirmCopy(removeView, settings).description : undefined}
         confirmLabel="Remove from plan"
         cancelLabel="Cancel"
         destructive

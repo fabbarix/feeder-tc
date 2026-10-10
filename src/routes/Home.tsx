@@ -4,7 +4,7 @@ import { useWorkbookContext } from "../workbook-context.ts";
 import { EmptyState, ErrorState, FreshnessMeter, Skeleton } from "../ui/components";
 import { PhotoMedia, type PhotoMediaProps } from "../ui/photo/index.ts";
 import { CalendarBlank, CookingPot, Package } from "../ui/icons";
-import { addDays, computeShoppingList, daysBetween, formatQuantity, type PlanSlot } from "../domain/index.ts";
+import { addDays, computeShoppingList, daysBetween, formatQuantity, mealTypeName, type PlanSlot } from "../domain/index.ts";
 import { getPhotoDataUrl } from "../photos/index.ts";
 import { usePantryInventory } from "./pantry/usePantryInventory.ts";
 import { EXPIRING_SOON_DAYS } from "./pantry/pantry-options.ts";
@@ -107,7 +107,7 @@ export function Home() {
       const bought = recipe?.kind === "bought";
       return {
         name: recipe?.name ?? "Unknown recipe",
-        secondary: `${weekdayLabel(slot.date)} ${slot.slotType}${bought ? " · bought" : ""}`,
+        secondary: `${weekdayLabel(slot.date)} ${mealTypeName(settings, slot.slotType).toLowerCase()}${bought ? " · bought" : ""}`,
         badge: "Planned",
       };
     }
@@ -123,7 +123,7 @@ export function Home() {
       const ingredient = lot ? pantry.ingredientsById.get(lot.ingredientId) : undefined;
       return {
         name: ingredient?.name ?? "Leftovers",
-        secondary: `${weekdayLabel(slot.date)} ${slot.slotType}${lot ? ` · ${formatQuantity(lot.quantity)}` : ""}`,
+        secondary: `${weekdayLabel(slot.date)} ${mealTypeName(settings, slot.slotType).toLowerCase()}${lot ? ` · ${formatQuantity(lot.quantity)}` : ""}`,
         badge: "Leftover",
       };
     }
@@ -131,7 +131,7 @@ export function Home() {
       const recipe = recipesById.get(slot.filling.recipeId);
       return {
         name: recipe ? `Leftover: ${recipe.name}` : "Leftover",
-        secondary: `${weekdayLabel(slot.date)} ${slot.slotType} · not made yet`,
+        secondary: `${weekdayLabel(slot.date)} ${mealTypeName(settings, slot.slotType).toLowerCase()} · not made yet`,
         badge: "Leftover",
       };
     }

@@ -73,7 +73,7 @@ GitHub Pages, with a Google Sheets workbook as the backend. No server-side code.
 ### Recipes
 
 - Fields: name, kind (`cooked` | `bought`), base servings, `prep_minutes`,
-  `cook_minutes`, meal-type tags (breakfast / lunch / dinner / snack — multi),
+  `cook_minutes`, meal-type tags (any of the household's meal types — multi),
   household status (see Voting), ingredients (join rows), steps (numbered lines).
 - **Third-party / pre-prepared meals** are recipes with `kind = bought`:
   `prep_minutes = 0`, a real `cook_minutes`, optional heating instructions as steps
@@ -86,11 +86,17 @@ GitHub Pages, with a Google Sheets workbook as the backend. No server-side code.
 ### Servings, scaling & leftovers
 
 - Settings store a household size; recipes store base servings; the planner scales
-  ingredient quantities automatically, with a per-slot manual override.
+  ingredient quantities automatically, with a per-slot manual override. A meal
+  type may set its own servings (a cat's breakfast serves 1), which replaces the
+  household size for slots of that type.
 - **Full leftovers tracking**: marking a meal cooked with surplus servings creates a
   leftover lot (`Leftover: <recipe>`, unit = portion, short fridge shelf life, or
   frozen). Leftover lots can fill future meal slots and are consumed like any lot;
   planned leftover slots generate no shopping needs.
+- Leftovers move freely between meal types that feed the household (dinner's
+  chili for tomorrow's lunch). A meal type with its own servings only takes
+  leftovers of recipes tagged for it, and its own leftovers never reach the
+  household's meals.
 
 ### Voting / rotation
 
@@ -100,9 +106,14 @@ GitHub Pages, with a Google Sheets workbook as the backend. No server-side code.
 
 ### Planning
 
-- Weeks are planned in advance. **Flexible slots**: per-day slot layout
-  (breakfast / lunch / dinner / snacks) is configurable in Settings; each slot draws
-  only from recipes tagged for its meal type.
+- Weeks are planned in advance. **Meal types** are the household's own list,
+  starting as breakfast / lunch / dinner / snack: each can be renamed, reordered,
+  given its own servings, or removed (refused while recipes or upcoming meals use
+  it), and custom ones added ("Cat's breakfast"). A type's id never changes on
+  rename, so tags and planned slots survive it.
+- **Flexible slots**: per-day slot layout is configurable in Settings as a grid —
+  each meal type is on or off per weekday, with a per-day count (two snacks);
+  each slot draws only from recipes tagged for its meal type.
 - **Generator (staples + weighted random)**, per slot type:
   1. Staples land first, one appearance each per week; more staples than slots →
      round-robin across weeks.
@@ -146,7 +157,7 @@ hand-editable by design.
 | Sheet             | Contents                                                                 |
 |-------------------|--------------------------------------------------------------------------|
 | `Meta`            | schema version, generation number, app metadata                          |
-| `Settings`        | household size, slot layout per day, repeat-exclusion window N           |
+| `Settings`        | household size, slot layout per day, repeat-exclusion window N, meal types (one row each: id, name, position, servings) |
 | `Ingredients`     | id, name, unit, shelf_life_days, opened_shelf_life_days, default_location |
 | `Recipes`         | id, name, kind, servings, prep_minutes, cook_minutes, meal tags, status  |
 | `RecipeIngredients` | one row per (recipe_id, ingredient_id, quantity)                       |

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { layoutFromSlotsByDay, slotsByDay, withSlotAdded, withSlotRemoved } from "./slot-layout.ts";
+import {
+  dayCounts,
+  inMealTypeOrder,
+  layoutFromSlotsByDay,
+  perDayCount,
+  slotsByDay,
+  withDayToggled,
+  withMealTypeRemoved,
+  withPerDayCount,
+} from "./slot-layout.ts";
 import type { DaySlotLayout } from "../../domain/index.ts";
 
 describe("slotsByDay", () => {
@@ -54,29 +63,64 @@ describe("layoutFromSlotsByDay", () => {
   });
 });
 
-describe("withSlotAdded / withSlotRemoved", () => {
-  it("appends a slot to the named day only", () => {
+describe("meal-type grid edits", () => {
+  const types = [
+    { id: "breakfast", name: "Breakfast" },
+    { id: "dinner", name: "Dinner" },
+    { id: "snack", name: "Snack" },
+  ];
+
+  it("turns a meal on for a day in meal-type order, not after dinner", () => {
     const byDay = slotsByDay([{ day: "monday", slots: ["dinner"] }]);
-    const next = withSlotAdded(byDay, "monday", "snack");
-    expect(next.monday).toEqual(["dinner", "snack"]);
-    expect(next.tuesday).toEqual([]);
+    expect(withDayToggled(byDay, types, "breakfast", "monday").monday).toEqual(["breakfast", "dinner"]);
   });
 
-  it("puts a slot back in meal order, not after dinner", () => {
-    const byDay = slotsByDay([{ day: "monday", slots: ["lunch", "dinner"] }]);
-    expect(withSlotAdded(byDay, "monday", "breakfast").monday).toEqual(["breakfast", "lunch", "dinner"]);
-    expect(withSlotAdded(byDay, "monday", "snack").monday).toEqual(["lunch", "dinner", "snack"]);
-  });
-
-  it("supports a day repeating the same tag (two snacks)", () => {
-    const byDay = slotsByDay([{ day: "monday", slots: ["snack"] }]);
-    const next = withSlotAdded(byDay, "monday", "snack");
-    expect(next.monday).toEqual(["snack", "snack"]);
-  });
-
-  it("removes by positional index, not by tag value", () => {
+  it("turns a meal off for a day, every copy of it", () => {
     const byDay = slotsByDay([{ day: "monday", slots: ["snack", "dinner", "snack"] }]);
-    const next = withSlotRemoved(byDay, "monday", 0);
-    expect(next.monday).toEqual(["dinner", "snack"]);
+    expect(withDayToggled(byDay, types, "snack", "monday").monday).toEqual(["dinner"]);
+  });
+
+  it("turns a meal on at the row's per-day count", () => {
+    const byDay = slotsByDay([
+      { day: "monday", slots: ["snack", "snack"] },
+      { day: "tuesday", slots: [] },
+    ]);
+    expect(withDayToggled(byDay, types, "snack", "tuesday").tuesday).toEqual(["snack", "snack"]);
+  });
+
+  it("sets the per-day count on every day the meal is on, and leaves other days alone", () => {
+    const byDay = slotsByDay([
+      { day: "monday", slots: ["dinner", "snack"] },
+      { day: "tuesday", slots: ["dinner"] },
+    ]);
+    const next = withPerDayCount(byDay, types, "snack", 2);
+    expect(next.monday).toEqual(["dinner", "snack", "snack"]);
+    expect(next.tuesday).toEqual(["dinner"]);
+    expect(perDayCount(dayCounts(next, "snack"))).toBe(2);
+  });
+
+  it("keeps another meal's uneven days as they are", () => {
+    const byDay = slotsByDay([
+      { day: "monday", slots: ["snack", "snack"] },
+      { day: "tuesday", slots: ["snack"] },
+    ]);
+    const next = withDayToggled(byDay, types, "dinner", "monday");
+    expect(next.monday).toEqual(["dinner", "snack", "snack"]);
+    expect(next.tuesday).toEqual(["snack"]);
+  });
+
+  it("keeps slots of a type the household no longer lists, after the rest", () => {
+    const byDay = slotsByDay([{ day: "monday", slots: ["old-type", "dinner"] }]);
+    expect(inMealTypeOrder(byDay, types).monday).toEqual(["dinner", "old-type"]);
+  });
+
+  it("removes a meal type from every day", () => {
+    const byDay = slotsByDay([
+      { day: "monday", slots: ["breakfast", "dinner"] },
+      { day: "friday", slots: ["breakfast"] },
+    ]);
+    const next = withMealTypeRemoved(byDay, "breakfast");
+    expect(next.monday).toEqual(["dinner"]);
+    expect(next.friday).toEqual([]);
   });
 });

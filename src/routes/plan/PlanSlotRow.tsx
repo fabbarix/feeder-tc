@@ -100,7 +100,7 @@ export function PlanSlotRow({
   onRemove,
 }: PlanSlotRowProps) {
   const { slot } = view;
-  const tagLabel = mealTagLabel(slot.slotType);
+  const tagLabel = mealTagLabel(slot.slotType, settings);
 
   if (slot.filling.kind === "empty") {
     return (

@@ -540,23 +540,26 @@ const settingsArb: fc.Arbitrary<Settings> = fc.record({
   // DEFAULT_REUSE_GAP_SLOTS), so round-trip identity only holds when the
   // input already has one.
   reuseGapSlots: fc.integer({ min: 0, max: 10 }),
-  // Absent (an older workbook: no meal_type rows) or a non-empty list with
-  // unique ids. Names are already trimmed — the decoder trims them.
-  mealTypes: fc.option(
-    fc.uniqueArray(
-      fc.record(
-        {
-          id: MEAL_TAG_ARB,
-          name: fc.string({ minLength: 1, maxLength: 20 }).filter((name) => name.trim() === name && name !== ""),
-          servings: fc.integer({ min: 1, max: 12 }),
-        },
-        { requiredKeys: ["id", "name"] },
+}).chain((base) =>
+  // `mealTypes` absent (an older workbook: no meal_type rows) or a non-empty
+  // list with unique ids. Names are already trimmed — the decoder trims them.
+  fc
+    .option(
+      fc.uniqueArray(
+        fc.record(
+          {
+            id: MEAL_TAG_ARB,
+            name: fc.string({ minLength: 1, maxLength: 20 }).filter((name) => name.trim() === name && name !== ""),
+            servings: fc.integer({ min: 1, max: 12 }),
+          },
+          { requiredKeys: ["id", "name"] },
+        ),
+        { minLength: 1, maxLength: 6, selector: (type) => type.id },
       ),
-      { minLength: 1, maxLength: 6, selector: (type) => type.id },
-    ),
-    { nil: undefined },
-  ),
-}, { requiredKeys: ["householdSize", "slotLayout", "repeatExclusionWeeks", "currency", "reuseGapSlots"] });
+      { nil: undefined },
+    )
+    .map((mealTypes): Settings => (mealTypes === undefined ? base : { ...base, mealTypes })),
+);
 
 describe("Settings codec", () => {
   it("encode -> decode is identity", () => {
