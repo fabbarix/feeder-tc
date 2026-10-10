@@ -4,8 +4,14 @@ name: CI
 # through a PR, and having both triggers ran the whole suite twice per commit.
 # main is deploy.yml's territory.
 # CI must never call a real Google API — src/mocks/* (msw) covers that.
+#
+# E2E does NOT run on PRs (2026-10-10): the suite takes 20+ minutes on one
+# worker, so it is run locally before pushing instead (TESTING.md
+# "Definition of done"). It can still be run here by hand from the Actions
+# tab ("Run workflow").
 on:
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -38,6 +44,7 @@ jobs:
 
   e2e:
     name: playwright e2e
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

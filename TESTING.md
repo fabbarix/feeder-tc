@@ -95,7 +95,9 @@ See `e2e/wp-01-harness.spec.ts` for a trivial worked example.
 ## Accessibility checks
 
 Every WP that adds a route or a kit component runs axe. Two entry points,
-chosen so both run in CI with no manual step — do not invent a third:
+chosen so both run with no manual step — do not invent a third. The
+Playwright one runs with the local E2E suite, not in PR CI (see
+"Definition of done"):
 
 1. **Shell / route level — `@axe-core/playwright` in Playwright.**
    `e2e/wp-15-a11y.spec.ts` runs `new AxeBuilder({ page }).analyze()` against
@@ -159,6 +161,11 @@ npm test
 npm run build
 npm run test:e2e
 ```
+
+CI runs only the first four on a PR. **E2E is not run by CI** (it takes 20+
+minutes), so run `npm run test:e2e` locally before pushing, using your own
+`E2E_PORT` (see the port table). To run it on GitHub anyway, use "Run workflow"
+on the CI workflow in the Actions tab.
 
 All five green, plus any mandatory BDD scenarios the WP lists in
 `IMPLEMENTATION_PLAN.md` implemented and passing, and no `HANDOVER.md` §4
