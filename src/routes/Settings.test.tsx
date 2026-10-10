@@ -5,18 +5,8 @@ import { Settings } from "./Settings.tsx";
 import { ToastProvider } from "../ui/components/Toast/ToastProvider.tsx";
 import { ThemeProvider } from "../ui/theme/ThemeProvider.tsx";
 import { WorkbookContext, type WorkbookContextValue } from "../workbook-context.ts";
-import {
-  createFakeOutbox,
-  createFakeRng,
-  createFakeWorkbookStore,
-  createFixedClock,
-} from "../domain/fakes/index.ts";
-import {
-  makeIsoDate,
-  makeIsoTimestamp,
-  type Settings as SettingsRow,
-  type WorkbookStore,
-} from "../domain/index.ts";
+import { createFakeOutbox, createFakeRng, createFakeWorkbookStore, createFixedClock } from "../domain/fakes/index.ts";
+import { makeIsoDate, makeIsoTimestamp, type Settings as SettingsRow, type WorkbookStore } from "../domain/index.ts";
 
 const NO_SETTINGS_ROW_ERROR = "This meal planner doesn't have any settings saved yet.";
 
@@ -35,10 +25,7 @@ function createStoreMissingSettingsRow(): WorkbookStore {
 function renderSettings(store: WorkbookStore) {
   const contextValue: WorkbookContextValue = {
     store,
-    clock: createFixedClock(
-      makeIsoTimestamp("2026-08-21T12:00:00.000Z"),
-      makeIsoDate("2026-08-21"),
-    ),
+    clock: createFixedClock(makeIsoTimestamp("2026-08-21T12:00:00.000Z"), makeIsoDate("2026-08-21")),
     rng: createFakeRng(1),
     workbookId: "wb-1",
     outbox: createFakeOutbox(),

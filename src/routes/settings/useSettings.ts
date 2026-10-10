@@ -107,11 +107,7 @@ export function useSettings(): UseSettingsResult {
           // alongside the now-populated editor below it.
           setError(undefined);
         } catch (err) {
-          showToast({
-            variant: "error",
-            title: "Couldn't save settings",
-            description: messageOf(err),
-          });
+          showToast({ variant: "error", title: "Couldn't save settings", description: messageOf(err) });
         } finally {
           setSaving(false);
         }

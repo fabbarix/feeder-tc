@@ -1,13 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { enterReadyShell } from "./support/shell.ts";
-import {
-  addDinnerRecipe,
-  bumpServings,
-  dayCard,
-  goToPlan,
-  markSlotCooked,
-  pickMealForEmptySlot,
-} from "./support/plan.ts";
+import { addDinnerRecipe, bumpServings, dayCard, goToPlan, markSlotCooked, pickMealForEmptySlot } from "./support/plan.ts";
 
 // Tablet round-2 review: the weekend band's 4th `.week4` cell (Mon-Thu is
 // full at four real days; Fri-Sun only has three, so the band needed a
@@ -50,10 +43,7 @@ test("weekend corner card shows a reassuring empty state, not a blank panel, and
   // pixel match: this just confirms the empty state doesn't itself balloon.
   const box = await card.boundingBox();
   expect(box).not.toBeNull();
-  expect(
-    box!.height,
-    "empty leftovers card should be short, matching a quiet day card",
-  ).toBeLessThan(150);
+  expect(box!.height, "empty leftovers card should be short, matching a quiet day card").toBeLessThan(150);
 });
 
 test("a fresh leftover from marking a meal cooked appears in the weekend corner card and links to its pantry detail", async ({

@@ -64,11 +64,7 @@ describe("withSlotAdded / withSlotRemoved", () => {
 
   it("puts a slot back in meal order, not after dinner", () => {
     const byDay = slotsByDay([{ day: "monday", slots: ["lunch", "dinner"] }]);
-    expect(withSlotAdded(byDay, "monday", "breakfast").monday).toEqual([
-      "breakfast",
-      "lunch",
-      "dinner",
-    ]);
+    expect(withSlotAdded(byDay, "monday", "breakfast").monday).toEqual(["breakfast", "lunch", "dinner"]);
     expect(withSlotAdded(byDay, "monday", "snack").monday).toEqual(["lunch", "dinner", "snack"]);
   });
 

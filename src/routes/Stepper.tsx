@@ -64,10 +64,7 @@ export function Stepper({
         </button>
       </Tooltip>
       <span className={forms.qtyValue}>
-        {value}{" "}
-        <span className={forms.qtyUnit}>
-          {value === 1 && unitOne !== undefined ? unitOne : unit}
-        </span>
+        {value} <span className={forms.qtyUnit}>{value === 1 && unitOne !== undefined ? unitOne : unit}</span>
       </span>
       <Tooltip label={`More — ${label}`}>
         <button
