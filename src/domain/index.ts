@@ -12,6 +12,7 @@ export * from "./contracts.ts";
 export * from "./dates.ts";
 export * from "./quantity.ts";
 export * from "./ids.ts";
+export * from "./meal-types.ts";
 export { systemClock } from "./clock.ts";
 export { createSeededRng } from "./rng.ts";
 export * from "./inventory/index.ts";

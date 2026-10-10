@@ -43,26 +43,44 @@ describe("scaleQuantity", () => {
 });
 
 describe("resolveTargetServings", () => {
-  const settings: Settings = { householdSize: 4, repeatExclusionWeeks: 3, slotLayout: [] };
+  const settings: Settings = {
+    householdSize: 4,
+    repeatExclusionWeeks: 3,
+    slotLayout: [],
+    mealTypes: [
+      { id: "dinner", name: "Dinner" },
+      { id: "cats-breakfast", name: "Cat's breakfast", servings: 1 },
+    ],
+  };
 
   it("uses the per-slot override when present", () => {
     expect(
-      resolveTargetServings(settings, {
-        kind: "recipe",
-        recipeId: makeRecipeId("chili"),
-        scaleServings: 8,
-      }),
+      resolveTargetServings(
+        settings,
+        {
+          kind: "recipe",
+          recipeId: makeRecipeId("chili"),
+          scaleServings: 8,
+        },
+        "dinner",
+      ),
     ).toBe(8);
   });
 
   it("falls back to household size when no override is set", () => {
-    expect(resolveTargetServings(settings, { kind: "recipe", recipeId: makeRecipeId("chili") })).toBe(4);
+    expect(resolveTargetServings(settings, { kind: "recipe", recipeId: makeRecipeId("chili") }, "dinner")).toBe(4);
+  });
+
+  it("uses a meal type's own servings when it sets them", () => {
+    expect(
+      resolveTargetServings(settings, { kind: "recipe", recipeId: makeRecipeId("kibble") }, "cats-breakfast"),
+    ).toBe(1);
   });
 
   it("is undefined for leftover and empty fillings", () => {
-    expect(resolveTargetServings(settings, { kind: "empty" })).toBeUndefined();
+    expect(resolveTargetServings(settings, { kind: "empty" }, "dinner")).toBeUndefined();
     expect(
-      resolveTargetServings(settings, { kind: "leftover", lotId: makeLotId("lot") }),
+      resolveTargetServings(settings, { kind: "leftover", lotId: makeLotId("lot") }, "dinner"),
     ).toBeUndefined();
   });
 });

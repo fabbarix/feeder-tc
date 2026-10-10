@@ -27,7 +27,9 @@
 import {
   formatQuantity,
   isIndivisible,
+  mealTypeName,
   scaleIndivisible,
+  servingsFor,
   suggestPurchase,
   type Ingredient,
   type IngredientId,
@@ -72,13 +74,17 @@ export function sourceAmount(
   if (!recipe || !line || recipe.baseServings <= 0) return undefined;
   const scaleServings =
     slot && slot.filling.kind === "recipe" ? slot.filling.scaleServings : undefined;
-  const target = scaleServings ?? ctx.settings.householdSize;
+  const target = scaleServings ?? servingsFor(ctx.settings, source.slotType);
   return line.quantity.amount * (target / recipe.baseServings);
 }
 
 /** "Mon dinner" / "Monday dinner" — one source, no amount (that's `buildWhyExplanation`'s job, not every row's subtitle). */
-function sourceLabel(source: ShoppingNeedSource, style: "short" | "long"): string {
-  return `${weekdayLabel(source.date, style)} ${source.slotType}`;
+function sourceLabel(
+  source: ShoppingNeedSource,
+  style: "short" | "long",
+  settings: Pick<Settings, "mealTypes"> | undefined,
+): string {
+  return `${weekdayLabel(source.date, style)} ${mealTypeName(settings, source.slotType).toLowerCase()}`;
 }
 
 /**
@@ -95,7 +101,7 @@ function sourceLabel(source: ShoppingNeedSource, style: "short" | "long"): strin
  * as `sourceAmount` above.
  */
 function sourceLabelWithRecipe(source: ShoppingNeedSource, style: "short" | "long", ctx: ProvenanceContext): string {
-  const label = sourceLabel(source, style);
+  const label = sourceLabel(source, style, ctx.settings);
   const recipe = ctx.recipes.find((r) => r.id === source.recipeId);
   return recipe ? `${label} (${recipe.name})` : label;
 }
@@ -104,8 +110,9 @@ function sourceLabelWithRecipe(source: ShoppingNeedSource, style: "short" | "lon
 export function buildProvenanceText(
   sources: readonly ShoppingNeedSource[],
   style: "short" | "long" = "short",
+  settings?: Pick<Settings, "mealTypes">,
 ): string {
-  return sources.map((s) => sourceLabel(s, style)).join(" · ");
+  return sources.map((s) => sourceLabel(s, style, settings)).join(" · ");
 }
 
 /**
@@ -163,7 +170,7 @@ export function buildIndivisibleSecondary(line: ShoppingListLine, ctx: Provenanc
   if (!source || !recipe || !isIndivisible(recipe)) return undefined;
   const slot = ctx.planSlots.find((s) => s.id === source.planSlotId);
   const scaleServings = slot && slot.filling.kind === "recipe" ? slot.filling.scaleServings : undefined;
-  const targetServings = scaleServings ?? ctx.settings.householdSize;
+  const targetServings = scaleServings ?? servingsFor(ctx.settings, source.slotType);
   return `serves ${recipe.baseServings}, you need ${formatAmount(targetServings)}`;
 }
 
@@ -193,10 +200,10 @@ export function buildRoundingExplanation(
   if (source && recipe && isIndivisible(recipe)) {
     const slot = ctx.planSlots.find((s) => s.id === source.planSlotId);
     const scaleServings = slot && slot.filling.kind === "recipe" ? slot.filling.scaleServings : undefined;
-    const targetServings = scaleServings ?? ctx.settings.householdSize;
+    const targetServings = scaleServings ?? servingsFor(ctx.settings, source.slotType);
     const scaling = scaleIndivisible(recipe, targetServings);
     if (scaling.surplusServings > 0) {
-      const label = sourceLabel(source, "long");
+      const label = sourceLabel(source, "long", ctx.settings);
       const unitWord = scaling.units === 1 ? "" : `${scaling.units} `;
       const servingWord = scaling.surplusServings === 1 ? "serving" : "servings";
       return (

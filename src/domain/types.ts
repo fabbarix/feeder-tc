@@ -303,8 +303,31 @@ export type Weekday =
   | "saturday"
   | "sunday";
 
-/** Meal-type tag; also used as a PlanSlot's slot type (DESIGN.md §2 "Planning"). */
-export type MealTag = "breakfast" | "lunch" | "dinner" | "snack";
+/**
+ * A meal type's id; also used as a PlanSlot's slot type (DESIGN.md §2
+ * "Planning"). Since custom meal types (2026-10-10) this is any id the
+ * household's `Settings.mealTypes` defines — "breakfast", "lunch", "dinner"
+ * and "snack" are only the defaults every workbook starts with (see
+ * `DEFAULT_MEAL_TYPES`, `src/domain/meal-types.ts`). A lowercase slug, so it
+ * stays readable in a sheet cell (invariant 6); never changes on rename.
+ */
+export type MealTag = string;
+
+/**
+ * One of the household's meal types — "Breakfast", or a custom one like
+ * "Cat's breakfast". Recipes are tagged with ids of these, and a slot of a
+ * type is only ever filled with a recipe tagged for it.
+ */
+export interface MealType {
+  readonly id: MealTag;
+  readonly name: string;
+  /**
+   * How many servings a meal of this type is scaled to. Absent means the
+   * household size — the right default for people's meals; a custom type
+   * like "Cat's breakfast" sets its own (1).
+   */
+  readonly servings?: number;
+}
 
 // ---------------------------------------------------------------------------
 // Ingredients
@@ -786,6 +809,15 @@ export interface Settings {
    * explicitly, exactly like `currency`/`DEFAULT_CURRENCY`.
    */
   readonly reuseGapSlots?: number;
+  /**
+   * The household's meal types, in display order (custom meal types,
+   * 2026-10-10). Optional, same additive `?` pattern as `currency`: absent
+   * means `DEFAULT_MEAL_TYPES` (breakfast/lunch/dinner/snack at household
+   * size) — every workbook from before this change, and every `Settings`
+   * literal written before it. Read it through `mealTypesOf`
+   * (`src/domain/meal-types.ts`), never directly.
+   */
+  readonly mealTypes?: readonly MealType[];
 }
 
 export interface Meta {

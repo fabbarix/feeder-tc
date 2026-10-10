@@ -14,12 +14,17 @@
  *  - one `"slot"` row per (day, position) pair carries `day` / `slot_index` /
  *    `meal_tag` — the most granular fact-per-row split available, so adding
  *    or removing a single slot is a single spreadsheet row edit, not a
- *    comma-list edit inside one cell.
+ *    comma-list edit inside one cell;
+ *  - one `"meal_type"` row per household meal type (custom meal types,
+ *    2026-10-10) carries `meal_tag` (the id) / `slot_index` (its position in
+ *    the list) / `name` / `servings` (blank = household size). A workbook
+ *    with no such rows means `DEFAULT_MEAL_TYPES` — `mealTypes` decodes to
+ *    `undefined`, never an empty list, so an older workbook keeps its four.
  */
 import type { CellRow } from "../../domain/contracts.ts";
-import type { DaySlotLayout, MealTag, Settings, Weekday } from "../../domain/types.ts";
+import type { DaySlotLayout, MealTag, MealType, Settings, Weekday } from "../../domain/types.ts";
 import { DEFAULT_REUSE_GAP_SLOTS } from "../../domain/planner/leftover-projection.ts";
-import { cellNumber, cellOptionalNumber, cellOptionalString, isBlankRow } from "./common.ts";
+import { cellNumber, cellOptionalNumber, cellOptionalString, cellString, isBlankRow } from "./common.ts";
 import { isMealTag, isWeekday } from "./enums.ts";
 
 export const SETTINGS_HEADER: CellRow = [
@@ -31,6 +36,8 @@ export const SETTINGS_HEADER: CellRow = [
   "repeat_exclusion_weeks",
   "currency",
   "reuse_gap_slots",
+  "name",
+  "servings",
 ];
 
 /** Applied whenever the "general" row's `currency` cell is blank — pre-M6-A workbooks and any hand-cleared cell (DESIGN_PRODUCTS.md §4: "defaulting to `$`"). */
@@ -54,6 +61,9 @@ export function encodeSettings(settings: Settings): CellRow[] {
       rows.push(["slot", day.day, index, tag, "", "", ""]);
     });
   }
+  settings.mealTypes?.forEach((type, index) => {
+    rows.push(["meal_type", "", index, type.id, "", "", "", "", type.name, type.servings ?? ""]);
+  });
   return rows;
 }
 
@@ -74,6 +84,7 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
   let currency: string | undefined;
   let reuseGapSlots: number | undefined;
   const byDay = new Map<Weekday, { index: number; tag: MealTag }[]>();
+  const mealTypes: { index: number; type: MealType }[] = [];
 
   for (const row of rows) {
     if (isBlankRow(row)) continue;
@@ -108,6 +119,21 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
       } catch {
         // Best-effort: one bad slot row shrinks the layout, doesn't break Settings entirely.
       }
+      continue;
+    }
+    if (kind === "meal_type") {
+      // Same best-effort stance as a slot row: a malformed meal type is
+      // dropped, the rest still load.
+      try {
+        const id = cellString(row, 3, "meal_tag");
+        if (!isMealTag(id)) throw new Error(`meal_type row has a malformed id: ${JSON.stringify(id)}`);
+        const index = cellNumber(row, 2, "slot_index");
+        const name = cellOptionalString(row, 8)?.trim() || id;
+        const servings = cellOptionalNumber(row, 9, "servings");
+        mealTypes.push({ index, type: servings === undefined ? { id, name } : { id, name, servings } });
+      } catch {
+        // Best-effort, as above.
+      }
     }
   }
 
@@ -131,5 +157,8 @@ export function decodeSettings(rows: readonly CellRow[]): Settings {
     repeatExclusionWeeks,
     currency: currency ?? DEFAULT_CURRENCY,
     reuseGapSlots: reuseGapSlots ?? DEFAULT_REUSE_GAP_SLOTS,
+    ...(mealTypes.length > 0
+      ? { mealTypes: mealTypes.sort((a, b) => a.index - b.index).map((entry) => entry.type) }
+      : {}),
   };
 }

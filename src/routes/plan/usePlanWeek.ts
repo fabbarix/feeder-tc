@@ -40,6 +40,7 @@ import {
   makeQuantity,
   resolveTargetServings,
   rerollSlot,
+  servingsFor,
   scaledRecipeIngredients,
   setSlotPinned,
 } from "../../domain/index.ts";
@@ -808,7 +809,8 @@ export function usePlanWeek(): UsePlanWeekResult {
       if (!slot || slot.filling.kind !== "recipe" || !settings) return;
       const recipe = recipesById.get(slot.filling.recipeId);
       if (!recipe) return;
-      const targetServings = resolveTargetServings(settings, slot.filling) ?? settings.householdSize;
+      const targetServings =
+        resolveTargetServings(settings, slot.filling, slot.slotType) ?? servingsFor(settings, slot.slotType);
       const scaledLines = scaledRecipeIngredients(recipe, recipeIngredients, targetServings);
       const lines: MarkCookedLineDraft[] = scaledLines.map((line) => ({
         ingredientId: line.ingredientId,
@@ -816,7 +818,7 @@ export function usePlanWeek(): UsePlanWeekResult {
         unit: line.quantity.unit,
         suggestedAmount: line.quantity.amount,
       }));
-      const surplusServings = Math.max(0, targetServings - settings.householdSize);
+      const surplusServings = Math.max(0, targetServings - servingsFor(settings, slot.slotType));
       setMarkCookedDraft({ slotId, recipeName: recipe.name, targetServings, lines, surplusServings });
     },
     [findSlot, settings, recipesById, recipeIngredients, ingredientsById],

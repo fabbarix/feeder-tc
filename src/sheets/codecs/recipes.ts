@@ -2,7 +2,7 @@
 import type { CellRow } from "../../domain/contracts.ts";
 import { makeRecipeId, type MealTag, type Recipe } from "../../domain/types.ts";
 import { cellEnum, cellNumber, cellOptionalBoolean, cellOptionalString, cellString } from "./common.ts";
-import { MEAL_TAGS, RECIPE_KINDS, RECIPE_STATUSES } from "./enums.ts";
+import { isMealTag, RECIPE_KINDS, RECIPE_STATUSES } from "./enums.ts";
 
 export const RECIPES_HEADER: CellRow = [
   "id",
@@ -40,10 +40,10 @@ function decodeMealTags(row: CellRow): readonly MealTag[] {
   if (raw === undefined) return [];
   return raw.split(",").map((part) => {
     const tag = part.trim();
-    if (!(MEAL_TAGS as readonly string[]).includes(tag)) {
-      throw new Error(`meal_tags contains an unrecognised tag ${JSON.stringify(tag)}`);
+    if (!isMealTag(tag)) {
+      throw new Error(`meal_tags contains a malformed tag ${JSON.stringify(tag)}`);
     }
-    return tag as MealTag;
+    return tag;
   });
 }
 

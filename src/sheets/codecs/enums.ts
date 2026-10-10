@@ -1,3 +1,4 @@
+import { isMealTagId } from "../../domain/meal-types.ts";
 /** Shared allowed-value lists for the codec `cellEnum`/validity checks below (WP-11, extended M6-A). */
 import type {
   EntryUnit,
@@ -48,6 +49,7 @@ export const ENTRY_UNITS: readonly EntryUnit[] = [
   "tsp",
 ];
 export const STORAGE_LOCATIONS: readonly StorageLocation[] = ["pantry", "fridge", "freezer"];
+/** The four default meal type ids (see `DEFAULT_MEAL_TYPES`). Not a closed set any more — validate with `isMealTag`. */
 export const MEAL_TAGS: readonly MealTag[] = ["breakfast", "lunch", "dinner", "snack"];
 export const RECIPE_KINDS: readonly RecipeKind[] = ["cooked", "bought"];
 export const RECIPE_STATUSES: readonly RecipeStatus[] = ["staple", "in-rotation", "retired"];
@@ -74,8 +76,13 @@ export function isWeekday(value: string): value is Weekday {
   return (WEEKDAYS as readonly string[]).includes(value);
 }
 
+/**
+ * Any well-formed meal type id, not just the four defaults in `MEAL_TAGS`:
+ * since custom meal types (2026-10-10) a recipe tag or slot type can name
+ * any type the household defines (`isMealTagId`, src/domain/meal-types.ts).
+ */
 export function isMealTag(value: string): value is MealTag {
-  return (MEAL_TAGS as readonly string[]).includes(value);
+  return isMealTagId(value);
 }
 
 export function isIngredientCategory(value: string): value is IngredientCategory {

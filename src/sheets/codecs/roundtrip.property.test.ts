@@ -91,7 +91,8 @@ const idArb = fc
 
 const UNIT_ARB = fc.constantFrom<Unit>(...UNITS);
 const LOCATION_ARB = fc.constantFrom<StorageLocation>(...STORAGE_LOCATIONS);
-const MEAL_TAG_ARB = fc.constantFrom<MealTag>(...MEAL_TAGS);
+// The four defaults plus custom meal type ids (custom meal types, 2026-10-10).
+const MEAL_TAG_ARB = fc.constantFrom<MealTag>(...MEAL_TAGS, "cats-breakfast", "second-snack", "kids-lunch-2");
 
 const BASE_UTC = Date.UTC(2026, 0, 1, 0, 0, 0);
 
@@ -539,7 +540,23 @@ const settingsArb: fc.Arbitrary<Settings> = fc.record({
   // DEFAULT_REUSE_GAP_SLOTS), so round-trip identity only holds when the
   // input already has one.
   reuseGapSlots: fc.integer({ min: 0, max: 10 }),
-});
+  // Absent (an older workbook: no meal_type rows) or a non-empty list with
+  // unique ids. Names are already trimmed — the decoder trims them.
+  mealTypes: fc.option(
+    fc.uniqueArray(
+      fc.record(
+        {
+          id: MEAL_TAG_ARB,
+          name: fc.string({ minLength: 1, maxLength: 20 }).filter((name) => name.trim() === name && name !== ""),
+          servings: fc.integer({ min: 1, max: 12 }),
+        },
+        { requiredKeys: ["id", "name"] },
+      ),
+      { minLength: 1, maxLength: 6, selector: (type) => type.id },
+    ),
+    { nil: undefined },
+  ),
+}, { requiredKeys: ["householdSize", "slotLayout", "repeatExclusionWeeks", "currency", "reuseGapSlots"] });
 
 describe("Settings codec", () => {
   it("encode -> decode is identity", () => {

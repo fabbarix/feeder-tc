@@ -19,12 +19,22 @@ import { compareIsoDate, isOnOrAfter } from "./dates.ts";
 import { suggestPurchase } from "./purchasing.ts";
 import type { DateRange, ShoppingListLine, ShoppingNeed, ShoppingNeedSource } from "./shopping-types.ts";
 
-const MEAL_TAG_ORDER: Record<MealTag, number> = {
+const DEFAULT_MEAL_TAG_ORDER: Readonly<Record<string, number>> = {
   breakfast: 0,
   lunch: 1,
   dinner: 2,
   snack: 3,
 };
+
+/**
+ * Same-day tie-break between meal types. Only determinism matters here, not
+ * the household's display order, so custom meal types (2026-10-10) sort
+ * after the four defaults, then by id — no `Settings` needed.
+ */
+function compareMealTag(a: MealTag, b: MealTag): number {
+  const byRank = (DEFAULT_MEAL_TAG_ORDER[a] ?? 4) - (DEFAULT_MEAL_TAG_ORDER[b] ?? 4);
+  return byRank !== 0 ? byRank : a.localeCompare(b);
+}
 
 /**
  * Total order over needs for one ingredient: cook date first ("FIFO
@@ -34,7 +44,7 @@ const MEAL_TAG_ORDER: Record<MealTag, number> = {
 function compareNeed(a: ShoppingNeed, b: ShoppingNeed): number {
   const byDate = compareIsoDate(a.source.date, b.source.date);
   if (byDate !== 0) return byDate;
-  const byMealTag = MEAL_TAG_ORDER[a.source.slotType] - MEAL_TAG_ORDER[b.source.slotType];
+  const byMealTag = compareMealTag(a.source.slotType, b.source.slotType);
   if (byMealTag !== 0) return byMealTag;
   const bySlotIndex = a.source.slotIndex - b.source.slotIndex;
   if (bySlotIndex !== 0) return bySlotIndex;
@@ -57,7 +67,7 @@ function compareLotFifo(a: Lot, b: Lot): number {
 function compareSource(a: ShoppingNeedSource, b: ShoppingNeedSource): number {
   const byDate = compareIsoDate(a.date, b.date);
   if (byDate !== 0) return byDate;
-  const byMealTag = MEAL_TAG_ORDER[a.slotType] - MEAL_TAG_ORDER[b.slotType];
+  const byMealTag = compareMealTag(a.slotType, b.slotType);
   if (byMealTag !== 0) return byMealTag;
   const bySlotIndex = a.slotIndex - b.slotIndex;
   if (bySlotIndex !== 0) return bySlotIndex;
