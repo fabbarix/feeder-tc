@@ -12,6 +12,7 @@ import {
   CloudArrowUp,
   FileArrowUp,
   FolderOpen,
+  CaretDown,
   GearSix,
   GoogleLogo,
   House,
@@ -285,7 +286,7 @@ export function AppShell({
             </nav>
           ) : null}
           <div className={styles.headerRight}>
-            {renderHeaderRight(state, onSignOut, authStatusSlot, workbookSwitcherSlot)}
+            {renderHeaderRight(state, onSignOut, onPickWorkbook, authStatusSlot, workbookSwitcherSlot)}
           </div>
         </div>
       </header>
@@ -336,6 +337,7 @@ export function AppShell({
 function renderHeaderRight(
   state: ShellState,
   onSignOut: () => void,
+  onPickWorkbook: () => void,
   authStatusSlot: ReactNode | undefined,
   workbookSwitcherSlot: ReactNode | undefined,
 ): ReactNode {
@@ -349,7 +351,7 @@ function renderHeaderRight(
       {state.kind === "ready"
         ? (workbookSwitcherSlot ?? (
             <WorkbookSwitcherSlot>
-              <WorkbookChip name={state.workbookName} />
+              <WorkbookChip name={state.workbookName} onPick={onPickWorkbook} />
             </WorkbookSwitcherSlot>
           ))
         : null}
@@ -362,12 +364,23 @@ function renderHeaderRight(
   );
 }
 
-function WorkbookChip({ name }: { readonly name: string }) {
+/**
+ * The active meal planner's name, and the way to switch to another one: it
+ * reopens the same Google Picker as the no-workbook screen's "Open existing…".
+ */
+function WorkbookChip({ name, onPick }: { readonly name: string; readonly onPick: () => void }) {
   return (
-    <span className={styles.workbookChip}>
+    <button
+      type="button"
+      className={styles.workbookChip}
+      onClick={onPick}
+      aria-label={`Meal planner: ${name}. Open a different one`}
+      title="Open a different meal planner"
+    >
       <Table size={14} aria-hidden="true" />
       <span className={styles.workbookChipName}>{name}</span>
-    </span>
+      <CaretDown size={12} aria-hidden="true" />
+    </button>
   );
 }
 

@@ -27,8 +27,31 @@ function toPickedWorkbook(response: GooglePickerResponse): PickedWorkbook | unde
   return { id: doc.id, name: doc.name };
 }
 
-/** Real Picker launcher: loads gapi + the Picker library and shows Google's own file-chooser UI, scoped to Sheets. */
-export function createGooglePickerLauncher(apiKey: string): PickerLauncher {
+/**
+ * The Cloud project number, which the Picker needs as its app ID. Google
+ * OAuth web client IDs are `<project number>-<hash>.apps.googleusercontent.com`,
+ * so it is read off the client ID rather than configured separately.
+ */
+export function projectNumberFromClientId(clientId: string): string {
+  const match = /^(\d+)-/.exec(clientId);
+  if (!match?.[1]) {
+    throw new Error(`Can't read the Cloud project number from OAuth client ID "${clientId}".`);
+  }
+  return match[1];
+}
+
+/**
+ * Real Picker launcher: loads gapi + the Picker library and shows Google's own file-chooser UI, scoped to Sheets.
+ *
+ * The app ID (the Cloud project number, read off `clientId`) is what makes a
+ * pick actually grant this app `drive.file` access to the chosen file. Without `setAppId` the Picker
+ * still shows and returns the file, but the grant never happens - so a sheet
+ * someone else shared, which the app did not create, then fails every Sheets
+ * call with "no access". It is derived inside `open()`, not here, so a
+ * malformed client ID surfaces as the Picker's error toast instead of
+ * breaking the app's first render.
+ */
+export function createGooglePickerLauncher(apiKey: string, clientId: string): PickerLauncher {
   let pickerApiLoaded: Promise<void> | undefined;
 
   async function ensurePickerApi(): Promise<void> {
@@ -43,6 +66,7 @@ export function createGooglePickerLauncher(apiKey: string): PickerLauncher {
 
   return {
     async open(accessToken: string): Promise<PickedWorkbook | undefined> {
+      const appId = projectNumberFromClientId(clientId);
       await ensurePickerApi();
       const picker = window.google?.picker;
       if (!picker) {
@@ -57,6 +81,7 @@ export function createGooglePickerLauncher(apiKey: string): PickerLauncher {
           const instance = new picker.PickerBuilder()
             .addView(view)
             .setOAuthToken(accessToken)
+            .setAppId(appId) // Grants drive.file on the picked file - see createGooglePickerLauncher's doc comment.
             .setDeveloperKey(apiKey) // Picker-only use of the API key - see file header.
             .setCallback((response: GooglePickerResponse) => {
               if (response.action === picker.Action.PICKED) {

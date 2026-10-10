@@ -153,9 +153,10 @@ export default defineConfig({
         // Neither var is set in CI (only deploy.yml's build job gets the real
         // ones), and requiring a local .env.local just to run E2E would be
         // hostile. The values are never checked against a real Google
-        // backend: msw fakes every request that would carry them, so any
-        // non-empty string works.
-        VITE_GOOGLE_CLIENT_ID: "e2e-fake-client-id.apps.googleusercontent.com",
+        // backend: msw fakes every request that would carry them. The client
+        // ID must still start with "<digits>-", like a real one: the Picker
+        // reads the Cloud project number off it (projectNumberFromClientId).
+        VITE_GOOGLE_CLIENT_ID: "000000000000-e2efake.apps.googleusercontent.com",
         VITE_GOOGLE_API_KEY: "e2e-fake-api-key",
       },
     },
@@ -185,7 +186,7 @@ export default defineConfig({
         // vars), so supplying fakes here mirrors the real build rather than
         // papering over anything. See STATUS.md "Known debt" for the
         // underlying fragility, which is a WP-31 polish item.
-        VITE_GOOGLE_CLIENT_ID: "e2e-fake-client-id.apps.googleusercontent.com",
+        VITE_GOOGLE_CLIENT_ID: "000000000000-e2efake.apps.googleusercontent.com",
         VITE_GOOGLE_API_KEY: "e2e-fake-api-key",
       },
     },

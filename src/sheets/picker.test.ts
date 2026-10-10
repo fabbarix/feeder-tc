@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { pickWorkbook, type PickedWorkbook, type PickerLauncher } from "./picker.ts";
+import { pickWorkbook, projectNumberFromClientId, type PickedWorkbook, type PickerLauncher } from "./picker.ts";
 import { createWorkbookRegistry } from "./registry.ts";
 import type { SheetsAuthAdapter } from "./transport.ts";
 
@@ -53,5 +53,15 @@ describe("pickWorkbook", () => {
 
     expect(picked).toBeUndefined();
     expect(registry.list()).toEqual([]);
+  });
+});
+
+describe("projectNumberFromClientId", () => {
+  it("reads the Cloud project number off an OAuth web client ID", () => {
+    expect(projectNumberFromClientId("360506420836-abc123def.apps.googleusercontent.com")).toBe("360506420836");
+  });
+
+  it("throws rather than handing the Picker a bogus app ID", () => {
+    expect(() => projectNumberFromClientId("not-a-client-id")).toThrow(/project number/);
   });
 });

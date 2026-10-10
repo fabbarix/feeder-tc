@@ -100,6 +100,9 @@ ever permitted — never widen it.
 - **CI only runs on `pull_request`.** There is no check on `main`, so a PR
   that is green on its branch can still break the merge. Always re-verify
   `main` locally after merging.
+- **PR CI does not run E2E.** Run `npm run test:e2e` locally (own
+  `E2E_PORT`) before pushing. It is ~20 minutes, so run it in the
+  background. A green PR says nothing about E2E.
 - **A red local result can be environmental.** A `typecheck` failure on `main`
   once turned out to be a stale `node_modules` missing a newly added
   dependency. Run `npm ci` before believing a fresh failure.

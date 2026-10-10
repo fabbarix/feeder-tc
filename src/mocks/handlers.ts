@@ -71,7 +71,7 @@ const FAKE_GIS_SCRIPT = `(function () {
 /**
  * A fake `gapi.load('picker', ...)` that defines a minimal
  * `google.picker` namespace good enough for `src/sheets/picker.ts`:
- * `PickerBuilder().addView(...).setOAuthToken(...).setDeveloperKey(...)
+ * `PickerBuilder().addView(...).setOAuthToken(...).setAppId(...).setDeveloperKey(...)
  * .setCallback(cb).build().setVisible(true)` immediately "picks" one fixed
  * fake spreadsheet — there is no real Google-hosted file chooser UI to
  * drive headlessly either.
@@ -91,6 +91,7 @@ const FAKE_GAPI_SCRIPT = `(function () {
         return {
           addView: function () { return this; },
           setOAuthToken: function () { return this; },
+          setAppId: function () { return this; },
           setDeveloperKey: function () { return this; },
           setCallback: function (fn) { onPicked = fn; return this; },
           build: function () {

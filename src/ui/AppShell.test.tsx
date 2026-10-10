@@ -136,6 +136,14 @@ describe("AppShell — ready state", () => {
     expect(screen.queryByText("No workbook")).not.toBeInTheDocument();
   });
 
+  it("reopens the Picker from the workbook chip, to switch meal planner", async () => {
+    const user = userEvent.setup();
+    const onPickWorkbook = vi.fn();
+    renderShell({ state: READY, onPickWorkbook });
+    await user.click(screen.getByRole("button", { name: /meal planner: household planner/i }));
+    expect(onPickWorkbook).toHaveBeenCalledOnce();
+  });
+
   it("renders injected slot content instead of the derived defaults", () => {
     renderShell({
       state: READY,
