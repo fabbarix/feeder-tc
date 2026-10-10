@@ -330,6 +330,47 @@
   color: var(--text-muted);
 }
 
+/* Stepper layout="row": one setting per line, label left, compact stepper
+   right. Wraps the stepper under the label only when the row is too narrow
+   for both (a long label on a 320px phone). */
+.stepperRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.stepperRowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-hairline);
+  flex: 1 1 0;
+  min-width: 120px;
+}
+
+.stepperRowLabel {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.stepperRow .qty {
+  flex: none;
+  min-height: 40px;
+}
+
+.stepperRow .qty button {
+  width: 36px;
+}
+
+.stepperRow .qtyValue {
+  min-width: 64px;
+  padding: 0 var(--space-1);
+  justify-content: center;
+  font-size: var(--fs-body);
+}
+
 /* A locked numeric field (RecipeEditor: prep time forced to 0 for a
    store-bought recipe) still renders as the SAME `.qty` control — never a
    sentence in its place (WP-VC4) — just visually and functionally inert. */

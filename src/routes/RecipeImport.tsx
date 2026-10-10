@@ -534,7 +534,7 @@ export function RecipeImport() {
           {!configured ? (
             <p className={styles.hint} role="alert">
               You&rsquo;ll need to set up an address for reading recipes first — see{" "}
-              <Link to="/settings" className={styles.itemLink}>
+              <Link to="/settings#recipe-reader" className={styles.itemLink}>
                 Settings
               </Link>
               .
@@ -619,7 +619,7 @@ export function RecipeImport() {
           {!configured ? (
             <p className={styles.hint} role="alert">
               You&rsquo;ll need to set up an address for reading recipes first — see{" "}
-              <Link to="/settings" className={styles.itemLink}>
+              <Link to="/settings#recipe-reader" className={styles.itemLink}>
                 Settings
               </Link>
               .

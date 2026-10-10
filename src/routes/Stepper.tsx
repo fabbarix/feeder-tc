@@ -15,6 +15,15 @@ export interface StepperProps {
   readonly unitOne?: string;
   readonly min?: number;
   readonly disabled?: boolean;
+  /**
+   * "row" puts the label (and `hint`) on the left and a compact stepper on
+   * the right, one setting per line — Settings' grouped list. The default
+   * "stacked" keeps the eyebrow label above a full-width stepper, as the
+   * recipe editor's form fields use it.
+   */
+  readonly layout?: "stacked" | "row";
+  /** One short line under the label, "row" layout only. */
+  readonly hint?: string;
   readonly onChange: (value: number) => void;
 }
 
@@ -31,35 +40,59 @@ export interface StepperProps {
  * RecipeEditor.tsx needed the exact same control for three fields instead
  * of a mix of a stepper, a plain number box and a sentence).
  */
-export function Stepper({ label, value, unit, unitOne, min = 0, disabled = false, onChange }: StepperProps) {
+export function Stepper({
+  label,
+  value,
+  unit,
+  unitOne,
+  min = 0,
+  disabled = false,
+  layout = "stacked",
+  hint,
+  onChange,
+}: StepperProps) {
+  const control = (
+    <div className={`${forms.qty}${disabled ? ` ${forms.qtyDisabled}` : ""}`}>
+      <Tooltip label={`Fewer — ${label}`}>
+        <button
+          type="button"
+          aria-label={`Fewer — ${label}`}
+          disabled={disabled}
+          onClick={() => onChange(Math.max(min, value - 1))}
+        >
+          <Minus size={16} aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <span className={forms.qtyValue}>
+        {value} <span className={forms.qtyUnit}>{value === 1 && unitOne !== undefined ? unitOne : unit}</span>
+      </span>
+      <Tooltip label={`More — ${label}`}>
+        <button
+          type="button"
+          aria-label={`More — ${label}`}
+          disabled={disabled}
+          onClick={() => onChange(value + 1)}
+        >
+          <Plus size={16} aria-hidden="true" />
+        </button>
+      </Tooltip>
+    </div>
+  );
+  if (layout === "row") {
+    return (
+      <div className={forms.stepperRow}>
+        <div className={forms.stepperRowText}>
+          <span className={forms.stepperRowLabel}>{label}</span>
+          {hint ? <span className={forms.hint}>{hint}</span> : null}
+        </div>
+        {control}
+      </div>
+    );
+  }
   return (
     <div className={forms.field}>
       <span className={forms.fieldLabel}>{label}</span>
-      <div className={`${forms.qty}${disabled ? ` ${forms.qtyDisabled}` : ""}`}>
-        <Tooltip label={`Fewer — ${label}`}>
-          <button
-            type="button"
-            aria-label={`Fewer — ${label}`}
-            disabled={disabled}
-            onClick={() => onChange(Math.max(min, value - 1))}
-          >
-            <Minus size={16} aria-hidden="true" />
-          </button>
-        </Tooltip>
-        <span className={forms.qtyValue}>
-          {value} <span className={forms.qtyUnit}>{value === 1 && unitOne !== undefined ? unitOne : unit}</span>
-        </span>
-        <Tooltip label={`More — ${label}`}>
-          <button
-            type="button"
-            aria-label={`More — ${label}`}
-            disabled={disabled}
-            onClick={() => onChange(value + 1)}
-          >
-            <Plus size={16} aria-hidden="true" />
-          </button>
-        </Tooltip>
-      </div>
+      {control}
     </div>
   );
 }

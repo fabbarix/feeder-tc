@@ -21,7 +21,7 @@ export async function setHouseholdSize(page: Page, target: number): Promise<void
   // Default household size is 2 (sheets/bootstrap.ts DEFAULT_SETTINGS).
   const current = 2;
   const direction = target >= current ? "more" : "fewer";
-  await clickStepper(page, "Size", direction, Math.abs(target - current));
+  await clickStepper(page, "Household size", direction, Math.abs(target - current));
   await expect(page.getByText(`${target} people`)).toBeVisible();
 }
 
@@ -33,10 +33,10 @@ export async function setRepeatExclusionWeeks(page: Page, target: number): Promi
 }
 
 async function removeSlotChip(page: Page, day: (typeof DAYS)[number], tag: MealTagLabel): Promise<void> {
-  const button = page.getByRole("button", { name: `Remove ${tag} on ${day}` });
-  if ((await button.count()) === 0) return;
+  const button = page.getByRole("button", { name: `${tag} on ${day}`, exact: true });
+  if ((await button.getAttribute("aria-pressed")) !== "true") return;
   await button.click();
-  await expect(button).toHaveCount(0);
+  await expect(button).toHaveAttribute("aria-pressed", "false");
 }
 
 /** Trims the default breakfast/lunch/dinner-every-day layout down to dinner-only, for every day — the deterministic setup `journey-household-week.spec.ts`'s "Generate week" step depends on, same technique as `e2e/wp-22-weekly-planning.spec.ts`'s local `makeDinnerOnly`, promoted here for reuse. */

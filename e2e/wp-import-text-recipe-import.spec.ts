@@ -73,6 +73,8 @@ async function configureProvider(
 ): Promise<void> {
   const nav = page.getByRole("navigation", { name: "Primary" });
   await nav.getByRole("link", { name: "Settings" }).click();
+  // The recipe reader is folded behind its summary line on Settings.
+  await page.getByText("Recipe reader", { exact: true }).click();
   await page.getByLabel("The address to send recipes to").fill(MOCK_BASE_URL);
   await page.getByLabel("The password for that address").fill("test-key");
   if (linkEnabled) {

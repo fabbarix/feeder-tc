@@ -2,7 +2,12 @@
    section (desktop "slot layout editor" pair), translated onto the app's
    token names. Not part of the src/ui kit (UI_DESIGN.md §7). Settings
    deliberately keeps the 840px reading measure (AppShell.tsx's
-   WIDE_ROUTES doc comment) — it's a form, not a card grid. */
+   WIDE_ROUTES doc comment) — it's a form, not a card grid.
+
+   Mobile-first grouped list (2026-10-10 redesign): each group is a
+   small-caps title, an optional one-line "who this affects" note, and ONE
+   bordered card of rows separated by hairlines — one setting per row, label
+   left, control right. Two columns from 768px. */
 
 .layout {
   display: flex;
@@ -13,38 +18,70 @@
 @media (min-width: 768px) {
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
-    gap: var(--space-5);
   }
-}
-
-.card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.cardHead {
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface-2);
-  font: 600 var(--fs-body-sm)/1.2 var(--sans);
-  color: var(--text-h);
-}
-
-.cardBody {
-  padding: var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
 }
 
 .stack {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
+  min-width: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.groupHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 0 var(--space-1);
+}
+
+.groupTitle {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.groupNote {
+  margin: 0;
+  padding: 0 var(--space-1);
+  font-size: var(--fs-body-sm);
+  color: var(--text-muted);
+}
+
+.saving {
+  font-size: var(--fs-label);
+  color: var(--text-muted);
+}
+
+.card {
+  margin-top: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+/* One setting. Every direct child of the card is a row, hairline between. */
+.row {
+  padding: var(--space-3) var(--space-4);
+}
+
+.card > * + * {
+  border-top: 1px solid var(--line-soft);
 }
 
 /* ---- Slot-layout editor rows ---- */
@@ -52,17 +89,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--line-soft);
+  min-height: 48px;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
   font-size: var(--fs-body-sm);
 }
 
-.daylay:last-child {
-  border-bottom: none;
-}
-
 .dayLabel {
-  width: 40px;
+  width: 32px;
   flex: none;
   font: 600 var(--fs-label)/1 var(--sans);
   color: var(--text-muted);
@@ -70,17 +103,24 @@
 }
 
 .slotchips {
-  display: flex;
-  gap: var(--space-tight);
-  flex-wrap: wrap;
+  display: grid;
+  flex: 1;
+  /* Sized to the labels, not equal quarters, so "Breakfast" gets the room
+     it needs; every row has the same four labels, so columns still line up
+     down the week. */
+  grid-template-columns: repeat(4, auto);
+  gap: var(--space-1);
+  min-width: 0;
 }
 
 .slotchip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
+  min-height: 32px;
   font: 500 var(--fs-label)/1 var(--sans);
-  padding: var(--space-tight) var(--space-3);
+  padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--accent-bg);
   color: var(--accent);
@@ -89,8 +129,12 @@
 }
 
 .slotchipAdd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
   font: 500 var(--fs-label)/1 var(--sans);
-  padding: var(--space-tight) var(--space-3);
+  padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
@@ -98,20 +142,93 @@
   cursor: pointer;
 }
 
+.slotCount {
+  font-weight: 700;
+}
+
 .slotchipAdd:hover {
   color: var(--accent);
   border-color: var(--accent-border);
 }
 
-.tagRow {
-  display: flex;
-  gap: var(--space-tight);
-  flex-wrap: wrap;
+/* ---- Recipe reader disclosure ---- */
+.disclosure > summary {
+  list-style: none;
 }
 
-.fieldLabel {
-  font: 600 var(--fs-label)/1 var(--sans);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 48px;
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+}
+
+.summary:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
+}
+
+.summaryText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-hairline);
+  min-width: 0;
+}
+
+.summaryLabel {
+  font-size: var(--fs-body);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+.summaryCaret {
+  flex: none;
   color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.disclosure[open] .summaryCaret {
+  transform: rotate(180deg);
+}
+
+.disclosureBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* Password + Show/Hide on one line at every width. */
+.keyRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.keyRow > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.keyRow > button {
+  flex: none;
+  padding: 0 var(--space-4);
+}
+
+.removeButton {
+  align-self: flex-start;
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summaryCaret {
+    transition: none;
+  }
 }

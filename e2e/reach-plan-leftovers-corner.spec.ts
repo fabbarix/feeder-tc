@@ -55,8 +55,8 @@ test("a fresh leftover from marking a meal cooked appears in the weekend corner 
   // Household of 4 (default is 2) so scaling up creates a surplus to save
   // as a leftover — same setup as e2e/wp-22-weekly-planning.spec.ts's own
   // "Mark cooked deducts pantry and creates leftovers" scenario.
-  await page.getByRole("button", { name: "More — Size" }).click();
-  await page.getByRole("button", { name: "More — Size" }).click();
+  await page.getByRole("button", { name: "More — Household size" }).click();
+  await page.getByRole("button", { name: "More — Household size" }).click();
   await expect(page.getByText("4 people")).toBeVisible();
 
   await addDinnerRecipe(page, "Chili");

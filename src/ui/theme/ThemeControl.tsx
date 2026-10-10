@@ -29,7 +29,14 @@ export function ThemeControl() {
         <span id={modeLabelId} className={styles.label}>
           Appearance
         </span>
-        <SegmentedControl aria-labelledby={modeLabelId} options={MODE_OPTIONS} value={mode} onChange={setMode} />
+        <div className={styles.modeControl}>
+          <SegmentedControl
+            aria-labelledby={modeLabelId}
+            options={MODE_OPTIONS}
+            value={mode}
+            onChange={setMode}
+          />
+        </div>
       </div>
       <div className={styles.section}>
         <span id={hueLabelId} className={styles.label}>

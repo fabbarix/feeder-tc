@@ -46,8 +46,13 @@ Split on 2026-08-21. Both are restricted to `picker.googleapis.com` only:
 
 | Key | uid | Allowed referrers |
 |---|---|---|
-| `feeder-tc web (Picker)` | `be2d2e1a-04c0-4975-970e-5aebe4dbb8be` | `https://feeder.torchetti.us/*`, `https://fabbarix.github.io/feeder-tc/*` |
-| `feeder-tc web (Picker) — dev` | `7fe988c3-2e6f-4cd6-88c8-f02cc05a6350` | `http://localhost:5173/*` |
+| `feeder-tc web (Picker)` | `be2d2e1a-04c0-4975-970e-5aebe4dbb8be` | `https://feeder.torchetti.us/*`, `https://fabbarix.github.io/feeder-tc/*`, `https://docs.google.com/*` |
+| `feeder-tc web (Picker) — dev` | `7fe988c3-2e6f-4cd6-88c8-f02cc05a6350` | `http://localhost:5173/*`, `https://docs.google.com/*` |
+
+**Both keys must allow `https://docs.google.com/*`.** The Picker runs in an
+iframe on that domain, and since the Picker sets `setAppId` (needed so a
+pick grants `drive.file` access) Google checks the key from there. Without
+it the Picker shows "The API developer key is invalid." Added 2026-10-10.
 
 Local dev uses the **dev** key via `.env.local`'s `VITE_GOOGLE_API_KEY`; the
 production key lives in the GitHub Actions secret. Do not put `localhost` back
@@ -70,7 +75,7 @@ because the update replaces the set anyway. The working shape is:
 ```bash
 $G services api-keys update <UID> \
   --api-target=service=picker.googleapis.com \
-  --allowed-referrers="https://feeder.torchetti.us/*,https://fabbarix.github.io/feeder-tc/*"
+  --allowed-referrers="https://feeder.torchetti.us/*,https://fabbarix.github.io/feeder-tc/*,https://docs.google.com/*"
 ```
 
 Referrer restrictions limit quota abuse, not data access — the OAuth
