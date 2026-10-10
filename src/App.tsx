@@ -144,7 +144,7 @@ function createGoogleWiring(): { auth: GoogleAuth; registry: WorkbookRegistry; p
   return {
     auth: createGoogleAuth(env.googleClientId),
     registry: createWorkbookRegistry(window.localStorage),
-    pickerLauncher: createGooglePickerLauncher(env.googleApiKey),
+    pickerLauncher: createGooglePickerLauncher(env.googleApiKey, env.googleClientId),
   };
 }
 

@@ -36,7 +36,7 @@ function log(message: string): void {
 
 const auth = createGoogleAuth(env.googleClientId);
 const registry = createWorkbookRegistry(localStorage, "feeder.workbookRegistry.verify-page");
-const pickerLauncher = createGooglePickerLauncher(env.googleApiKey);
+const pickerLauncher = createGooglePickerLauncher(env.googleApiKey, env.googleClientId);
 
 function refreshButtons(): void {
   const signedIn = auth.state() === "signed-in";

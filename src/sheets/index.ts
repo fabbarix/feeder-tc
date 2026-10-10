@@ -21,6 +21,7 @@ export {
 export { hasWorkbookSchemaMigrated, markWorkbookSchemaMigrated } from "./migration-flag.ts";
 export {
   createGooglePickerLauncher,
+  projectNumberFromClientId,
   pickWorkbook,
   type PickedWorkbook,
   type PickerLauncher,

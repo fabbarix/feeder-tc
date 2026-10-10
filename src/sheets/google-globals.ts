@@ -53,6 +53,7 @@ export interface GooglePickerView {
 export interface GooglePickerBuilder {
   addView(view: GooglePickerView | string): GooglePickerBuilder;
   setOAuthToken(token: string): GooglePickerBuilder;
+  setAppId(appId: string): GooglePickerBuilder;
   setDeveloperKey(key: string): GooglePickerBuilder;
   setCallback(callback: (response: GooglePickerResponse) => void): GooglePickerBuilder;
   build(): GooglePicker;
